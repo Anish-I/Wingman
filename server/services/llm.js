@@ -99,7 +99,11 @@ async function callLLM(systemPrompt, messages, tools, { complex = false } = {}) 
   };
 
   if (tools && tools.length > 0) {
-    params.tools = toOpenAITools(tools);
+    // Composio tools are already OpenAI-format ({ type:'function', function:{...} })
+    // Only convert if they look like Anthropic format (have input_schema)
+    const isOpenAIFormat = tools[0]?.type === 'function' && tools[0]?.function;
+    params.tools = isOpenAIFormat ? tools : toOpenAITools(tools);
+    params.tool_choice = 'auto';
   }
 
   try {

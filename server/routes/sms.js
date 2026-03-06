@@ -57,9 +57,9 @@ router.post('/sms', smsLimiter, async (req, res) => {
     if (!user) {
       user = await createUser(phone);
       await sendSMS(phone,
-        'Welcome to TextFlow! I\'m your personal AI assistant. ' +
-        'You can text me to manage your calendar, send emails, set reminders, and more. ' +
-        'Reply "HELP" for a list of commands.'
+        'Hey! I\'m Wingman, your personal AI assistant via SMS.\n\n' +
+        'I can email, manage your calendar, search the web, and connect to 250+ apps.\n\n' +
+        'Just tell me what you need — I\'ll ask for any app connections when I need them.'
       );
     }
 
