@@ -2,7 +2,7 @@ const { Worker } = require('bullmq');
 const Redis = require('ioredis');
 const { getUserById } = require('../db/queries');
 const { executeToolCall } = require('../services/zapier-tools');
-const { sendSMS } = require('../services/twilio');
+const { sendSMS } = require('../services/telnyx');
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
   maxRetriesPerRequest: null,

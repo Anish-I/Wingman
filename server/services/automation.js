@@ -1,4 +1,4 @@
-const { callClaude } = require('./claude');
+const { callLLM } = require('./llm');
 const { createZap } = require('./zapier');
 const { query } = require('../db/index');
 
@@ -27,7 +27,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
  */
 async function parseAndCreateAutomation(user, description) {
   // Use Claude to extract automation structure
-  const response = await callClaude(AUTOMATION_SYSTEM_PROMPT, [
+  const response = await callLLM(AUTOMATION_SYSTEM_PROMPT, [
     { role: 'user', content: description },
   ]);
 

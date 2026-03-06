@@ -1,16 +1,13 @@
 const express = require('express');
 const crypto = require('crypto');
-const twilio = require('twilio');
+const Redis = require('ioredis');
+const { sendSMS } = require('../services/telnyx');
 const { getUserByPhone, createUser, updateUserPin } = require('../db/queries');
 
 const router = express.Router();
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 const jwtSecret = process.env.JWT_SECRET || 'textflow-dev-secret';
-
-const client = twilio(accountSid, authToken);
+const OTP_TTL = 600; // 10 minutes
 
 // Simple JWT implementation (sign / verify)
 function signToken(payload, expiresInSeconds = 86400) {
@@ -40,9 +37,9 @@ router.post('/request-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required.' });
     }
 
-    await client.verify.v2
-      .services(verifySid)
-      .verifications.create({ to: phone, channel: 'sms' });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await redis.set(`otp:${phone}`, otp, 'EX', OTP_TTL);
+    await sendSMS(phone, `Your TextFlow verification code is: ${otp}. It expires in 10 minutes.`);
 
     res.json({ success: true, message: 'OTP sent.' });
   } catch (err) {
@@ -59,15 +56,13 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone and code are required.' });
     }
 
-    const check = await client.verify.v2
-      .services(verifySid)
-      .verificationChecks.create({ to: phone, code });
-
-    if (check.status !== 'approved') {
+    const stored = await redis.get(`otp:${phone}`);
+    if (!stored || stored !== code) {
       return res.status(401).json({ error: 'Invalid or expired OTP.' });
     }
 
-    // Get or create user
+    await redis.del(`otp:${phone}`);
+
     let user = await getUserByPhone(phone);
     if (!user) {
       user = await createUser(phone);

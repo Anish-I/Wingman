@@ -1,8 +1,8 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { validateWebhook, sendSMS } = require('../services/twilio');
+const { validateWebhook, sendSMS } = require('../services/telnyx');
 const { getUserByPhone, createUser } = require('../db/queries');
-const { appendMessage } = require('../services/redis');
+const { appendMessage, redis } = require('../services/redis');
 
 const router = express.Router();
 
@@ -15,28 +15,47 @@ const smsLimiter = rateLimit({
   message: 'Too many SMS requests.',
 });
 
+router.get('/sms', (req, res) => res.status(200).send('OK'));
+
 router.post('/sms', smsLimiter, async (req, res) => {
   try {
-    // Validate Twilio signature in production
+    // Validate Telnyx signature in production
     if (process.env.NODE_ENV === 'production') {
-      const isValid = validateWebhook(req);
+      const rawBody = JSON.stringify(req.body);
+      const isValid = validateWebhook(rawBody, req.headers);
       if (!isValid) {
-        console.warn('Invalid Twilio signature');
-        return res.status(403).send('Forbidden');
+        console.warn('Invalid Telnyx signature');
+        return res.status(403).json({ error: 'Forbidden' });
       }
     }
 
-    const { From: phone, Body: messageText } = req.body;
+    const event = req.body?.data;
+
+    // Only handle inbound messages
+    if (!event || event.event_type !== 'message.received') {
+      return res.status(200).json({});
+    }
+
+    // Idempotency: ignore duplicate webhook deliveries
+    const msgId = event.payload?.id;
+    if (msgId) {
+      const dedupKey = `sms:dedup:${msgId}`;
+      const isNew = await redis.set(dedupKey, '1', 'NX', 'EX', 300);
+      if (!isNew) return res.sendStatus(200);
+    }
+
+    const payload = event.payload;
+    const phone = payload?.from?.phone_number;
+    const messageText = payload?.text;
 
     if (!phone || !messageText) {
-      return res.status(400).send('Missing From or Body');
+      return res.status(400).json({ error: 'Missing phone or text' });
     }
 
     // Look up or create user
     let user = await getUserByPhone(phone);
     if (!user) {
       user = await createUser(phone);
-      // Send onboarding message
       await sendSMS(phone,
         'Welcome to TextFlow! I\'m your personal AI assistant. ' +
         'You can text me to manage your calendar, send emails, set reminders, and more. ' +
@@ -47,7 +66,7 @@ router.post('/sms', smsLimiter, async (req, res) => {
     // Store incoming message
     await appendMessage(user.id, 'user', messageText);
 
-    // Process message through orchestrator (imported dynamically to avoid circular deps)
+    // Process message through orchestrator
     let responseText;
     try {
       const orchestrator = require('../services/orchestrator');
@@ -60,16 +79,13 @@ router.post('/sms', smsLimiter, async (req, res) => {
     // Store assistant response
     await appendMessage(user.id, 'assistant', responseText);
 
-    // Send response via SMS
+    // Send response via Telnyx
     await sendSMS(phone, responseText);
 
-    // Return TwiML 200 (empty response since we send via API)
-    res.set('Content-Type', 'text/xml');
-    res.status(200).send('<Response></Response>');
+    res.status(200).json({});
   } catch (err) {
     console.error('SMS webhook error:', err);
-    res.set('Content-Type', 'text/xml');
-    res.status(200).send('<Response></Response>');
+    res.status(200).json({});
   }
 });
 

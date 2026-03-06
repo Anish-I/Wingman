@@ -1,14 +1,16 @@
 const Redis = require('ioredis');
-const { callClaude } = require('./claude');
+const { callLLM } = require('./llm');
 const { buildContext } = require('./context');
 const { getToolsForUser } = require('../tools/registry');
 const { getConnectedApps } = require('../db/queries');
+const { executeZapierTool } = require('./zapier-tools');
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 const HISTORY_KEY_PREFIX = 'conv:';
 const MAX_HISTORY_MESSAGES = 20;
 const HISTORY_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+const MAX_TOOL_ITERATIONS = 5;
 
 const ONBOARDING_URL = process.env.ONBOARDING_URL || 'https://textflow.ai/connect';
 
@@ -42,23 +44,8 @@ async function loadHistory(userId) {
  */
 async function saveHistory(userId, messages) {
   const key = HISTORY_KEY_PREFIX + userId;
-  // Keep only the most recent messages
   const trimmed = messages.slice(-MAX_HISTORY_MESSAGES);
   await redis.set(key, JSON.stringify(trimmed), 'EX', HISTORY_TTL_SECONDS);
-}
-
-/**
- * Execute a single tool call via the Zapier tools service.
- * Dynamically imports to avoid circular dependencies.
- */
-async function executeTool(user, toolName, toolInput) {
-  try {
-    const { executeZapierTool } = require('./zapier-tools');
-    return await executeZapierTool(user, toolName, toolInput);
-  } catch (err) {
-    console.error(`Tool execution failed [${toolName}]:`, err.message);
-    return { error: `Failed to execute ${toolName}: ${err.message}` };
-  }
 }
 
 /**
@@ -66,40 +53,30 @@ async function executeTool(user, toolName, toolInput) {
  * Takes a user object and their SMS text, returns a response string.
  */
 async function processMessage(user, messageText) {
-  // Check for brand-new user (no name set and first interaction)
   const history = await loadHistory(user.id);
-  if (history.length === 0 && !user.name) {
-    // First-ever message — send welcome
-    const userMsg = { role: 'user', content: messageText };
-    const assistantMsg = { role: 'assistant', content: WELCOME_MESSAGE };
-    await saveHistory(user.id, [userMsg, assistantMsg]);
-    return WELCOME_MESSAGE;
-  }
 
-  // Load connected apps
+  // Load connected apps (empty = no tools, but LLM still responds)
   const connectedApps = await getConnectedApps(user.id);
-
-  // No apps connected — nudge them to onboard
-  if (connectedApps.length === 0) {
-    const userMsg = { role: 'user', content: messageText };
-    const assistantMsg = { role: 'assistant', content: NO_APPS_MESSAGE };
-    await saveHistory(user.id, [...history, userMsg, assistantMsg]);
-    return NO_APPS_MESSAGE;
-  }
 
   // Build system prompt and tools
   const { systemPrompt } = buildContext(user, connectedApps);
   const tools = getToolsForUser(connectedApps);
 
-  // Add user message to history
+  // Build working messages array
   const messages = [...history, { role: 'user', content: messageText }];
 
-  // First Claude call
-  const response = await callClaude(systemPrompt, messages, tools);
+  let response;
+  let iterations = 0;
 
-  // If Claude wants to use tools, execute them and call again
-  if (response.toolUseBlocks.length > 0) {
-    // Build the assistant message with all content blocks
+  // Agentic loop — keep going until no tool calls or iteration cap hit
+  while (iterations < MAX_TOOL_ITERATIONS) {
+    response = await callLLM(systemPrompt, messages, tools);
+
+    if (response.toolUseBlocks.length === 0) {
+      break; // Got a text reply — done
+    }
+
+    // Append assistant message with all content blocks (text + tool_use)
     const assistantContent = [];
     if (response.text) {
       assistantContent.push({ type: 'text', text: response.text });
@@ -107,53 +84,40 @@ async function processMessage(user, messageText) {
     for (const block of response.toolUseBlocks) {
       assistantContent.push(block);
     }
+    messages.push({ role: 'assistant', content: assistantContent });
 
-    // Execute each tool and collect results
-    const toolResultMessages = [];
+    // Execute all tool calls and collect results
+    const toolResults = [];
     for (const block of response.toolUseBlocks) {
-      const result = await executeTool(user, block.name, block.input);
-      toolResultMessages.push({
+      let result;
+      try {
+        result = await executeZapierTool(user, block.name, block.input);
+      } catch (err) {
+        console.error(`Tool execution failed [${block.name}]:`, err.message);
+        result = { error: `Failed to execute ${block.name}: ${err.message}` };
+      }
+      toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
         content: typeof result === 'string' ? result : JSON.stringify(result),
       });
     }
 
-    // Build messages for follow-up call
-    const followUpMessages = [
-      ...messages,
-      { role: 'assistant', content: assistantContent },
-      { role: 'user', content: toolResultMessages },
-    ];
+    // Append tool results as user message
+    messages.push({ role: 'user', content: toolResults });
 
-    // Determine if this is complex (>3 tool calls)
-    const isComplex = response.toolUseBlocks.length > 3;
-
-    // Second Claude call with tool results
-    const finalResponse = await callClaude(systemPrompt, followUpMessages, tools, {
-      complex: isComplex,
-    });
-
-    const finalText = finalResponse.text || "Done! Let me know if you need anything else.";
-
-    // Save to history (simplified — store text only for history)
-    await saveHistory(user.id, [
-      ...messages,
-      { role: 'assistant', content: finalText },
-    ]);
-
-    return finalText;
+    iterations++;
   }
 
-  // No tool use — just a direct text response
-  const replyText = response.text || "I'm not sure how to help with that. Could you try rephrasing?";
+  const finalText = response.text || "Done! Let me know if you need anything else.";
 
+  // Save full messages (including tool call/result pairs) plus final assistant reply
   await saveHistory(user.id, [
     ...messages,
-    { role: 'assistant', content: replyText },
+    { role: 'assistant', content: finalText },
   ]);
 
-  return replyText;
+  return finalText;
 }
 
 module.exports = { processMessage };

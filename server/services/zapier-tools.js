@@ -291,11 +291,11 @@ function transformOutput(toolName, zapierResult) {
 }
 
 /**
- * Main dispatcher: execute a Claude tool call via Zapier.
- * @param {string} toolName - Claude tool name (e.g. 'create_event')
- * @param {object} toolInput - Claude tool input object
+ * Main dispatcher: execute a tool call via Zapier.
+ * @param {string} toolName - tool name (e.g. 'create_event')
+ * @param {object} toolInput - tool input object
  * @param {string} zapierAccountId - user's Zapier account ID
- * @returns {object} formatted result for Claude to present
+ * @returns {object} formatted result
  */
 async function executeToolCall(toolName, toolInput, zapierAccountId) {
   const mapping = TOOL_ACTION_MAP[toolName];
@@ -310,9 +310,21 @@ async function executeToolCall(toolName, toolInput, zapierAccountId) {
   return transformOutput(toolName, rawResult);
 }
 
+/**
+ * Orchestrator-facing wrapper: execute a tool call for a user object.
+ * @param {object} user - user object with zapier_account_id
+ * @param {string} toolName - tool name
+ * @param {object} toolInput - tool input object
+ * @returns {object} formatted result
+ */
+async function executeZapierTool(user, toolName, toolInput) {
+  return executeToolCall(toolName, toolInput, user.zapier_account_id);
+}
+
 module.exports = {
   TOOL_ACTION_MAP,
   executeToolCall,
+  executeZapierTool,
   transformInput,
   transformOutput,
 };
