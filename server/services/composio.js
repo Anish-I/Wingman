@@ -121,11 +121,16 @@ function selectToolsForMessage(tools, message, limit = 25) {
   if (!tools || tools.length === 0) return [];
   if (tools.length <= limit) return tools;
 
+  // Only consider meaningful words: 4+ chars, not pure numbers, not stop words
+  const STOP = new Set(['what', 'when', 'where', 'which', 'this', 'that', 'with', 'from', 'have', 'will', 'your', 'they', 'them', 'their', 'been', 'were', 'want', 'need', 'help', 'does', 'make', 'some', 'more', 'also', 'into', 'than', 'then', 'just', 'like', 'tell', 'show', 'give', 'know', 'much', 'many', 'each', 'such']);
   const words = new Set(
-    (message || '').toLowerCase().match(/\w+/g) || []
+    (message || '').toLowerCase().match(/\w+/g)
+      ?.filter(w => w.length >= 4 && !/^\d+$/.test(w) && !STOP.has(w))
+    || []
   );
-  // Remove common stop words that don't help with routing
-  ['the', 'a', 'an', 'i', 'my', 'me', 'to', 'for', 'and', 'or', 'is', 'it', 'in', 'of', 'on', 'at', 'can', 'you', 'please'].forEach(w => words.delete(w));
+
+  // No meaningful words → pure conversational query, let LLM answer without tools
+  if (words.size === 0) return [];
 
   const scored = tools.map(tool => {
     const haystack = [
@@ -136,8 +141,7 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // If nothing scored (pure conversational query like "what is 2+2?"), return no tools
-  // so the LLM can answer directly without being confused by irrelevant tools.
+  // If top score is still 0, no tools are relevant — answer directly
   if (scored[0].score === 0) return [];
   return scored.slice(0, limit).map(s => s.tool);
 }
