@@ -1,13 +1,32 @@
 const express = require('express');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
 const { sendSMS } = require('../services/telnyx');
 const { getUserByPhone, createUser, updateUserPin } = require('../db/queries');
 
 const router = express.Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-const jwtSecret = process.env.JWT_SECRET || 'textflow-dev-secret';
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret && process.env.NODE_ENV === 'production') {
+  console.error('FATAL: JWT_SECRET must be set in production');
+  process.exit(1);
+}
+const JWT_SECRET = jwtSecret || 'textflow-dev-secret';
 const OTP_TTL = 600; // 10 minutes
+
+// Rate limit OTP requests: 5 per 15 minutes per IP
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many OTP requests, please try again later.' },
+});
+
+function isValidPhone(phone) {
+  return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
+}
 
 // Simple JWT implementation (sign / verify)
 function signToken(payload, expiresInSeconds = 86400) {
@@ -35,6 +54,9 @@ router.post('/request-otp', async (req, res) => {
     const { phone } = req.body;
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required.' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

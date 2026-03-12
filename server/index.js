@@ -44,6 +44,7 @@ app.use(globalLimiter);
 app.use('/webhook', smsRoutes);
 app.use('/auth', authRoutes);
 app.use('/connect', connectRoutes);
+app.use('/api', require('./routes/api'));
 
 
 // Health check

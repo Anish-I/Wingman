@@ -136,6 +136,9 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
+  // If nothing scored (pure conversational query like "what is 2+2?"), return no tools
+  // so the LLM can answer directly without being confused by irrelevant tools.
+  if (scored[0].score === 0) return [];
   return scored.slice(0, limit).map(s => s.tool);
 }
 

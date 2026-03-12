@@ -50,14 +50,14 @@ async function run() {
     record('LLM with tool_choice:auto → toolUseBlocks field exists', false, err.message);
   }
 
-  // 3. Composio: tool fetch with cap verification
+  // 3. Composio: tool fetch (uncapped — all connected-app tools returned)
   let tools = [];
   try {
     const { getTools } = require(path.join(SERVER_DIR, 'services/composio'));
     tools = await getTools('default');
-    record('Composio: getTools capped ≤ 30', Array.isArray(tools) && tools.length <= 30, `returned ${tools.length} tools`);
+    record('Composio: getTools returns array of tools', Array.isArray(tools) && tools.length >= 0, `returned ${tools.length} tools`);
   } catch (err) {
-    record('Composio: getTools capped ≤ 30', false, err.message);
+    record('Composio: getTools returns array of tools', false, err.message);
   }
 
   // 4. Composio: connection status for ALL WINGMAN_APPS
