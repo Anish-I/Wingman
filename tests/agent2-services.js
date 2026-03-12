@@ -50,38 +50,101 @@ async function run() {
     record('LLM with tool_choice:auto → toolUseBlocks field exists', false, err.message);
   }
 
-  // 3. Composio: fetch tools for entity "default"
+  // 3. Composio: tool fetch with cap verification
+  let tools = [];
   try {
     const { getTools } = require(path.join(SERVER_DIR, 'services/composio'));
-    const tools = await getTools('default');
-    record('Composio: fetch tools for entity "default"', Array.isArray(tools), `returned ${tools.length} tools`);
+    tools = await getTools('default');
+    record('Composio: getTools capped ≤ 30', Array.isArray(tools) && tools.length <= 30, `returned ${tools.length} tools`);
   } catch (err) {
-    record('Composio: fetch tools for entity "default"', false, err.message);
+    record('Composio: getTools capped ≤ 30', false, err.message);
   }
 
-  // 4. Composio: fetch connected apps list for entity "default"
+  // 4. Composio: connection status for ALL WINGMAN_APPS
+  let connected = [], missing = [];
   try {
     const { getConnectionStatus, WINGMAN_APPS } = require(path.join(SERVER_DIR, 'services/composio'));
-    const status = await getConnectionStatus('default', WINGMAN_APPS.slice(0, 5));
-    record('Composio: connected apps list for entity "default"', typeof status === 'object' && Array.isArray(status.connected), `connected=${status.connected.join(',') || 'none'}, missing=${status.missing.length}`);
+    const status = await getConnectionStatus('default', WINGMAN_APPS);
+    connected = status.connected;
+    missing = status.missing;
+    const { WINGMAN_APPS: APPS } = require(path.join(SERVER_DIR, 'services/composio'));
+    const allAccountedFor = connected.length + missing.length === APPS.length;
+    record(
+      `Composio: connection status for ALL ${APPS.length} apps`,
+      allAccountedFor,
+      `connected=[${connected.join(', ')}] (${connected.length}), missing=${missing.length}`
+    );
   } catch (err) {
-    record('Composio: connected apps list for entity "default"', false, err.message);
+    record('Composio: connection status for ALL apps', false, err.message);
   }
 
-  // 5. Composio: generate OAuth link for a disconnected app (SLACK)
+  // 5. Composio: connected apps have tools in the fetched list
+  try {
+    const { appFromToolName } = require(path.join(SERVER_DIR, 'services/composio'));
+    const toolAppNames = tools.map(t => appFromToolName(t.function.name));
+    const connectedWithTools = connected.filter(app => toolAppNames.includes(app));
+    record(
+      'Composio: connected apps appear in tool list',
+      connected.length === 0 || connectedWithTools.length > 0,
+      `connected=${connected.join(',')}, represented in tools=${connectedWithTools.join(',')}`
+    );
+  } catch (err) {
+    record('Composio: connected apps appear in tool list', false, err.message);
+  }
+
+  // 6. Composio: OAuth links for disconnected apps across all categories
   try {
     const { getConnectionLink } = require(path.join(SERVER_DIR, 'services/composio'));
-    const link = await getConnectionLink('default', 'slack');
-    const isUrl = typeof link === 'string' && (link.startsWith('http://') || link.startsWith('https://'));
-    record('Composio: generate OAuth link for SLACK', isUrl, `link="${link?.slice(0, 80)}..."`);
+    const categories = {
+      communication: ['slack', 'discord', 'telegram', 'whatsapp'],
+      calendar: ['googlecalendar', 'todoist', 'notion'],
+      storage: ['googledrive', 'dropbox'],
+      dev: ['github', 'gitlab'],
+      crm: ['hubspot', 'salesforce'],
+      social: ['twitter', 'linkedin'],
+    };
+    const toTest = Object.entries(categories)
+      .map(([cat, apps]) => ({ cat, app: apps.find(a => missing.includes(a)) }))
+      .filter(x => x.app);
+
+    for (const { cat, app } of toTest.slice(0, 4)) {
+      try {
+        const link = await getConnectionLink('default', app);
+        const valid = typeof link === 'string' && link.startsWith('http');
+        record(`Composio: OAuth link for ${app} (${cat})`, valid, `link="${link?.slice(0, 60)}..."`);
+      } catch (err) {
+        const msg = err.message || '';
+        const alreadyConnected = /already connected|existing connection/i.test(msg);
+        record(`Composio: OAuth link for ${app} (${cat})`, alreadyConnected, alreadyConnected ? 'Already connected (acceptable)' : msg);
+      }
+    }
+    if (toTest.length === 0) {
+      record('Composio: OAuth link category coverage', true, 'All tested apps already connected — skipped');
+    }
   } catch (err) {
-    // If slack is already connected, it may throw or return differently
-    const msg = err.message || '';
-    const alreadyConnected = /already connected|existing connection/i.test(msg);
-    record('Composio: generate OAuth link for SLACK', alreadyConnected, alreadyConnected ? 'Already connected (acceptable)' : err.message);
+    record('Composio: OAuth link category coverage', false, err.message);
   }
 
-  // 6. Memory: extract facts from a sample conversation
+  // 7. Composio: appFromToolName parses tool names correctly
+  try {
+    const { appFromToolName } = require(path.join(SERVER_DIR, 'services/composio'));
+    const cases = [
+      ['GMAIL_SEND_EMAIL', 'gmail'],
+      ['GOOGLECALENDAR_CREATE_EVENT', 'googlecalendar'],
+      ['GITHUB_CREATE_ISSUE', 'github'],
+      ['SLACK_SEND_MESSAGE', 'slack'],
+    ];
+    const allParsed = cases.every(([toolName, expected]) => appFromToolName(toolName) === expected);
+    record(
+      'Composio: appFromToolName parses all tool name formats',
+      allParsed,
+      cases.map(([t, e]) => `${t}→${appFromToolName(t)}(${appFromToolName(t) === e ? '✓' : '✗'})`).join(', ')
+    );
+  } catch (err) {
+    record('Composio: appFromToolName parses all tool name formats', false, err.message);
+  }
+
+  // 8. Memory: extract facts from a sample conversation
   try {
     const { extractAndSaveMemory } = require(path.join(SERVER_DIR, 'services/memory'));
     // Mock user with a preferences object and a fake id

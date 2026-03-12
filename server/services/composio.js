@@ -1,6 +1,8 @@
 const { OpenAIToolSet, Composio } = require('composio-core');
+const { redis } = require('./redis');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
+const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 
 // Apps Wingman exposes as tools. Composio silently skips apps the user hasn't connected yet.
 const WINGMAN_APPS = [
@@ -34,8 +36,20 @@ const WINGMAN_APPS = [
  */
 async function getTools(userId) {
   if (!COMPOSIO_API_KEY) return [];
+
+  const cacheKey = `tools:${userId}`;
+  const cached = await redis.get(cacheKey).catch(() => null);
+  if (cached) return JSON.parse(cached);
+
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-  return toolset.getTools({ apps: WINGMAN_APPS });
+  const tools = await toolset.getTools({ apps: WINGMAN_APPS });
+  const capped = tools.slice(0, 30);
+  await redis.set(cacheKey, JSON.stringify(capped), 'EX', TOOLS_CACHE_TTL).catch(() => {});
+  return capped;
+}
+
+async function invalidateToolsCache(userId) {
+  await redis.del(`tools:${userId}`).catch(() => {});
 }
 
 /**
@@ -99,4 +113,4 @@ function appFromToolName(toolName) {
   return toolName.split('_')[0].toLowerCase();
 }
 
-module.exports = { getTools, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, WINGMAN_APPS };
+module.exports = { getTools, invalidateToolsCache, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, WINGMAN_APPS };
