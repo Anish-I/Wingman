@@ -1,0 +1,40 @@
+{
+  "agent": 4,
+  "name": "Orchestrator/Agentic Loop Tester",
+  "tests": [
+    {
+      "name": "Simple query \"What is 2+2?\"",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "Tool-using query \"Check my Gmail\"",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "Multi-turn conversation history",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "Memory persistence",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "Tool iteration limit",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "Error resilience: bad Composio key → graceful error string returned",
+      "status": "FAIL",
+      "detail": "orchestrator threw instead of returning graceful message"
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 6
+  }
+}

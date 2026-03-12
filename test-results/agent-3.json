@@ -1,0 +1,50 @@
+{
+  "agent": 3,
+  "name": "Routes/API Tester",
+  "tests": [
+    {
+      "name": "POST /auth/request-otp valid phone → 200",
+      "status": "FAIL",
+      "detail": "WARN: Got 500 (Telnyx broken) but OTP IS stored in Redis (783283) — core auth logic works"
+    },
+    {
+      "name": "POST /auth/request-otp invalid phone → 400 error",
+      "status": "FAIL",
+      "detail": "status=500, body={\"error\":\"Failed to send OTP.\"}"
+    },
+    {
+      "name": "POST /auth/verify-otp correct OTP → 200 + JWT",
+      "status": "PASS",
+      "detail": "status=200, hasToken=true"
+    },
+    {
+      "name": "POST /auth/verify-otp wrong OTP → 401",
+      "status": "PASS",
+      "detail": "status=401"
+    },
+    {
+      "name": "POST /auth/set-pin valid JWT → 200",
+      "status": "PASS",
+      "detail": "status=200, body={\"success\":true,\"message\":\"PIN set successfully.\"}"
+    },
+    {
+      "name": "Telnyx Workaround: orchestrator.processMessage() direct call",
+      "status": "FAIL",
+      "detail": "Failed to process your message. Please try again."
+    },
+    {
+      "name": "SMS deduplication: same message_id twice → second skipped",
+      "status": "PASS",
+      "detail": "first=OK, second=null"
+    },
+    {
+      "name": "Rate limit: /auth/request-otp → 429 fires (OTP limiter max:5)",
+      "status": "FAIL",
+      "detail": "No 429 received in 10 requests — rate limiter may not be working"
+    }
+  ],
+  "summary": {
+    "pass": 4,
+    "fail": 4
+  }
+}

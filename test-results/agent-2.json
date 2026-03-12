@@ -1,0 +1,50 @@
+{
+  "agent": 2,
+  "name": "Core Services Tester",
+  "tests": [
+    {
+      "name": "LLM simple call — \"Say hello\" → non-empty response",
+      "status": "PASS",
+      "detail": "response=\"Hello. How can I assist you today?...\""
+    },
+    {
+      "name": "LLM with tool_choice:auto → toolUseBlocks field exists",
+      "status": "PASS",
+      "detail": "toolUseBlocks.length=0, text=\"I am not able to execute this task as it exceeds the limitat\""
+    },
+    {
+      "name": "Composio: fetch tools for entity \"default\"",
+      "status": "PASS",
+      "detail": "returned 1000 tools"
+    },
+    {
+      "name": "Composio: connected apps list for entity \"default\"",
+      "status": "PASS",
+      "detail": "connected=gmail, missing=4"
+    },
+    {
+      "name": "Composio: generate OAuth link for SLACK",
+      "status": "PASS",
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/ySUV2PRd...\""
+    },
+    {
+      "name": "Memory: extract facts from sample conversation",
+      "status": "FAIL",
+      "detail": "extracted=undefined"
+    },
+    {
+      "name": "Context: build system prompt → non-empty with Wingman identity",
+      "status": "PASS",
+      "detail": "length=2118, hasWingman=true"
+    },
+    {
+      "name": "Reminders: parse \"remind me to drink water in 5 minutes\" → valid fire_at",
+      "status": "PASS",
+      "detail": "message=\"drink water\", fireAt=\"2026-03-12T05:05:03.446Z\""
+    }
+  ],
+  "summary": {
+    "pass": 7,
+    "fail": 1
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "agent": 1,
+  "name": "Infrastructure Tester",
+  "tests": [
+    {
+      "name": "GET /health → {status: \"ok\"}",
+      "status": "PASS",
+      "detail": "status=200 body={\"status\":\"ok\",\"timestamp\":\"2026-03-12T04:58:28.961Z\"}"
+    },
+    {
+      "name": "PostgreSQL connection + ping",
+      "status": "PASS",
+      "detail": "SELECT 1 returned 1"
+    },
+    {
+      "name": "Required tables exist (users, connected_apps, conversation_history, automation_rules)",
+      "status": "PASS",
+      "detail": "All 4 tables found (NOTE: reminders table missing — reminders.js will fail)"
+    },
+    {
+      "name": "Redis connection + PING",
+      "status": "PASS",
+      "detail": "PING → PONG"
+    },
+    {
+      "name": "BullMQ queue instantiation",
+      "status": "FAIL",
+      "detail": "Redis version needs to be greater or equal than 5.0.0 Current: 3.0.504"
+    },
+    {
+      "name": "PostgreSQL CRUD smoke test (create/read/delete user)",
+      "status": "PASS",
+      "detail": "Created id=5, read back name=Agent1TestUser, deleted OK"
+    },
+    {
+      "name": "Redis set/get/del round-trip",
+      "status": "PASS",
+      "detail": "set→get=\"hello_wingman\", del→get=\"null\""
+    }
+  ],
+  "summary": {
+    "pass": 6,
+    "fail": 1
+  }
+}
