@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { validateWebhook, sendSMS } = require('../services/telnyx');
+const { provider } = require('../services/messaging');
 const { getUserByPhone, createUser } = require('../db/queries');
 const { appendMessage, redis } = require('../services/redis');
 
@@ -22,7 +22,7 @@ router.post('/sms', smsLimiter, async (req, res) => {
     // Validate Telnyx signature in production
     if (process.env.NODE_ENV === 'production') {
       const rawBody = JSON.stringify(req.body);
-      const isValid = validateWebhook(rawBody, req.headers);
+      const isValid = provider.validateIncoming(rawBody, req.headers);
       if (!isValid) {
         console.warn('Invalid Telnyx signature');
         return res.status(403).json({ error: 'Forbidden' });
@@ -52,11 +52,21 @@ router.post('/sms', smsLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Missing phone or text' });
     }
 
+    // Validate phone is E.164 format
+    if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+
+    // Limit message text length to prevent abuse
+    if (messageText.length > 1600) {
+      return res.status(400).json({ error: 'Message too long' });
+    }
+
     // Look up or create user
     let user = await getUserByPhone(phone);
     if (!user) {
       user = await createUser(phone);
-      await sendSMS(phone,
+      await provider.sendMessage(phone,
         'Hey! I\'m Wingman, your personal AI assistant via SMS.\n\n' +
         'I can email, manage your calendar, search the web, and connect to 250+ apps.\n\n' +
         'Just tell me what you need — I\'ll ask for any app connections when I need them.'
@@ -80,7 +90,7 @@ router.post('/sms', smsLimiter, async (req, res) => {
     await appendMessage(user.id, 'assistant', responseText);
 
     // Send response via Telnyx
-    await sendSMS(phone, responseText);
+    await provider.sendMessage(phone, responseText);
 
     res.status(200).json({});
   } catch (err) {
