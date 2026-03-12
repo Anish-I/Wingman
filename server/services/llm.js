@@ -5,8 +5,8 @@ const client = new OpenAI({
   baseURL: 'https://api.together.xyz/v1',
 });
 
-const MODEL_DEFAULT = process.env.TOGETHER_MODEL || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct';
-const MODEL_COMPLEX = process.env.TOGETHER_MODEL_COMPLEX || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct';
+const MODEL_DEFAULT = process.env.TOGETHER_MODEL || 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const MODEL_COMPLEX = process.env.TOGETHER_MODEL_COMPLEX || 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '2048', 10);
 
 /**
@@ -89,7 +89,8 @@ function toOpenAIMessages(messages, systemPrompt) {
  * Call the LLM via Together AI with system prompt, conversation messages, and optional tools.
  * Returns { text, toolUseBlocks } in Anthropic-compatible format.
  */
-async function callLLM(systemPrompt, messages, tools, { complex = false } = {}) {
+async function callLLM(systemPrompt, messages, tools, options = {}) {
+  const { complex = false } = options;
   const model = complex ? MODEL_COMPLEX : MODEL_DEFAULT;
 
   const params = {
@@ -99,10 +100,8 @@ async function callLLM(systemPrompt, messages, tools, { complex = false } = {}) 
   };
 
   if (tools && tools.length > 0) {
-    // Composio tools are already OpenAI-format ({ type:'function', function:{...} })
-    // Only convert if they look like Anthropic format (have input_schema)
-    const isOpenAIFormat = tools[0]?.type === 'function' && tools[0]?.function;
-    params.tools = isOpenAIFormat ? tools : toOpenAITools(tools);
+    const openAITools = options.alreadyOpenAIFormat ? tools : toOpenAITools(tools);
+    params.tools = openAITools;
     params.tool_choice = 'auto';
   }
 

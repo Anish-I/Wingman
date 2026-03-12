@@ -43,9 +43,8 @@ async function getTools(userId) {
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
   const tools = await toolset.getTools({ apps: WINGMAN_APPS });
-  const capped = tools.slice(0, 30);
-  await redis.set(cacheKey, JSON.stringify(capped), 'EX', TOOLS_CACHE_TTL).catch(() => {});
-  return capped;
+  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(() => {});
+  return tools;
 }
 
 async function invalidateToolsCache(userId) {
@@ -113,4 +112,31 @@ function appFromToolName(toolName) {
   return toolName.split('_')[0].toLowerCase();
 }
 
-module.exports = { getTools, invalidateToolsCache, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, WINGMAN_APPS };
+/**
+ * Select the most relevant tools for a given message using keyword scoring.
+ * Scores each tool by how many words from the message appear in its name/description.
+ * Returns top `limit` tools (default 25). Any tool is reachable on the right message.
+ */
+function selectToolsForMessage(tools, message, limit = 25) {
+  if (!tools || tools.length === 0) return [];
+  if (tools.length <= limit) return tools;
+
+  const words = new Set(
+    (message || '').toLowerCase().match(/\w+/g) || []
+  );
+  // Remove common stop words that don't help with routing
+  ['the', 'a', 'an', 'i', 'my', 'me', 'to', 'for', 'and', 'or', 'is', 'it', 'in', 'of', 'on', 'at', 'can', 'you', 'please'].forEach(w => words.delete(w));
+
+  const scored = tools.map(tool => {
+    const haystack = [
+      tool.function?.name || '',
+      tool.function?.description || '',
+    ].join(' ').toLowerCase();
+    const score = [...words].filter(w => haystack.includes(w)).length;
+    return { tool, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.tool);
+}
+
+module.exports = { getTools, invalidateToolsCache, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage, WINGMAN_APPS };

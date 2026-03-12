@@ -1,30 +1,31 @@
 const { callLLM } = require('./llm');
 const { buildContext } = require('./context');
 const { getConversationHistory, appendMessage } = require('./redis');
-const { getTools, executeTool, getConnectionLink, appFromToolName } = require('./composio');
+const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
+const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 
 const MAX_TOOL_ITERATIONS = 5;
 
 async function processMessage(user, messageText) {
   const userId = String(user.id);
 
-  const [history, tools] = await Promise.all([
+  const [history, allTools] = await Promise.all([
     getConversationHistory(user.id),
     getTools(userId),
   ]);
 
-  if (tools.length > 0) {
-    console.log(`[user:${userId}] Composio tools: ${tools.length}`);
-  }
+  const tools = selectToolsForMessage(allTools, messageText);
+  console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
 
-  const { systemPrompt } = buildContext(user, tools);
+  const memoryContext = getMemoryContext(user);
+  const { systemPrompt } = buildContext(user, tools, memoryContext);
   const messages = [...history, { role: 'user', content: messageText }];
 
   let response;
   let iterations = 0;
 
   while (iterations < MAX_TOOL_ITERATIONS) {
-    response = await callLLM(systemPrompt, messages, tools);
+    response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
 
     if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) break;
 
@@ -85,6 +86,10 @@ async function processMessage(user, messageText) {
 
   const finalText = response?.text || 'Done! Let me know if you need anything else.';
   await appendMessage(user.id, 'assistant', finalText);
+
+  // Fire-and-forget: extract memory from conversation
+  extractAndSaveMemory(user, messages).catch(() => {});
+
   return finalText;
 }
 
