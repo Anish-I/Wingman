@@ -1,69 +1,73 @@
-// Wingman Design System — "Midnight Luxury"
-// Layered dark surfaces, teal surgical accents, refined depth
+// Wingman Design System — "Pip"
+// Layered dark surfaces, blue accents, refined depth
 
 export const colors = {
   // Surface hierarchy (darkest → lightest)
-  background: '#0E0F1A',
-  backgroundElevated: '#141526',
-  card: '#1C1D32',
-  cardHover: '#22233D',
-  cardElevated: '#262748',
-  inputBg: '#1A1B30',
+  background: '#1A1B2E',
+  backgroundElevated: '#242540',
+  card: '#242540',
+  cardHover: '#2E2F4D',
+  cardElevated: '#2E2F4D',
+  inputBg: '#242540',
 
   // Borders & dividers
-  border: '#2A2B46',
-  borderLight: '#33345A',
-  borderSubtle: '#1F2038',
+  border: '#3A3B5C',
+  borderLight: '#3A3B5C',
+  borderSubtle: '#2E2F4D',
 
   // Brand
-  primary: '#4A6FE5',
-  primaryLight: '#5B80F0',
-  primaryDark: '#3555B8',
-  primaryMuted: 'rgba(74, 111, 229, 0.15)',
+  primary: '#3B5998',
+  primaryLight: '#4A7BD9',
+  primaryDark: '#2D4474',
+  primaryMuted: 'rgba(59, 89, 152, 0.15)',
 
   // Accent — teal highlight, used sparingly
-  accent: '#3DDBC4',
-  accentDark: '#2BB5A0',
-  accentMuted: 'rgba(61, 219, 196, 0.12)',
-  accentGlow: 'rgba(61, 219, 196, 0.25)',
+  accent: '#6EC6B8',
+  accentDark: '#5AAE9F',
+  accentMuted: 'rgba(110, 198, 184, 0.12)',
+  accentGlow: 'rgba(110, 198, 184, 0.25)',
+
+  // Extended palette
+  purple: '#9B7EC8',
+  orange: '#F5A623',
 
   // Text
-  text: '#F0F1F7',
-  textSecondary: '#9BA1B7',
+  text: '#FFFFFF',
+  textSecondary: '#9A9BBF',
   textMuted: '#5D6279',
-  textInverse: '#0E0F1A',
+  textInverse: '#1A1B2E',
 
   // Chat bubbles
   bubble: '#FFFFFF',
   bubbleText: '#1A1B2E',
   bubbleShadow: 'rgba(0, 0, 0, 0.12)',
-  bubbleUser: '#4A6FE5',
+  bubbleUser: '#3B5998',
   bubbleUserText: '#FFFFFF',
 
   // Semantic
-  success: '#34D399',
-  successMuted: 'rgba(52, 211, 153, 0.12)',
+  success: '#34C759',
+  successMuted: 'rgba(52, 199, 89, 0.12)',
   error: '#F87171',
   errorMuted: 'rgba(248, 113, 113, 0.12)',
   warning: '#FBBF24',
   warningMuted: 'rgba(251, 191, 36, 0.12)',
-  info: '#60A5FA',
+  info: '#4A7BD9',
 
   // Overlay
-  overlay: 'rgba(7, 8, 15, 0.75)',
-  overlayLight: 'rgba(7, 8, 15, 0.5)',
+  overlay: 'rgba(26, 27, 46, 0.75)',
+  overlayLight: 'rgba(26, 27, 46, 0.5)',
 
   // Tab bar
-  tabBar: '#111222',
-  tabBarBorder: '#1A1B30',
+  tabBar: '#1A1B2E',
+  tabBarBorder: '#3A3B5C',
 };
 
 export const gradients = {
-  primary: ['#5B80F0', '#4A6FE5', '#3555B8'] as const,
-  accent: ['#4EECD4', '#3DDBC4', '#2BB5A0'] as const,
-  card: ['rgba(28, 29, 50, 0.9)', 'rgba(28, 29, 50, 0.6)'] as const,
-  glow: ['rgba(61, 219, 196, 0.08)', 'rgba(61, 219, 196, 0)'] as const,
-  surface: ['#1C1D32', '#171829'] as const,
+  primary: ['#4A7BD9', '#3B5998', '#2D4474'] as const,
+  accent: ['#7DD4C6', '#6EC6B8', '#5AAE9F'] as const,
+  card: ['rgba(36, 37, 64, 0.9)', 'rgba(36, 37, 64, 0.6)'] as const,
+  glow: ['rgba(110, 198, 184, 0.08)', 'rgba(110, 198, 184, 0)'] as const,
+  surface: ['#242540', '#1A1B2E'] as const,
 };
 
 export const fonts = {

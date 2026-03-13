@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   active: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primaryLight,
   },
   inactive: {
     backgroundColor: colors.border,

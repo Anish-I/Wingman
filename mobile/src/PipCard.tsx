@@ -15,7 +15,7 @@ type PipExpression =
   | 'coffee' | 'clap' | 'angry' | 'business' | 'logo';
 
 interface PipCardProps {
-  message: string;
+  message?: string;
   expression?: PipExpression;
   style?: object;
   size?: 'large' | 'small';
@@ -55,10 +55,12 @@ export default function PipCard({ message, expression = 'happy', style, size = '
           />
         </View>
       </View>
-      <View style={styles.bubble}>
-        <View style={styles.bubblePointer} />
-        <Text style={styles.text}>{message}</Text>
-      </View>
+      {message ? (
+        <View style={styles.bubble}>
+          <View style={styles.bubblePointer} />
+          <Text style={styles.text}>{message}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
