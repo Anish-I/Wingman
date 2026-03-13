@@ -55,6 +55,14 @@ if (msgProvider === 'stub' || !process.env.TELNYX_API_KEY) {
 }
 
 
+// Start workflow worker (BullMQ consumer)
+try {
+  require('./workers/workflow-worker');
+  console.log('[server] Workflow worker started');
+} catch (err) {
+  console.warn('[server] Workflow worker failed to start:', err.message);
+}
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

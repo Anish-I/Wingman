@@ -125,6 +125,45 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/workflows/plan — NL workflow creation
+router.post('/workflows/plan', requireAuth, async (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description || typeof description !== 'string') {
+      return res.status(400).json({ error: 'description is required' });
+    }
+    const { planAndCreateWorkflows } = require('../services/workflow-planner');
+    const workflows = await planAndCreateWorkflows(req.user, description.trim());
+    res.status(201).json({ workflows });
+  } catch (err) {
+    console.error('[api] workflow plan error:', err.message);
+    res.status(500).json({ error: 'Failed to plan workflow' });
+  }
+});
+
+// POST /api/workflows/:id/run — manually trigger a workflow
+router.post('/workflows/:id/run', requireAuth, async (req, res) => {
+  try {
+    const db = require('../db');
+    const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    const workflow = result.rows[0];
+    if (!workflow) return res.status(404).json({ error: 'Workflow not found' });
+
+    let runResult;
+    if (workflow.steps && workflow.steps.length > 0) {
+      const { executeWorkflowAgent } = require('../services/workflow-agent');
+      runResult = await executeWorkflowAgent(req.params.id, req.user.id);
+    } else {
+      const { runWorkflow } = require('../services/workflows');
+      runResult = await runWorkflow(req.params.id, req.user.id);
+    }
+    res.json({ status: 'triggered', result: runResult });
+  } catch (err) {
+    console.error('[api] workflow run error:', err.message);
+    res.status(500).json({ error: 'Failed to run workflow' });
+  }
+});
+
 // GET /api/templates — search templates
 router.get('/templates', requireAuth, async (req, res) => {
   try {
