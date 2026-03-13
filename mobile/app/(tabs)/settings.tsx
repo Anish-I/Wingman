@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import PipCard from '../../src/PipCard';
 import { clearToken } from '../../src/auth';
+import { colors } from '../../src/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -71,29 +72,29 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a' },
+  container: { flex: 1, backgroundColor: colors.background },
   pip: { marginHorizontal: 16, marginTop: 8 },
   section: { marginHorizontal: 16, marginTop: 24 },
-  sectionTitle: { color: '#555', fontSize: 12, textTransform: 'uppercase', marginBottom: 8 },
+  sectionTitle: { color: colors.textMuted, fontSize: 12, textTransform: 'uppercase', marginBottom: 8 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 4,
   },
-  rowLabel: { color: '#e0e0ff', fontSize: 16 },
-  rowValue: { color: '#555', fontSize: 14 },
-  rowArrow: { color: '#555', fontSize: 18 },
+  rowLabel: { color: colors.text, fontSize: 16 },
+  rowValue: { color: colors.textMuted, fontSize: 14 },
+  rowArrow: { color: colors.textMuted, fontSize: 18 },
   logoutBtn: {
     margin: 24,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.card,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 'auto',
   },
-  logoutText: { color: '#ff4444', fontSize: 16, fontWeight: '600' },
+  logoutText: { color: colors.error, fontSize: 16, fontWeight: '600' },
 });

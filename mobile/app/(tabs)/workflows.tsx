@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { api } from '../../src/api';
+import { colors } from '../../src/theme';
 import type { Workflow } from '../../src/types';
 
 export default function WorkflowsScreen() {
@@ -68,7 +69,7 @@ export default function WorkflowsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator color="#6c63ff" style={{ flex: 1 }} />
+        <ActivityIndicator color={colors.primary} style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }
@@ -100,7 +101,7 @@ export default function WorkflowsScreen() {
             <Switch
               value={item.active}
               onValueChange={(v) => toggleWorkflow(item.id, v)}
-              trackColor={{ false: '#333', true: '#6c63ff' }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
@@ -113,14 +114,14 @@ export default function WorkflowsScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder="Name"
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.textMuted}
               value={newName}
               onChangeText={setNewName}
             />
             <TextInput
               style={[styles.modalInput, { height: 80 }]}
               placeholder="Description (optional)"
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.textMuted}
               value={newDesc}
               onChangeText={setNewDesc}
               multiline
@@ -146,16 +147,16 @@ export default function WorkflowsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a' },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
   },
-  title: { color: '#e0e0ff', fontSize: 22, fontWeight: '700' },
+  title: { color: colors.text, fontSize: 22, fontWeight: '700' },
   addBtn: {
-    backgroundColor: '#6c63ff',
+    backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -164,36 +165,36 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#fff', fontSize: 24, fontWeight: '400', marginTop: -2 },
   list: { padding: 16, gap: 8 },
-  empty: { color: '#555', textAlign: 'center', marginTop: 60, fontSize: 15 },
+  empty: { color: colors.textMuted, textAlign: 'center', marginTop: 60, fontSize: 15 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     gap: 12,
   },
   rowInfo: { flex: 1 },
-  rowName: { color: '#e0e0ff', fontSize: 16, fontWeight: '600' },
-  rowDesc: { color: '#888', fontSize: 13, marginTop: 2 },
-  rowMeta: { color: '#6c63ff', fontSize: 11, marginTop: 4, textTransform: 'uppercase' },
+  rowName: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  rowDesc: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  rowMeta: { color: colors.primary, fontSize: 11, marginTop: 4, textTransform: 'uppercase' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  modal: { backgroundColor: '#0f0f1a', borderRadius: 24, padding: 24, margin: 8 },
-  modalTitle: { color: '#e0e0ff', fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  modal: { backgroundColor: colors.background, borderRadius: 24, padding: 24, margin: 8 },
+  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 20 },
   modalInput: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 14,
-    color: '#e0e0ff',
+    color: colors.text,
     fontSize: 15,
     marginBottom: 12,
   },
   modalBtn: {
-    backgroundColor: '#6c63ff',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -201,5 +202,5 @@ const styles = StyleSheet.create({
   },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   modalCancel: { paddingVertical: 14, alignItems: 'center' },
-  modalCancelText: { color: '#888', fontSize: 15 },
+  modalCancelText: { color: colors.textSecondary, fontSize: 15 },
 });

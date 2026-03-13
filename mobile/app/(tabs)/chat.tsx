@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { api } from '../../src/api';
+import { colors } from '../../src/theme';
 import type { Message } from '../../src/types';
 
 export default function ChatScreen() {
@@ -103,7 +104,7 @@ export default function ChatScreen() {
             value={input}
             onChangeText={setInput}
             placeholder="Message Wingman..."
-            placeholderTextColor="#555"
+            placeholderTextColor={colors.textMuted}
             multiline
             onSubmitEditing={send}
             returnKeyType="send"
@@ -118,7 +119,7 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a' },
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   list: { padding: 16, gap: 12 },
   msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginVertical: 4 },
@@ -127,9 +128,9 @@ const styles = StyleSheet.create({
   avatar: { width: 32, height: 32, borderRadius: 16 },
   avatarSmall: { width: 24, height: 24 },
   bubble: { maxWidth: '75%', borderRadius: 18, padding: 12 },
-  bubbleUser: { backgroundColor: '#6c63ff', borderBottomRightRadius: 4 },
-  bubbleAssistant: { backgroundColor: '#1a1a2e', borderBottomLeftRadius: 4 },
-  bubbleText: { color: '#e0e0ff', fontSize: 15, lineHeight: 22 },
+  bubbleUser: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
+  bubbleAssistant: { backgroundColor: colors.card, borderBottomLeftRadius: 4 },
+  bubbleText: { color: colors.text, fontSize: 15, lineHeight: 22 },
   typingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -137,20 +138,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  typing: { color: '#555', fontSize: 13 },
+  typing: { color: colors.textMuted, fontSize: 13 },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.card,
     margin: 12,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 8,
   },
-  input: { flex: 1, color: '#e0e0ff', fontSize: 15, maxHeight: 120 },
+  input: { flex: 1, color: colors.text, fontSize: 15, maxHeight: 120 },
   sendBtn: {
-    backgroundColor: '#6c63ff',
+    backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
