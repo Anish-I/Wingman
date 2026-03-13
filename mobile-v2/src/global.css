@@ -2,7 +2,7 @@
 @import 'tailwindcss';
 @import 'uniwind';
 
-/* Define Wingman "Pip" theme */
+/* Define Wingman Pencil theme — true-black design tokens */
 @theme {
   /* Font families */
   --font-family-sans: 'NunitoSans', ui-sans-serif, system-ui, sans-serif;
@@ -11,11 +11,12 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  /* Pip palette */
-  --color-pip-bg: #1A1B2E;
-  --color-pip-card: #242540;
-  --color-pip-elevated: #2E2F4D;
-  --color-pip-border: #3A3B5C;
+  /* Pip palette — Pencil true-black */
+  --color-pip-bg: #0C0C0C;
+  --color-pip-card: #1A1A1A;
+  --color-pip-elevated: #242424;
+  --color-pip-border: #2A2A2A;
+  --color-pip-border-strong: #3A3A3A;
   --color-pip-primary: #3B5998;
   --color-pip-primary-light: #4A7BD9;
   --color-pip-primary-dark: #2D4474;
@@ -24,11 +25,13 @@
   --color-pip-purple: #9B7EC8;
   --color-pip-orange: #F5A623;
   --color-pip-text: #FFFFFF;
-  --color-pip-text-secondary: #9A9BBF;
-  --color-pip-text-muted: #5D6279;
-  --color-pip-success: #34C759;
-  --color-pip-error: #F87171;
+  --color-pip-text-secondary: #8A8A8A;
+  --color-pip-text-muted: #525252;
+  --color-pip-success: #32D74B;
+  --color-pip-error: #FF3B30;
   --color-pip-warning: #FBBF24;
+  --color-pip-accent-red: #FF3B30;
+  --color-pip-accent-red-soft: #FF3B3020;
 
   /* Charcoal palette (kept for compatibility) */
   --color-charcoal-50: #F2F2F2;
@@ -74,7 +77,7 @@
   --color-success-200: #BBF7D0;
   --color-success-300: #86EFAC;
   --color-success-400: #4ADE80;
-  --color-success-500: #34C759;
+  --color-success-500: #32D74B;
   --color-success-600: #16A34A;
   --color-success-700: #15803D;
   --color-success-800: #166534;
@@ -104,21 +107,21 @@
   --color-danger-800: #991B1B;
   --color-danger-900: #7F1D1D;
 
-  /* Semantic colors - Pip dark theme */
-  --color-background: #1A1B2E;
+  /* Semantic colors — Pencil dark theme */
+  --color-background: #0C0C0C;
   --color-foreground: #FFFFFF;
 
-  --color-card: #242540;
+  --color-card: #1A1A1A;
   --color-card-foreground: #FFFFFF;
 
-  --color-muted: #2E2F4D;
-  --color-muted-foreground: #9A9BBF;
+  --color-muted: #242424;
+  --color-muted-foreground: #8A8A8A;
 
-  --color-border: #3A3B5C;
-  --color-input: #242540;
-  --color-ring: #4A7BD9;
+  --color-border: #2A2A2A;
+  --color-input: #1A1A1A;
+  --color-ring: #FF3B30;
 
-  --color-destructive: #F87171;
+  --color-destructive: #FF3B30;
   --color-destructive-foreground: #ffffff;
 }
 

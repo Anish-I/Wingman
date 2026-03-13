@@ -1,37 +1,62 @@
 import React from 'react';
-import { Text, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { MotiView } from 'moti';
+import { Ionicons } from '@expo/vector-icons';
 
 interface GradientButtonProps {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'success';
+  icon?: string;
+  showArrow?: boolean;
 }
 
-export default function GradientButton({ title, onPress, disabled, variant = 'primary' }: GradientButtonProps) {
-  const gradientColors = variant === 'success'
-    ? ['#34C759', '#2DB84D'] as const
-    : ['#3B5998', '#4A7BD9'] as const;
+export default function GradientButton({
+  title,
+  onPress,
+  disabled,
+  variant = 'primary',
+  icon,
+  showArrow,
+}: GradientButtonProps) {
+  const isPrimary = variant === 'primary';
+  const bgColor = isPrimary ? '#FF3B30' : '#32D74B';
 
   return (
-    <MotiView className="w-full shadow-md">
+    <MotiView className="w-full">
       <TouchableOpacity
         onPress={onPress}
         disabled={disabled}
         activeOpacity={0.85}
-        className="rounded-[28px] overflow-hidden"
-        style={disabled ? { opacity: 0.5 } : undefined}
+        style={[
+          {
+            height: 56,
+            borderRadius: 12,
+            backgroundColor: bgColor,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 8,
+          },
+          disabled ? { opacity: 0.5 } : undefined,
+        ]}
       >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0.5 }}
-          style={{ height: 56, justifyContent: 'center', alignItems: 'center', borderRadius: 28 }}
+        {icon ? (
+          <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" />
+        ) : null}
+        <Text
+          style={
+            isPrimary
+              ? { color: '#FFFFFF', fontFamily: 'Inter_600SemiBold', fontSize: 16 }
+              : { color: '#FFFFFF', fontFamily: 'Sora_700Bold', fontSize: 17 }
+          }
         >
-          <Text className="text-white text-base font-bold tracking-wide">{title}</Text>
-        </LinearGradient>
+          {title}
+        </Text>
+        {showArrow ? (
+          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
+        ) : null}
       </TouchableOpacity>
     </MotiView>
   );

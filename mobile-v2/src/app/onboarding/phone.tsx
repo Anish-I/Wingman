@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { MotiView, AnimatePresence } from 'moti';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
+import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -80,50 +81,136 @@ export default function PhoneScreen() {
   }
 
   useEffect(() => {
-    if (code.every(d => d !== '') && step === 'verify') {
+    if (code.every((d) => d !== '') && step === 'verify') {
       handleVerify();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
       <ProgressBar step={5} />
-      <KeyboardAvoidingView className="flex-1 px-6" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View className="flex-1" />
+      <ScrollView
+        className="flex-1 w-full"
+        contentContainerClassName="px-6 items-center"
+        contentContainerStyle={{ gap: 28 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Pip */}
+        <PipCard expression="thumbsup" size="medium" />
 
-        <AnimatePresence exitBeforeEnter>
-          {step === 'phone' && (
-            <MotiView key="phone" from={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PipCard expression="thinking" message="What's your number? I'll text you to confirm!" size="small" />
-              <View className="flex-row items-center mt-6 gap-2">
-                <View className="flex-row items-center bg-card rounded-[14px] px-4 py-4 border border-border gap-2">
-                  <Text className="text-xl">🇺🇸</Text>
-                  <Text className="text-foreground text-[17px] font-semibold">+1</Text>
-                </View>
-                <TextInput
-                  className="flex-1 bg-card rounded-[14px] px-4 py-4 text-foreground text-[17px] border border-border"
-                  placeholder="(555) 000-0000"
-                  placeholderTextColor="#5D6279"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                  maxLength={14}
-                />
-              </View>
-            </MotiView>
-          )}
+        {/* Header */}
+        <View className="items-center" style={{ gap: 8 }}>
+          <SectionLabel text="VERIFY PHONE" />
+          <Text
+            style={{
+              fontFamily: 'Sora_700Bold',
+              fontSize: 32,
+              color: '#FFFFFF',
+              letterSpacing: -1.5,
+              lineHeight: 32,
+              textAlign: 'center',
+            }}
+          >
+            {"What's your\nnumber?"}
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_400Regular',
+              fontSize: 14,
+              color: '#8A8A8A',
+              textAlign: 'center',
+            }}
+          >
+            I'll send you a quick text to verify
+          </Text>
+        </View>
 
-          {step === 'verify' && (
-            <MotiView key="verify" from={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PipCard expression="excited" message="Just sent you a code!" size="small" />
-              <View className="flex-row justify-center mt-6 gap-4">
+        {/* Phone input row */}
+        <View
+          className="w-full flex-row items-center rounded-lg px-4"
+          style={{
+            height: 56,
+            backgroundColor: '#1A1A1A',
+            borderWidth: 1,
+            borderColor: '#3A3A3A',
+          }}
+        >
+          {/* Flag placeholder */}
+          <View className="rounded-sm" style={{ width: 24, height: 16, backgroundColor: '#B22234' }} />
+          <Ionicons name="chevron-down" size={14} color="#525252" style={{ marginLeft: 4 }} />
+          {/* Divider */}
+          <View style={{ width: 1, height: 32, backgroundColor: '#2A2A2A', marginHorizontal: 12 }} />
+          <Text style={{ fontFamily: 'Sora_700Bold', fontSize: 16, color: '#FFFFFF' }}>+1</Text>
+          <TextInput
+            className="flex-1"
+            style={{
+              fontFamily: 'Inter_400Regular',
+              fontSize: 16,
+              color: '#FFFFFF',
+              marginLeft: 8,
+            }}
+            placeholder="(555) 123-4567"
+            placeholderTextColor="#525252"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+            maxLength={14}
+          />
+        </View>
+
+        {/* Send button */}
+        <View className="w-full">
+          <GradientButton
+            title={loading && step === 'phone' ? 'Sending...' : 'Text Me'}
+            onPress={handleSendCode}
+            icon="send-outline"
+            disabled={loading && step === 'phone'}
+          />
+        </View>
+
+        {/* OTP Section */}
+        <AnimatePresence>
+          {(step === 'verify' || step === 'success') && (
+            <MotiView
+              from={{ opacity: 0, translateY: 16 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full items-center"
+              style={{ gap: 16 }}
+            >
+              {/* Label */}
+              <Text
+                style={{
+                  fontFamily: 'Inter_700Bold',
+                  fontSize: 11,
+                  color: '#8A8A8A',
+                  letterSpacing: 2,
+                }}
+              >
+                ENTER CODE
+              </Text>
+
+              {/* OTP boxes */}
+              <View className="flex-row justify-center" style={{ gap: 12 }}>
                 {code.map((digit, i) => (
                   <TextInput
                     key={i}
-                    ref={(r) => { if (r) inputs.current[i] = r; }}
-                    className={`w-[52px] h-[56px] bg-card rounded-[14px] text-center text-foreground text-2xl font-bold border-[1.5px] ${
-                      activeIdx === i ? 'border-[#4A7BD9]' : digit ? 'border-[#4A7BD9]' : 'border-border'
-                    }`}
+                    ref={(r) => {
+                      if (r) inputs.current[i] = r;
+                    }}
+                    style={{
+                      width: 60,
+                      height: 64,
+                      borderRadius: 8,
+                      backgroundColor: '#1A1A1A',
+                      borderWidth: activeIdx === i ? 2 : 1,
+                      borderColor: activeIdx === i ? '#FF3B30' : '#3A3A3A',
+                      textAlign: 'center',
+                      fontFamily: 'Sora_700Bold',
+                      fontSize: 28,
+                      color: '#FFFFFF',
+                    }}
                     value={digit}
                     onChangeText={(t) => handleCodeChange(t, i)}
                     onFocus={() => setActiveIdx(i)}
@@ -134,40 +221,61 @@ export default function PhoneScreen() {
                   />
                 ))}
               </View>
-              <Text className="text-muted-foreground text-center text-[13px] mt-4">Sent to {e164Phone}</Text>
-              <TouchableOpacity onPress={() => { setStep('phone'); setCode(['', '', '', '']); }}>
-                <Text className="text-[#6EC6B8] text-center text-sm mt-2">Wrong number? Go back</Text>
-              </TouchableOpacity>
-            </MotiView>
-          )}
 
-          {step === 'success' && (
-            <MotiView
-              key="success"
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', damping: 10, stiffness: 100 }}
-              className="items-center justify-center py-12"
-            >
-              <View className="w-16 h-16 rounded-full bg-[#34C759] justify-center items-center mb-4">
-                <Ionicons name="checkmark" size={32} color="#FFFFFF" />
+              {/* Resend row */}
+              <View className="flex-row items-center" style={{ gap: 4 }}>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#525252' }}>
+                  Didn't get it?
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCode(['', '', '', '']);
+                    setActiveIdx(0);
+                    handleSendCode();
+                  }}
+                >
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FF3B30' }}>
+                    Resend
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text className="text-foreground text-xl font-bold">Connected!</Text>
             </MotiView>
           )}
         </AnimatePresence>
 
-        <View className="flex-1" />
-      </KeyboardAvoidingView>
-      {step !== 'success' && (
-        <View className="px-6 pb-8">
-          <GradientButton
-            title={loading ? (step === 'phone' ? 'Sending...' : 'Verifying...') : (step === 'phone' ? 'Text Me' : 'Verify')}
-            onPress={step === 'phone' ? handleSendCode : handleVerify}
-            disabled={loading}
-          />
-        </View>
-      )}
+        {/* Success section */}
+        <AnimatePresence>
+          {step === 'success' && (
+            <MotiView
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', damping: 10, stiffness: 100 }}
+              className="items-center"
+              style={{ gap: 12 }}
+            >
+              <View
+                className="rounded-full items-center justify-center"
+                style={{ width: 56, height: 56, backgroundColor: '#32D74B' }}
+              >
+                <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+              </View>
+              <Text
+                style={{
+                  fontFamily: 'Sora_700Bold',
+                  fontSize: 22,
+                  color: '#FFFFFF',
+                  letterSpacing: -0.5,
+                }}
+              >
+                Connected!
+              </Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#8A8A8A' }}>
+                Your phone is verified
+              </Text>
+            </MotiView>
+          )}
+        </AnimatePresence>
+      </ScrollView>
     </SafeAreaView>
   );
 }

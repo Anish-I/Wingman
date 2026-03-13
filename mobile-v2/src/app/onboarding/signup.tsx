@@ -9,6 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
+import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -29,7 +30,7 @@ function GoogleIcon() {
 
 function AppleIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="#000000">
       <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
     </Svg>
   );
@@ -39,6 +40,7 @@ export default function SignupScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'wingman' });
@@ -79,22 +81,32 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-[#0C0C0C]">
       <ProgressBar step={3} />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerClassName="px-6 pb-8" keyboardShouldPersistTaps="handled">
-          <PipCard expression="wave" size="small" />
-          <Text className="text-white text-[26px] font-extrabold text-center mt-4 mb-6">
-            Join the Flock 🐦
+        <ScrollView contentContainerClassName="px-6 pb-8 items-center" keyboardShouldPersistTaps="handled">
+          <PipCard expression="excited" size="small" />
+
+          <View className="mt-4 mb-2 self-center">
+            <SectionLabel text="JOIN THE FLOCK" />
+          </View>
+
+          <Text
+            className="text-white text-[28px] font-bold text-center mb-5"
+            style={{ fontFamily: 'Sora_700Bold', letterSpacing: -1 }}
+          >
+            {"Create Your\nAccount"}
           </Text>
 
-          <View className="mb-2">
-            <View className="flex-row items-center bg-card rounded-[14px] border border-border">
-              <Ionicons name="mail-outline" size={20} color="#5D6279" style={{ paddingLeft: 16 }} />
+          {/* Form */}
+          <View className="gap-3 w-full">
+            {/* Email input */}
+            <View className="h-[52px] rounded-lg bg-[#1A1A1A] border border-[#3A3A3A] px-4 flex-row items-center">
+              <Ionicons name="mail-outline" size={18} color="#525252" />
               <TextInput
-                className="flex-1 px-2 py-4 text-white text-[17px]"
+                className="flex-1 ml-3 text-white text-[14px]"
                 placeholder="Email address"
-                placeholderTextColor="#5D6279"
+                placeholderTextColor="#525252"
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -102,59 +114,94 @@ export default function SignupScreen() {
                 keyboardType="email-address"
               />
             </View>
-          </View>
 
-          <View className="mb-2">
-            <View className="flex-row items-center bg-card rounded-[14px] border border-border">
-              <Ionicons name="lock-closed-outline" size={20} color="#5D6279" style={{ paddingLeft: 16 }} />
+            {/* Password input */}
+            <View className="h-[52px] rounded-lg bg-[#1A1A1A] border border-[#3A3A3A] px-4 flex-row items-center">
+              <Ionicons name="lock-closed-outline" size={18} color="#525252" />
               <TextInput
-                className="flex-1 px-2 py-4 text-white text-[17px]"
+                className="flex-1 ml-3 text-white text-[14px]"
                 placeholder="Password"
-                placeholderTextColor="#5D6279"
+                placeholderTextColor="#525252"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 autoComplete="password"
               />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color="#525252" />
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View className="mt-2">
+          <View className="mt-4 w-full">
             <GradientButton title="Sign Up" onPress={handleSignUp} />
           </View>
 
-          <View className="flex-row items-center my-6 px-4">
-            <View className="flex-1 h-px bg-border" />
-            <Text className="text-muted-foreground text-[13px] mx-4">or</Text>
-            <View className="flex-1 h-px bg-border" />
+          {/* Divider */}
+          <View className="flex-row items-center my-5 w-full">
+            <View className="flex-1 h-px bg-[#2A2A2A]" />
+            <Text
+              className="text-[#525252] text-[13px] mx-4"
+              style={{ fontFamily: 'Inter_500Medium' }}
+            >
+              or continue with
+            </Text>
+            <View className="flex-1 h-px bg-[#2A2A2A]" />
           </View>
 
-          <TouchableOpacity
-            className="flex-row items-center justify-center bg-white rounded-[14px] py-3.5 mb-3"
-            onPress={handleGoogleSignIn}
-            disabled={googleLoading}
-            activeOpacity={0.8}
-            style={googleLoading ? { opacity: 0.6 } : undefined}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color="#1A1B2E" size="small" />
-            ) : (
-              <>
-                <GoogleIcon />
-                <Text className="text-[#1A1B2E] text-base font-semibold ml-2.5">Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* Social buttons */}
+          <View className="gap-2.5 w-full">
+            <TouchableOpacity
+              className="h-[52px] rounded-lg border-[1.5px] border-[#3A3A3A] flex-row items-center justify-center"
+              onPress={handleGoogleSignIn}
+              disabled={googleLoading}
+              activeOpacity={0.8}
+              style={googleLoading ? { opacity: 0.6 } : undefined}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <GoogleIcon />
+                  <Text
+                    className="text-white text-[14px] ml-2.5"
+                    style={{ fontFamily: 'Inter_500Medium' }}
+                  >
+                    Continue with Google
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center justify-center bg-black rounded-[14px] py-3.5 mb-6" activeOpacity={0.8}>
-            <AppleIcon />
-            <Text className="text-white text-base font-semibold ml-2.5">Continue with Apple</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              className="h-[52px] rounded-lg bg-white flex-row items-center justify-center"
+              activeOpacity={0.8}
+            >
+              <AppleIcon />
+              <Text
+                className="text-black text-[14px] ml-2.5"
+                style={{ fontFamily: 'Inter_500Medium' }}
+              >
+                Continue with Apple
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          <View className="flex-row justify-center items-center mb-4">
-            <Text className="text-muted-foreground text-sm">Already have an account? </Text>
+          {/* Footer */}
+          <View className="flex-row justify-center items-center mt-5 mb-4">
+            <Text
+              className="text-[#525252] text-[13px]"
+              style={{ fontFamily: 'Inter_400Regular' }}
+            >
+              Already have an account?{' '}
+            </Text>
             <TouchableOpacity>
-              <Text className="text-[#6EC6B8] text-sm font-semibold">Sign In</Text>
+              <Text
+                className="text-[#525252] text-[13px] font-semibold"
+                style={{ fontFamily: 'Inter_400Regular' }}
+              >
+                Sign In
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

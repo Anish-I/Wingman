@@ -1,49 +1,53 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import Env from 'env';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
+import SectionLabel from '@/components/wingman/section-label';
 
-const pipImages: Record<string, any> = {
-  happy: require('../../../assets/pip/pip-happy.png'),
-  excited: require('../../../assets/pip/pip-excited.png'),
-};
+const CONNECTED_DEFAULT = ['googlecalendar', 'gmail', 'slack'];
 
 const ALL_APPS = [
-  { slug: 'googlecalendar', name: 'Google Cal', emoji: '📅', brand: '#4285F4' },
-  { slug: 'gmail', name: 'Gmail', emoji: '📧', brand: '#EA4335' },
-  { slug: 'slack', name: 'Slack', emoji: '💬', brand: '#4A154B' },
-  { slug: 'spotify', name: 'Spotify', emoji: '🎵', brand: '#1DB954' },
-  { slug: 'notion', name: 'Notion', emoji: '📝', brand: '#000000' },
-  { slug: 'github', name: 'GitHub', emoji: '🐙', brand: '#333333' },
-  { slug: 'discord', name: 'Discord', emoji: '🎮', brand: '#5865F2' },
-  { slug: 'todoist', name: 'Todoist', emoji: '✅', brand: '#E44332' },
-  { slug: 'uber', name: 'Uber', emoji: '🚗', brand: '#000000' },
-  { slug: 'venmo', name: 'Venmo', emoji: '💳', brand: '#3D95CE' },
-  { slug: 'maps', name: 'Maps', emoji: '🗺️', brand: '#34A853' },
-  { slug: 'twitter', name: 'Twitter', emoji: '🐦', brand: '#1DA1F2' },
-  { slug: 'whatsapp', name: 'WhatsApp', emoji: '📱', brand: '#25D366' },
-  { slug: 'trello', name: 'Trello', emoji: '📋', brand: '#0052CC' },
-  { slug: 'zoom', name: 'Zoom', emoji: '📹', brand: '#2D8CFF' },
-  { slug: 'figma', name: 'Figma', emoji: '🎨', brand: '#F24E1E' },
+  { slug: 'googlecalendar', name: 'Calendar', emoji: '\u{1F4C5}' },
+  { slug: 'gmail', name: 'Gmail', emoji: '\u2709\uFE0F' },
+  { slug: 'slack', name: 'Slack', emoji: '\u{1F4AC}' },
+  { slug: 'spotify', name: 'Spotify', emoji: '\u{1F3B5}' },
+  { slug: 'notion', name: 'Notion', emoji: '\u{1F4DD}' },
+  { slug: 'github', name: 'GitHub', emoji: '\u{1F419}' },
+  { slug: 'discord', name: 'Discord', emoji: '\u{1F3AE}' },
+  { slug: 'todoist', name: 'Todoist', emoji: '\u2705' },
+  { slug: 'uber', name: 'Uber', emoji: '\u{1F697}' },
+  { slug: 'venmo', name: 'Venmo', emoji: '\u{1F4B8}' },
+  { slug: 'maps', name: 'Maps', emoji: '\u{1F5FA}\uFE0F' },
+  { slug: 'twitter', name: 'X', emoji: '\u2716\uFE0F' },
+  { slug: 'whatsapp', name: 'WhatsApp', emoji: '\u{1F4F1}' },
+  { slug: 'trello', name: 'Trello', emoji: '\u{1F4CB}' },
+  { slug: 'zoom', name: 'Zoom', emoji: '\u{1F3A5}' },
+  { slug: 'figma', name: 'Figma', emoji: '\u{1F3A8}' },
 ];
 
 export default function ConnectScreen() {
   const router = useRouter();
-  const [connected, setConnected] = useState<string[]>([]);
+  const [connected, setConnected] = useState<string[]>(CONNECTED_DEFAULT);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const filtered = search
-    ? ALL_APPS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
+    ? ALL_APPS.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()))
     : ALL_APPS;
 
+  // Build rows of 4
+  const rows: (typeof ALL_APPS)[] = [];
+  for (let i = 0; i < filtered.length; i += 4) {
+    rows.push(filtered.slice(i, i + 4));
+  }
+
   async function handleConnect(slug: string) {
+    if (connected.includes(slug)) return;
     setConnecting(slug);
     try {
       const result = await WebBrowser.openAuthSessionAsync(
@@ -51,93 +55,125 @@ export default function ConnectScreen() {
         'wingman://connect/callback'
       );
       if (result.type === 'success') {
-        setConnected(prev => [...prev, slug]);
+        setConnected((prev) => [...prev, slug]);
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
     setConnecting(null);
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
       <ProgressBar step={6} />
-      <View className="flex-1 px-6">
-        <View className="flex-row items-center mb-4 mt-2">
-          <Image
-            source={connected.length > 0 ? pipImages.excited : pipImages.happy}
-            style={{ width: 44, height: 44, marginRight: 8 }}
-            resizeMode="contain"
-          />
-          <View className="flex-1">
-            <Text className="text-foreground text-xl font-bold">Connect Your Apps</Text>
-            <Text className="text-muted-foreground text-[13px] mt-0.5">{connected.length} of 1000+ apps</Text>
+      <View className="flex-1 w-full px-6" style={{ gap: 20 }}>
+        {/* Header */}
+        <View className="items-center" style={{ gap: 8 }}>
+          <SectionLabel text="INTEGRATIONS" />
+          <Text
+            style={{
+              fontFamily: 'Sora_700Bold',
+              fontSize: 32,
+              color: '#FFFFFF',
+              letterSpacing: -1.5,
+              lineHeight: 32,
+              textAlign: 'center',
+            }}
+          >
+            {'Connect\nYour Apps'}
+          </Text>
+          {/* Count row */}
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            <View className="rounded px-2.5" style={{ backgroundColor: '#FF3B3020', paddingVertical: 4 }}>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: '#FF3B30' }}>
+                {connected.length} CONNECTED
+              </Text>
+            </View>
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#8A8A8A' }}>
+              of 1,000+ apps
+            </Text>
           </View>
         </View>
 
-        <View className="h-[3px] bg-border rounded-full mb-4 overflow-hidden">
-          <LinearGradient
-            colors={['#4A7BD9', '#6EC6B8', '#9B7EC8']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ height: '100%', width: `${Math.max(5, (connected.length / ALL_APPS.length) * 100)}%`, borderRadius: 9999 }}
-          />
-        </View>
-
-        <View className="flex-row items-center bg-card rounded-[14px] border border-border mb-4 px-4">
-          <Ionicons name="search" size={18} color="#9A9BBF" style={{ marginRight: 8 }} />
+        {/* Search bar */}
+        <View
+          className="flex-row items-center rounded-lg"
+          style={{
+            height: 44,
+            backgroundColor: '#1A1A1A',
+            borderWidth: 1,
+            borderColor: '#2A2A2A',
+            paddingHorizontal: 14,
+            gap: 10,
+          }}
+        >
+          <Ionicons name="search" size={18} color="#525252" />
           <TextInput
-            className="flex-1 py-3 text-foreground text-[15px]"
-            placeholder="Search 1000+ apps"
-            placeholderTextColor="#9A9BBF"
+            className="flex-1"
+            style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#FFFFFF' }}
+            placeholder="Search apps..."
+            placeholderTextColor="#525252"
             value={search}
             onChangeText={setSearch}
           />
         </View>
 
-        <FlatList
-          data={filtered}
-          numColumns={4}
-          keyExtractor={item => item.slug}
-          contentContainerClassName="gap-2"
-          columnWrapperClassName="gap-2"
-          renderItem={({ item }) => {
-            const isConnected = connected.includes(item.slug);
-            return (
-              <View className="flex-1 items-center">
-                {connecting === item.slug ? (
-                  <View className="w-14 h-14 rounded-[14px] bg-card justify-center items-center">
-                    <ActivityIndicator color="#6EC6B8" />
-                  </View>
-                ) : (
+        {/* App grid */}
+        <View style={{ gap: 10 }}>
+          {rows.map((row, rowIdx) => (
+            <View key={rowIdx} className="flex-row" style={{ gap: 10 }}>
+              {row.map((app) => {
+                const isConnected = connected.includes(app.slug);
+                const isConnecting = connecting === app.slug;
+                return (
                   <TouchableOpacity
-                    className="w-14 h-14 rounded-[14px] justify-center items-center"
-                    style={{ backgroundColor: isConnected ? item.brand : '#242540' }}
-                    onPress={() => handleConnect(item.slug)}
+                    key={app.slug}
+                    className="flex-1 items-center justify-center rounded-xl"
+                    style={{
+                      height: 80,
+                      backgroundColor: '#1A1A1A',
+                      borderWidth: isConnected ? 2 : 1,
+                      borderColor: isConnected ? '#32D74B' : '#2A2A2A',
+                      gap: 6,
+                    }}
+                    onPress={() => handleConnect(app.slug)}
                     activeOpacity={0.7}
                   >
-                    <Text className="text-[26px]">{item.emoji}</Text>
-                    {isConnected && (
-                      <View className="absolute -top-[3px] -right-[3px] w-4 h-4 rounded-full bg-[#34C759] justify-center items-center border-2 border-background">
-                        <Ionicons name="checkmark" size={8} color="#FFFFFF" />
-                      </View>
+                    {isConnecting ? (
+                      <ActivityIndicator color="#FF3B30" />
+                    ) : (
+                      <>
+                        <Text style={{ fontSize: 24 }}>{app.emoji}</Text>
+                        <Text
+                          style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
+                          numberOfLines={1}
+                        >
+                          {app.name}
+                        </Text>
+                      </>
                     )}
                   </TouchableOpacity>
-                )}
-                <Text className="text-muted-foreground text-[11px] font-medium text-center mt-1" numberOfLines={1}>{item.name}</Text>
-              </View>
-            );
-          }}
-        />
-      </View>
-      <View className="px-6 pb-8">
-        {connected.length === 0 && (
-          <TouchableOpacity onPress={() => router.push('/onboarding/permissions')}>
-            <Text className="text-muted-foreground text-sm text-center py-2">Skip for now</Text>
-          </TouchableOpacity>
-        )}
-        <GradientButton
-          title="All set!"
-          onPress={() => router.push('/onboarding/permissions')}
-        />
+                );
+              })}
+              {/* Fill remaining columns if row is incomplete */}
+              {row.length < 4 &&
+                Array.from({ length: 4 - row.length }).map((_, i) => (
+                  <View key={`empty-${i}`} className="flex-1" />
+                ))}
+            </View>
+          ))}
+        </View>
+
+        <View className="flex-1" />
+
+        {/* Bottom button */}
+        <View className="pb-8">
+          <GradientButton
+            title="All Set!"
+            icon="checkmark-circle"
+            onPress={() => router.push('/onboarding/done')}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );

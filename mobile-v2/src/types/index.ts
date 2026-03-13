@@ -38,4 +38,8 @@ export type PipExpression =
   | 'happy' | 'thinking' | 'excited' | 'wave'
   | 'thumbsup' | 'coding' | 'checkmark' | 'cool'
   | 'love' | 'no' | 'fail' | 'crying'
-  | 'coffee' | 'clap' | 'angry' | 'business' | 'logo';
+  | 'coffee' | 'clap' | 'angry' | 'business' | 'logo'
+  | 'lurk' | 'gg' | 'coding-angry' | 'dab' | 'vpn'
+  | 'headband' | 'question' | '404' | 'hypnotized'
+  | 'sad-coding' | 'surprised' | 'alert' | 'calendar'
+  | 'ninja' | 'bonk' | 'overwhelmed' | 'eating';
