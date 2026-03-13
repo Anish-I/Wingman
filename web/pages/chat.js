@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
@@ -88,9 +89,9 @@ export default function Chat() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm">
+            <Link href="/" className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm hover:bg-accent-hover transition-colors" title="Back to home">
               W
-            </div>
+            </Link>
             <div>
               <h1 className="text-white font-semibold text-sm">Wingman</h1>
               <p className="text-neutral-400 text-xs">AI Assistant</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import Layout from '../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -112,12 +113,12 @@ export default function Workflows() {
   }
 
   return (
-    <>
+    <Layout>
       <Head>
         <title>Workflows — Wingman</title>
       </Head>
 
-      <div className="min-h-screen bg-bg text-white">
+      <div className="bg-bg text-white">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface">
           <div className="flex items-center gap-3">
@@ -238,6 +239,6 @@ export default function Workflows() {
           </div>
         </div>
       </div>
-    </>
+    </Layout>
   );
 }

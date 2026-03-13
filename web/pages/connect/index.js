@@ -18,21 +18,20 @@ export default function ConnectPage() {
 
   const [apps, setApps] = useState([]);
   const [connectedSlugs, setConnectedSlugs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [appsLoading, setAppsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load apps list
+  // Load apps list (always, no auth needed)
   useEffect(() => {
     fetch('/apps.json')
       .then((r) => r.json())
-      .then(setApps)
-      .catch(() => setError('Failed to load apps'));
+      .then((data) => { setApps(data); setAppsLoading(false); })
+      .catch(() => { setError('Failed to load apps'); setAppsLoading(false); });
   }, []);
 
   // Fetch connected status when token is available
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     fetch(`${API_URL}/connect/status/${token}`)
       .then((r) => {
         if (!r.ok) throw new Error('Invalid or expired link');
@@ -40,11 +39,9 @@ export default function ConnectPage() {
       })
       .then((data) => {
         setConnectedSlugs(data.connected || []);
-        setLoading(false);
       })
       .catch((err) => {
         setError(err.message);
-        setLoading(false);
       });
   }, [token]);
 
@@ -76,7 +73,7 @@ export default function ConnectPage() {
       });
   }
 
-  if (!token && !loading && router.isReady) {
+  if (!token && !appsLoading && router.isReady) {
     return (
       <Layout>
         <div className="text-center py-20 px-4">
@@ -121,7 +118,7 @@ export default function ConnectPage() {
           </div>
         )}
 
-        {loading ? (
+        {appsLoading ? (
           <div className="text-center py-16 text-neutral-500">Loading your apps...</div>
         ) : (
           <div className="space-y-4">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Layout from '../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -65,6 +66,7 @@ export default function Login() {
   }
 
   return (
+    <Layout>
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-surface border border-border rounded-2xl p-8">
         <h1 className="text-2xl font-bold text-white text-center mb-8">Sign in to Wingman</h1>
@@ -92,7 +94,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || !phone}
-              className="w-full py-3 rounded-lg bg-accent hover:bg-accent-hover text-white font-semibold transition-colors disabled:opacity-50"
+              className="w-full py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors disabled:opacity-50"
             >
               {loading ? 'Sending...' : 'Send verification code'}
             </button>
@@ -152,5 +154,6 @@ export default function Login() {
         </button>
       </div>
     </div>
+    </Layout>
   );
 }
