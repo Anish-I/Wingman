@@ -24,6 +24,8 @@ export const api = {
       req<{ token: string }>('POST', '/auth/verify-otp', { phone, code }),
     setPin: (pin: string) =>
       req<{ ok: boolean }>('POST', '/auth/set-pin', { pin }),
+    google: (idToken: string) =>
+      req<{ token: string }>('POST', '/auth/google', { idToken }),
   },
   chat: (message: string) =>
     req<{ reply: string }>('POST', '/api/chat', { message }),

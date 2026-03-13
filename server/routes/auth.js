@@ -99,6 +99,58 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
+// POST /auth/google
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ error: 'Authorization code is required.' });
+    }
+
+    // Exchange the authorization code for tokens with Google
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: idToken,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: 'wingman://',
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Google token exchange failed:', tokenData);
+      return res.status(401).json({ error: 'Failed to exchange authorization code.' });
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const googleUser = await userInfoResponse.json();
+
+    if (!googleUser.id || !googleUser.email) {
+      return res.status(401).json({ error: 'Could not retrieve Google user info.' });
+    }
+
+    // Use google:<id> as a synthetic phone key to fit existing schema
+    const googlePhone = `google:${googleUser.id}`;
+    let user = await getUserByPhone(googlePhone);
+    if (!user) {
+      user = await createUser(googlePhone, googleUser.name || googleUser.email);
+    }
+
+    const token = signToken({ userId: user.id, phone: googlePhone });
+    res.json({ success: true, token, user: { id: user.id, name: user.name } });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Google sign-in failed.' });
+  }
+});
+
 // POST /auth/set-pin
 router.post('/set-pin', async (req, res) => {
   try {
