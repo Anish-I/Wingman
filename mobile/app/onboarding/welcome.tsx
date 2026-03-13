@@ -1,32 +1,30 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
+import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import PipCard from '../../src/PipCard';
+import ProgressBar from '../../src/components/ProgressBar';
+import GradientButton from '../../src/components/GradientButton';
+import { colors, spacing } from '../../src/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
+      <ProgressBar step={1} />
       <View style={styles.content}>
         <View style={styles.spacer} />
         <PipCard
           expression="wave"
-          message={"Hey! I'm Pip \u{1F426}\nYour AI assistant.\nI'll help you automate\nyour whole life."}
+          message={"Hey there! I'm Pip \u2014 your personal AI assistant. I'll help you automate your whole life."}
         />
         <View style={styles.spacer} />
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => router.push('/onboarding/phone')}
-        >
-          <Text style={styles.buttonText}>Let's go →</Text>
-        </TouchableOpacity>
+      </View>
+      <View style={styles.footer}>
+        <GradientButton
+          title="Get Started"
+          onPress={() => router.push('/onboarding/features')}
+        />
       </View>
     </SafeAreaView>
   );
@@ -35,24 +33,16 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
     justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
-  spacer: { height: 40 },
-  button: {
-    backgroundColor: '#6c63ff',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
+  spacer: { flex: 1 },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
 });

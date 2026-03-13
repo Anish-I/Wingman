@@ -15,7 +15,20 @@ const { startAlertsWorker } = require('./alerts');
 const workflowWorker = new Worker('workflows', async (job) => {
   const { workflowId, userId } = job.data;
   console.log(`[worker] Running workflow ${workflowId} for user ${userId}`);
-  return runWorkflow(workflowId, userId);
+
+  // Check if this is a v2 agent workflow (has steps) or legacy (has actions)
+  const db = require('../db');
+  const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1', [workflowId]);
+  const workflow = result.rows[0];
+
+  if (workflow && workflow.steps && workflow.steps.length > 0) {
+    // v2: use agent executor
+    const { executeWorkflowAgent } = require('../services/workflow-agent');
+    return executeWorkflowAgent(workflowId, userId);
+  } else {
+    // Legacy: use flat action executor
+    return runWorkflow(workflowId, userId);
+  }
 }, { connection: redis });
 
 workflowWorker.on('error', (err) => {
@@ -51,6 +64,10 @@ pollReminders();
 
 startBriefingWorker();
 startAlertsWorker();
+
+// Seed templates on boot
+const { seedTemplates } = require('../services/template-library');
+seedTemplates().catch(err => console.error('[worker] Template seed error:', err.message));
 
 console.log('All workers started. Waiting for jobs...');
 

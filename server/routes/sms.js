@@ -72,6 +72,21 @@ router.post('/sms', smsLimiter, async (req, res) => {
     // Store incoming message
     await appendMessage(user.id, 'user', messageText);
 
+    // Check for pending workflow replies before orchestrator
+    const { getPendingReplyForUser, resolvePendingReply } = require('../db/queries');
+    const pendingReply = await getPendingReplyForUser(user.id);
+    if (pendingReply) {
+      await resolvePendingReply(pendingReply.id, messageText);
+      // Resume the paused workflow
+      const { resumeWorkflowRun } = require('../services/workflow-agent');
+      resumeWorkflowRun(pendingReply.run_id, messageText).catch(err => {
+        console.error('[sms] Workflow resume error:', err.message);
+      });
+      await provider.sendMessage(phone, 'Got it! Processing your reply...');
+      await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
+      return res.status(200).json({});
+    }
+
     // New user SMS discovery path — send app download link
     if (isNewUser || !user.preferences?.onboarded) {
       const discoveryMsg =

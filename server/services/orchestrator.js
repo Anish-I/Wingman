@@ -3,8 +3,26 @@ const { buildContext } = require('./context');
 const { getConversationHistory, appendMessage } = require('./redis');
 const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
+const { planAndCreateWorkflows } = require('./workflow-planner');
 
 const MAX_TOOL_ITERATIONS = 5;
+
+const LOCAL_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'CREATE_WORKFLOW',
+      description: 'Create an automated workflow or recurring task. Use this when the user wants to set up something that runs on a schedule, triggers on events, or involves multi-step automation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          description: { type: 'string', description: 'Natural language description of what the workflow should do, including schedule if any' },
+        },
+        required: ['description'],
+      },
+    },
+  },
+];
 
 async function processMessage(user, messageText) {
   const userId = String(user.id);
@@ -14,7 +32,8 @@ async function processMessage(user, messageText) {
     getTools(userId),
   ]);
 
-  const tools = selectToolsForMessage(allTools, messageText);
+  const selectedTools = selectToolsForMessage(allTools, messageText);
+  const tools = [...LOCAL_TOOLS, ...selectedTools];
   console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
 
   const memoryContext = getMemoryContext(user);
@@ -40,23 +59,28 @@ async function processMessage(user, messageText) {
     for (const block of response.toolUseBlocks) {
       let result;
       try {
-        console.log(`[user:${userId}] Tool: ${block.name}`);
-        result = await executeTool(userId, block);
+        if (block.name === 'CREATE_WORKFLOW') {
+          const workflows = await planAndCreateWorkflows(user, block.input.description);
+          result = { success: true, workflows: workflows.map(w => ({ id: w.id, name: w.name })) };
+        } else {
+          console.log(`[user:${userId}] Tool: ${block.name}`);
+          result = await executeTool(userId, block);
 
-        // Composio returns { successful, error } — surface errors cleanly
-        if (result && result.successful === false) {
-          const errMsg = result.error || 'Tool execution failed';
+          // Composio returns { successful, error } — surface errors cleanly
+          if (result && result.successful === false) {
+            const errMsg = result.error || 'Tool execution failed';
 
-          // Detect not-connected errors and return an auth link
-          if (/not connected|no connected account|connection not found/i.test(errMsg)) {
-            const app = appFromToolName(block.name);
-            const link = await getConnectionLink(userId, app).catch(() => null);
-            return link
-              ? `To use ${app}, connect your account first: ${link}\n\nReply once you've connected and I'll complete your request.`
-              : `Please connect ${app} at composio.dev to use this feature.`;
+            // Detect not-connected errors and return an auth link
+            if (/not connected|no connected account|connection not found/i.test(errMsg)) {
+              const app = appFromToolName(block.name);
+              const link = await getConnectionLink(userId, app).catch(() => null);
+              return link
+                ? `To use ${app}, connect your account first: ${link}\n\nReply once you've connected and I'll complete your request.`
+                : `Please connect ${app} at composio.dev to use this feature.`;
+            }
+
+            result = { error: errMsg };
           }
-
-          result = { error: errMsg };
         }
       } catch (err) {
         console.error(`[user:${userId}] Tool failed [${block.name}]:`, err.message);

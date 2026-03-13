@@ -6,33 +6,58 @@ import {
   StyleSheet,
   ImageSourcePropType,
 } from 'react-native';
+import { colors, radius, spacing } from './theme';
+
+type PipExpression =
+  | 'happy' | 'thinking' | 'excited' | 'wave'
+  | 'thumbsup' | 'coding' | 'checkmark' | 'cool'
+  | 'love' | 'no' | 'fail' | 'crying'
+  | 'coffee' | 'clap' | 'angry' | 'business' | 'logo';
 
 interface PipCardProps {
   message: string;
-  expression?: 'happy' | 'thinking' | 'excited' | 'wave';
+  expression?: PipExpression;
   style?: object;
+  size?: 'large' | 'small';
 }
 
+// Map expressions to available assets (4 base images, extras map to closest match)
 const pipImages: Record<string, ImageSourcePropType> = {
   happy: require('../assets/pip/pip-happy.png'),
   thinking: require('../assets/pip/pip-thinking.png'),
   excited: require('../assets/pip/pip-excited.png'),
   wave: require('../assets/pip/pip-wave.png'),
+  // Aliases mapping to existing assets until we have custom cropped emotes
+  thumbsup: require('../assets/pip/pip-happy.png'),
+  coding: require('../assets/pip/pip-thinking.png'),
+  checkmark: require('../assets/pip/pip-happy.png'),
+  cool: require('../assets/pip/pip-excited.png'),
+  love: require('../assets/pip/pip-wave.png'),
+  no: require('../assets/pip/pip-thinking.png'),
+  fail: require('../assets/pip/pip-thinking.png'),
+  crying: require('../assets/pip/pip-thinking.png'),
+  coffee: require('../assets/pip/pip-thinking.png'),
+  clap: require('../assets/pip/pip-excited.png'),
+  angry: require('../assets/pip/pip-thinking.png'),
+  business: require('../assets/pip/pip-happy.png'),
+  logo: require('../assets/pip/pip-wave.png'),
 };
 
-export default function PipCard({ message, expression = 'happy', style }: PipCardProps) {
+export default function PipCard({ message, expression = 'happy', style, size = 'large' }: PipCardProps) {
+  const imageSize = size === 'large' ? 180 : 80;
+
   return (
     <View style={[styles.card, style]}>
-      <View style={styles.pipContainer}>
+      <View style={styles.imageContainer}>
         <Image
-          source={pipImages[expression]}
-          style={styles.pip}
+          source={pipImages[expression] || pipImages.happy}
+          style={[styles.pip, { width: imageSize, height: imageSize }]}
           resizeMode="contain"
         />
       </View>
       <View style={styles.bubble}>
+        <View style={styles.bubblePointer} />
         <Text style={styles.text}>{message}</Text>
-        <View style={styles.tail} />
       </View>
     </View>
   );
@@ -40,42 +65,47 @@ export default function PipCard({ message, expression = 'happy', style }: PipCar
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 16,
-    gap: 12,
-  },
-  pipContainer: {
-    width: 64,
     alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   pip: {
-    width: 64,
-    height: 64,
+    // Size set dynamically
   },
   bubble: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
+    backgroundColor: colors.bubble,
+    borderRadius: radius.lg,
     borderTopLeftRadius: 4,
-    padding: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginHorizontal: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
   },
-  text: {
-    color: '#e0e0ff',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  tail: {
+  bubblePointer: {
     position: 'absolute',
-    left: -8,
-    top: 12,
+    top: -8,
+    left: 24,
     width: 0,
     height: 0,
-    borderTopWidth: 8,
-    borderTopColor: 'transparent',
+    borderLeftWidth: 8,
+    borderLeftColor: 'transparent',
     borderRightWidth: 8,
-    borderRightColor: '#1a1a2e',
+    borderRightColor: 'transparent',
     borderBottomWidth: 8,
-    borderBottomColor: 'transparent',
+    borderBottomColor: colors.bubble,
+  },
+  text: {
+    color: colors.bubbleText,
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
   },
 });

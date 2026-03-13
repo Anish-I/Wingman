@@ -1,66 +1,56 @@
 const { Worker } = require('bullmq');
 const Redis = require('ioredis');
 const { getUserById } = require('../db/queries');
-const { executeToolCall } = require('../services/zapier-tools');
-const { buildMorningBriefing } = require('../services/briefing-builder');
-const { sendSMS } = require('../services/telnyx');
+const { executeTool, getTools } = require('../services/composio');
+const { provider } = require('../services/messaging');
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
   maxRetriesPerRequest: null,
 });
 
-/**
- * Fetch calendar events for today. Returns null on failure.
- */
-async function fetchCalendar(zapierAccountId) {
+async function fetchCalendarViaComposio(entityId) {
   try {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
 
-    return await executeToolCall('read_calendar', {
-      start_date: startOfDay,
-      end_date: endOfDay,
-    }, zapierAccountId);
+    const result = await executeTool(entityId, {
+      id: 'briefing-calendar',
+      name: 'GOOGLECALENDAR_FIND_EVENT',
+      input: { start_date: startOfDay, end_date: endOfDay },
+    });
+    return result;
   } catch (err) {
     console.error('Briefing: calendar fetch failed:', err.message);
     return null;
   }
 }
 
-/**
- * Fetch overdue tasks. Returns null on failure.
- */
-async function fetchOverdueTasks(zapierAccountId) {
-  try {
-    return await executeToolCall('get_overdue_tasks', {}, zapierAccountId);
-  } catch (err) {
-    console.error('Briefing: tasks fetch failed:', err.message);
-    return null;
+function composeBriefing(user, calendarData) {
+  const name = user.name || 'friend';
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  let text = `Morning ${name}! It's ${timeStr}.\n\n`;
+
+  if (calendarData && !calendarData.error) {
+    const events = Array.isArray(calendarData) ? calendarData : calendarData.data || [];
+    if (events.length > 0) {
+      text += `Today:\n`;
+      for (const evt of events.slice(0, 5)) {
+        const summary = evt.summary || evt.title || 'Event';
+        text += `• ${summary}\n`;
+      }
+    } else {
+      text += 'Calendar is clear today.';
+    }
+  } else {
+    text += 'Couldn\'t pull your calendar — connect it in the app if you haven\'t.';
   }
+
+  return text.trim();
 }
 
-/**
- * Fetch spending for the past 7 days. Returns null on failure.
- */
-async function fetchWeeklySpend(zapierAccountId) {
-  try {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    return await executeToolCall('get_spending_by_category', {
-      start_date: weekAgo.toISOString().split('T')[0],
-      end_date: now.toISOString().split('T')[0],
-    }, zapierAccountId);
-  } catch (err) {
-    console.error('Briefing: finance fetch failed:', err.message);
-    return null;
-  }
-}
-
-/**
- * Create and start the morning briefing worker.
- */
 function startBriefingWorker() {
   const worker = new Worker(
     'morning-briefing',
@@ -74,23 +64,11 @@ function startBriefingWorker() {
         return;
       }
 
-      if (!user.zapier_account_id) {
-        console.warn(`Briefing worker: user ${userId} has no Zapier account, skipping`);
-        return;
-      }
+      const entityId = String(userId);
+      const calendarData = await fetchCalendarViaComposio(entityId);
+      const briefingText = composeBriefing(user, calendarData);
 
-      // Fetch all data sources in parallel — each one handles its own errors
-      const [calendarData, tasksData, financeData] = await Promise.all([
-        fetchCalendar(user.zapier_account_id),
-        fetchOverdueTasks(user.zapier_account_id),
-        fetchWeeklySpend(user.zapier_account_id),
-      ]);
-
-      // Build the briefing even if some data is missing
-      const briefingText = await buildMorningBriefing(user, calendarData, tasksData, financeData);
-
-      // Send via SMS
-      await sendSMS(user.phone, briefingText);
+      await provider.sendMessage(user.phone, briefingText);
       console.log(`Morning briefing sent to user ${userId}`);
     },
     {

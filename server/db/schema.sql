@@ -82,3 +82,37 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
 
 -- Push notification token for mobile app
 ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
+
+-- Workflow Engine v2: persistent agent workflows
+
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]';
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS variables JSONB DEFAULT '{}';
+
+ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS messages JSONB DEFAULT '[]';
+ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS step_log JSONB DEFAULT '[]';
+ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS context JSONB DEFAULT '{}';
+
+CREATE TABLE IF NOT EXISTS workflow_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  steps JSONB NOT NULL DEFAULT '[]',
+  variables JSONB DEFAULT '{}',
+  system_prompt TEXT,
+  author_user_id BIGINT REFERENCES users(id),
+  is_system BOOLEAN DEFAULT FALSE,
+  usage_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_pending_replies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id UUID NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  prompt_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  reply_text TEXT
+);

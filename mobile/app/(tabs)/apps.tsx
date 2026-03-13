@@ -7,10 +7,12 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import PipCard from '../../src/PipCard';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
+import { colors, spacing, radius } from '../../src/theme';
 
 const KNOWN_APPS = [
   { slug: 'gmail', name: 'Gmail', emoji: '\u{1F4E7}' },
@@ -32,6 +34,7 @@ const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
 export default function AppsScreen() {
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -51,36 +54,60 @@ export default function AppsScreen() {
     if (result.type === 'success') await fetchStatus();
   }
 
+  const filtered = search
+    ? KNOWN_APPS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
+    : KNOWN_APPS;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator color="#6c63ff" style={{ flex: 1 }} />
+        <ActivityIndicator color={colors.primary} style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <PipCard
-        expression="happy"
-        message={"Connect your tools\nand I'll do the work."}
-        style={styles.pip}
-      />
+      <View style={styles.header}>
+        <Text style={styles.title}>My Flock</Text>
+        <Text style={styles.subtitle}>{connected.length} connected</Text>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
+        <TextInput
+          style={styles.search}
+          placeholder="Search apps..."
+          placeholderTextColor={colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
       <FlatList
-        data={KNOWN_APPS}
-        numColumns={3}
-        keyExtractor={(item) => item.slug}
-        contentContainerStyle={styles.grid}
+        data={filtered}
+        keyExtractor={item => item.slug}
+        contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const isConnected = connected.includes(item.slug);
           return (
             <TouchableOpacity
-              style={[styles.appBtn, isConnected && styles.appBtnConnected]}
+              style={styles.appRow}
               onPress={() => !isConnected && handleConnect(item.slug)}
+              activeOpacity={isConnected ? 1 : 0.7}
             >
-              <Text style={styles.emoji}>{item.emoji}</Text>
-              <Text style={styles.name}>{item.name}</Text>
-              {isConnected && <Text style={styles.check}>{'\u2713'}</Text>}
+              <Text style={styles.appEmoji}>{item.emoji}</Text>
+              <View style={styles.appInfo}>
+                <Text style={styles.appName}>{item.name}</Text>
+                <Text style={[styles.appStatus, isConnected && styles.appStatusConnected]}>
+                  {isConnected ? 'Connected' : 'Tap to connect'}
+                </Text>
+              </View>
+              {isConnected ? (
+                <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              ) : (
+                <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />
+              )}
             </TouchableOpacity>
           );
         }}
@@ -90,20 +117,46 @@ export default function AppsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a' },
-  pip: { marginHorizontal: 16, marginTop: 8 },
-  grid: { padding: 12, gap: 8 },
-  appBtn: {
-    flex: 1,
-    margin: 6,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    minWidth: 90,
+  container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  appBtnConnected: { borderWidth: 1.5, borderColor: '#6c63ff' },
-  emoji: { fontSize: 26, marginBottom: 6 },
-  name: { color: '#e0e0ff', fontSize: 11, fontWeight: '500', textAlign: 'center' },
-  check: { color: '#6c63ff', fontSize: 14, marginTop: 4, fontWeight: '700' },
+  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBg,
+    borderRadius: radius.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchIcon: { marginRight: spacing.sm },
+  search: {
+    flex: 1,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 15,
+  },
+  list: { paddingHorizontal: spacing.lg },
+  appRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  appEmoji: { fontSize: 28, marginRight: spacing.md },
+  appInfo: { flex: 1 },
+  appName: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  appStatus: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+  appStatusConnected: { color: colors.success },
 });

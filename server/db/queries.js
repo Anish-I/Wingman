@@ -162,6 +162,105 @@ async function updatePushToken(userId, token) {
   return result.rows[0];
 }
 
+// --- Workflow Engine v2 queries ---
+
+async function getWorkflowById(workflowId) {
+  const result = await query('SELECT * FROM workflows WHERE id = $1', [workflowId]);
+  return result.rows[0] || null;
+}
+
+async function updateWorkflowRunMessages(runId, { messages, step_log, context, status }) {
+  const fields = [];
+  const values = [];
+  let idx = 1;
+  if (messages !== undefined) { fields.push(`messages = $${idx++}`); values.push(JSON.stringify(messages)); }
+  if (step_log !== undefined) { fields.push(`step_log = $${idx++}`); values.push(JSON.stringify(step_log)); }
+  if (context !== undefined) { fields.push(`context = $${idx++}`); values.push(JSON.stringify(context)); }
+  if (status !== undefined) { fields.push(`status = $${idx++}`); values.push(status); }
+  if (fields.length === 0) return null;
+  values.push(runId);
+  const res = await query(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, values);
+  return res.rows[0];
+}
+
+async function getWorkflowRun(runId) {
+  const result = await query('SELECT * FROM workflow_runs WHERE id = $1', [runId]);
+  return result.rows[0] || null;
+}
+
+async function getLastWorkflowRunContext(workflowId) {
+  const result = await query(
+    "SELECT context FROM workflow_runs WHERE workflow_id = $1 AND status = 'completed' ORDER BY completed_at DESC LIMIT 1",
+    [workflowId]
+  );
+  return result.rows[0]?.context || {};
+}
+
+// --- Template queries ---
+
+async function createTemplate({ name, description, category, steps, variables, system_prompt, author_user_id, is_system }) {
+  const result = await query(
+    `INSERT INTO workflow_templates (name, description, category, steps, variables, system_prompt, author_user_id, is_system)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [name, description || null, category || null, JSON.stringify(steps || []), JSON.stringify(variables || {}), system_prompt || null, author_user_id || null, is_system || false]
+  );
+  return result.rows[0];
+}
+
+async function searchTemplates(searchTerm, category) {
+  let sql = 'SELECT * FROM workflow_templates WHERE 1=1';
+  const values = [];
+  let idx = 1;
+  if (searchTerm) {
+    sql += ` AND (name ILIKE $${idx} OR description ILIKE $${idx})`;
+    values.push(`%${searchTerm}%`);
+    idx++;
+  }
+  if (category) {
+    sql += ` AND category = $${idx}`;
+    values.push(category);
+    idx++;
+  }
+  sql += ' ORDER BY usage_count DESC, created_at DESC';
+  const result = await query(sql, values);
+  return result.rows;
+}
+
+async function getTemplateById(templateId) {
+  const result = await query('SELECT * FROM workflow_templates WHERE id = $1', [templateId]);
+  return result.rows[0] || null;
+}
+
+async function incrementTemplateUsage(templateId) {
+  await query('UPDATE workflow_templates SET usage_count = usage_count + 1 WHERE id = $1', [templateId]);
+}
+
+// --- Pending replies queries ---
+
+async function createPendingReply({ run_id, workflow_id, user_id, prompt_text }) {
+  const result = await query(
+    'INSERT INTO workflow_pending_replies (run_id, workflow_id, user_id, prompt_text) VALUES ($1, $2, $3, $4) RETURNING *',
+    [run_id, workflow_id, user_id, prompt_text]
+  );
+  return result.rows[0];
+}
+
+async function getPendingReplyForUser(userId) {
+  const result = await query(
+    'SELECT * FROM workflow_pending_replies WHERE user_id = $1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1',
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+async function resolvePendingReply(replyId, replyText) {
+  const result = await query(
+    'UPDATE workflow_pending_replies SET resolved_at = NOW(), reply_text = $1 WHERE id = $2 RETURNING *',
+    [replyText, replyId]
+  );
+  return result.rows[0];
+}
+
 module.exports = {
   getUserByPhone,
   getUserById,
@@ -182,4 +281,15 @@ module.exports = {
   createWorkflowRun,
   updateWorkflowRun,
   updatePushToken,
+  getWorkflowById,
+  updateWorkflowRunMessages,
+  getWorkflowRun,
+  getLastWorkflowRunContext,
+  createTemplate,
+  searchTemplates,
+  getTemplateById,
+  incrementTemplateUsage,
+  createPendingReply,
+  getPendingReplyForUser,
+  resolvePendingReply,
 };

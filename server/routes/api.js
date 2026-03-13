@@ -125,4 +125,35 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/templates — search templates
+router.get('/templates', requireAuth, async (req, res) => {
+  try {
+    const { search: searchTerm, category } = req.query;
+    const templates = await require('../services/template-library').search(searchTerm, category);
+    res.json({ templates });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/templates — publish a template
+router.post('/templates', requireAuth, async (req, res) => {
+  try {
+    const template = await require('../services/template-library').publish(req.user.id, req.body);
+    res.status(201).json({ template });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/templates/:id/instantiate — create workflow from template
+router.post('/templates/:id/instantiate', requireAuth, async (req, res) => {
+  try {
+    const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, req.body);
+    res.status(201).json({ workflow });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
