@@ -12,8 +12,8 @@ export function LoginScreen() {
 
   const onSubmit: LoginFormProps['onSubmit'] = (data) => {
     console.log(data);
-    signIn('access-token');
-    router.push('/');
+    signIn('demo-mock-token');
+    router.replace('/(app)/chat');
   };
 
   return (
