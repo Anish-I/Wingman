@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { colors } from '../../src/theme';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -25,11 +26,11 @@ export default function ConnectAppScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator color="#6c63ff" size="large" />
+      <ActivityIndicator color={colors.primary} size="large" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
 });

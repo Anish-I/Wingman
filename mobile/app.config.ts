@@ -7,7 +7,7 @@ export default {
   userInterfaceStyle: 'dark',
   splash: {
     image: './assets/splash.png',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#1A1B2E',
     resizeMode: 'contain',
   },
   ios: {
@@ -26,7 +26,7 @@ export default {
     package: 'com.wingman.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#0f0f1a',
+      backgroundColor: '#1A1B2E',
     },
     permissions: [
       'CAMERA',
@@ -41,11 +41,12 @@ export default {
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'expo-splash-screen',
     [
       'expo-notifications',
       {
         icon: './assets/icon.png',
-        color: '#6c63ff',
+        color: '#3B5998',
       },
     ],
     [

@@ -10,7 +10,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import PipCard from '../../src/PipCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import GradientButton from '../../src/components/GradientButton';
@@ -21,7 +21,6 @@ import { colors, spacing, radius } from '../../src/theme';
 
 export default function PhoneScreen() {
   const router = useRouter();
-  const { name } = useLocalSearchParams<{ name?: string }>();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
   const [step, setStep] = useState<'phone' | 'verify'>('phone');
