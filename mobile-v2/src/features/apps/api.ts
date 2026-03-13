@@ -6,7 +6,12 @@ type AppsResponse = { connected: string[]; missing: string[] };
 export const useApps = createQuery<AppsResponse>({
   queryKey: ['apps'],
   fetcher: async () => {
-    const { data } = await client.get<AppsResponse>('/api/apps');
-    return data;
+    try {
+      const { data } = await client.get<AppsResponse>('/api/apps');
+      return data;
+    } catch {
+      // Demo mode: return empty connected list
+      return { connected: [], missing: [] };
+    }
   },
 });

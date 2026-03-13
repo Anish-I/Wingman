@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
 import Svg, { Path } from 'react-native-svg';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { signIn } from '@/features/auth/use-auth-store';
-import { client } from '@/lib/api/client';
-
-WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_CLIENT_ID = '45207370205-jsis6robv7mbejpakckiqgaono8s81hu.apps.googleusercontent.com';
 
 function GoogleIcon() {
   return (
@@ -41,9 +33,6 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'wingman' });
 
   function handleSignUp() {
     if (!email || !password) {
@@ -53,31 +42,12 @@ export default function SignupScreen() {
     router.push({ pathname: '/onboarding/phone', params: { email } });
   }
 
-  async function handleGoogleSignIn() {
-    setGoogleLoading(true);
-    try {
-      const authRequest = new AuthSession.AuthRequest({
-        clientId: GOOGLE_CLIENT_ID,
-        scopes: ['openid', 'profile', 'email'],
-        redirectUri,
-        responseType: AuthSession.ResponseType.Code,
-        usePKCE: true,
-      });
+  function handleGoogleSignIn() {
+    Alert.alert('Demo Mode', 'OAuth is not available in demo mode. Use email sign-up instead.');
+  }
 
-      const result = await authRequest.promptAsync({
-        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-      } as AuthSession.DiscoveryDocument);
-
-      if (result.type === 'success' && result.params?.code) {
-        const { data } = await client.post('/auth/google', { idToken: result.params.code });
-        signIn(data.token);
-        router.replace('/(app)');
-      }
-    } catch (err: unknown) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Google sign-in failed.');
-    } finally {
-      setGoogleLoading(false);
-    }
+  function handleAppleSignIn() {
+    Alert.alert('Demo Mode', 'OAuth is not available in demo mode. Use email sign-up instead.');
   }
 
   return (
@@ -154,27 +124,20 @@ export default function SignupScreen() {
             <TouchableOpacity
               className="h-[52px] rounded-lg border-[1.5px] border-[#3A3A3A] flex-row items-center justify-center"
               onPress={handleGoogleSignIn}
-              disabled={googleLoading}
               activeOpacity={0.8}
-              style={googleLoading ? { opacity: 0.6 } : undefined}
             >
-              {googleLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <GoogleIcon />
-                  <Text
-                    className="text-white text-[14px] ml-2.5"
-                    style={{ fontFamily: 'Inter_500Medium' }}
-                  >
-                    Continue with Google
-                  </Text>
-                </>
-              )}
+              <GoogleIcon />
+              <Text
+                className="text-white text-[14px] ml-2.5"
+                style={{ fontFamily: 'Inter_500Medium' }}
+              >
+                Continue with Google
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               className="h-[52px] rounded-lg bg-white flex-row items-center justify-center"
+              onPress={handleAppleSignIn}
               activeOpacity={0.8}
             >
               <AppleIcon />
