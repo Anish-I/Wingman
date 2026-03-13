@@ -59,7 +59,7 @@ export default function FeaturesScreen() {
       <View style={styles.footer}>
         <GradientButton
           title="Continue"
-          onPress={() => router.push('/onboarding/phone')}
+          onPress={() => router.push('/onboarding/signup')}
         />
       </View>
     </SafeAreaView>
