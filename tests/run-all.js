@@ -1,9 +1,10 @@
 /**
  * Wingman E2E Test Runner
- * Orchestrates all 5 agents in correct dependency order:
- *   Phase 1: Agents 1, 2, 3 in parallel
- *   Phase 2: Agent 4 (needs DB from Agent 1)
- *   Phase 3: Agent 5 (reviewer — reads all results)
+ * Orchestrates all 6 agents in correct dependency order:
+ *   Phase 1: Agents 1, 2, 3 in parallel (infra + services + routes)
+ *   Phase 2: Agent 4 (needs DB from Agent 1 — orchestrator/agentic loop)
+ *   Phase 3: Agent 6 (Composio full integration — needs core services from Agent 2)
+ *   Phase 4: Agent 5 (reviewer — reads all results)
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -122,8 +123,16 @@ async function main() {
   });
   console.log(`\n Phase 2 done in ${((Date.now() - t2) / 1000).toFixed(1)}s`);
 
-  // Phase 3: Agent 5 — Reviewer
-  console.log('\n═══ Phase 3: Reviewer ═══');
+  // Phase 3: Agent 6 — Composio Full Integration
+  console.log('\n═══ Phase 3: Composio Full Integration ═══');
+  const t3 = Date.now();
+  await runScript('agent6-composio-full.js').catch(err => {
+    console.error('Agent 6 error:', err.message);
+  });
+  console.log(`\n Phase 3 done in ${((Date.now() - t3) / 1000).toFixed(1)}s`);
+
+  // Phase 4: Agent 5 — Reviewer
+  console.log('\n═══ Phase 4: Reviewer ═══');
   await runScript('agent5-reviewer.js');
 
   // Cleanup server if we started it
