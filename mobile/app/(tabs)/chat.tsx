@@ -94,7 +94,7 @@ export default function ChatScreen() {
               source={require('../../assets/pip/pip-thinking.png')}
               style={styles.avatarSmall}
             />
-            <Text style={styles.typing}>Pip is thinking\u2026</Text>
+            <Text style={styles.typing}>Pip is thinking...</Text>
           </View>
         )}
         <View style={styles.inputBar}>
@@ -102,7 +102,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Message Wingman\u2026"
+            placeholder="Message Wingman..."
             placeholderTextColor="#555"
             multiline
             onSubmitEditing={send}
