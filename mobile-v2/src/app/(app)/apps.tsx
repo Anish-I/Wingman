@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
-import Env from 'env';
 import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 
@@ -39,12 +37,10 @@ export default function AppsScreen() {
     if (data?.connected) setConnected(data.connected);
   }, [data]);
 
-  async function handleConnect(slug: string) {
-    const result = await WebBrowser.openAuthSessionAsync(
-      `${Env.EXPO_PUBLIC_API_URL}/connect/${slug}`,
-      'wingman://connect/callback'
+  function handleConnect(slug: string) {
+    setConnected((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
     );
-    if (result.type === 'success') refetch();
   }
 
   const filtered = search
@@ -98,8 +94,8 @@ export default function AppsScreen() {
                     <TouchableOpacity
                       key={app.slug}
                       className="w-[88px] bg-card rounded-[14px] p-3 items-center relative"
-                      onPress={() => !isConn && handleConnect(app.slug)}
-                      activeOpacity={isConn ? 1 : 0.7}
+                      onPress={() => handleConnect(app.slug)}
+                      activeOpacity={0.7}
                     >
                       {isConn && (
                         <View className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] items-center justify-center z-10">

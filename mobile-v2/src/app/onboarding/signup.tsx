@@ -8,6 +8,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
+import { signIn } from '@/features/auth/use-auth-store';
 
 function GoogleIcon() {
   return (
@@ -39,7 +40,8 @@ export default function SignupScreen() {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
-    router.push({ pathname: '/onboarding/phone', params: { email } });
+    signIn('demo-mock-token');
+    router.push('/onboarding/permissions');
   }
 
   function handleGoogleSignIn() {
@@ -158,7 +160,7 @@ export default function SignupScreen() {
             >
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/login')}>
               <Text
                 className="text-[#525252] text-[13px] font-semibold"
                 style={{ fontFamily: 'Inter_400Regular' }}

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import Env from 'env';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
@@ -33,7 +31,6 @@ const ALL_APPS = [
 export default function ConnectScreen() {
   const router = useRouter();
   const [connected, setConnected] = useState<string[]>(CONNECTED_DEFAULT);
-  const [connecting, setConnecting] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const filtered = search
@@ -46,21 +43,12 @@ export default function ConnectScreen() {
     rows.push(filtered.slice(i, i + 4));
   }
 
-  async function handleConnect(slug: string) {
-    if (connected.includes(slug)) return;
-    setConnecting(slug);
-    try {
-      const result = await WebBrowser.openAuthSessionAsync(
-        `${Env.EXPO_PUBLIC_API_URL}/connect/${slug}`,
-        'wingman://connect/callback'
-      );
-      if (result.type === 'success') {
-        setConnected((prev) => [...prev, slug]);
-      }
-    } catch {
-      // ignore
+  function handleConnect(slug: string) {
+    if (connected.includes(slug)) {
+      setConnected((prev) => prev.filter((s) => s !== slug));
+    } else {
+      setConnected((prev) => [...prev, slug]);
     }
-    setConnecting(null);
   }
 
   return (
@@ -124,7 +112,6 @@ export default function ConnectScreen() {
             <View key={rowIdx} className="flex-row" style={{ gap: 10 }}>
               {row.map((app) => {
                 const isConnected = connected.includes(app.slug);
-                const isConnecting = connecting === app.slug;
                 return (
                   <TouchableOpacity
                     key={app.slug}
@@ -139,19 +126,13 @@ export default function ConnectScreen() {
                     onPress={() => handleConnect(app.slug)}
                     activeOpacity={0.7}
                   >
-                    {isConnecting ? (
-                      <ActivityIndicator color="#FF3B30" />
-                    ) : (
-                      <>
-                        <Text style={{ fontSize: 24 }}>{app.emoji}</Text>
-                        <Text
-                          style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
-                          numberOfLines={1}
-                        >
-                          {app.name}
-                        </Text>
-                      </>
-                    )}
+                    <Text style={{ fontSize: 24 }}>{app.emoji}</Text>
+                    <Text
+                      style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
+                      numberOfLines={1}
+                    >
+                      {app.name}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}

@@ -3,7 +3,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -28,16 +28,49 @@ SplashScreen.setOptions({
 });
 
 export default function RootLayout() {
-  return (
-    <Providers>
-      <Stack>
-        <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="connect" options={{ headerShown: false }} />
-      </Stack>
-    </Providers>
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.body.style.backgroundColor = '#0C0C0C';
+      document.body.style.margin = '0';
+    }
+  }, []);
+
+  const content = (
+    <Stack>
+      <Stack.Screen name="(app)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="connect" options={{ headerShown: false }} />
+    </Stack>
   );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Providers>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#0C0C0C',
+            alignItems: 'center',
+            minHeight: '100vh' as any,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 430,
+              flex: 1,
+              overflow: 'hidden' as any,
+            }}
+          >
+            {content}
+          </View>
+        </View>
+      </Providers>
+    );
+  }
+
+  return <Providers>{content}</Providers>;
 }
 
 function Providers({ children }: { children: React.ReactNode }) {

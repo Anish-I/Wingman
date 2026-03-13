@@ -9,6 +9,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
+import { signIn } from '@/features/auth/use-auth-store';
 
 const CONFETTI_COLORS = ['#FF3B30', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
 
@@ -50,6 +51,7 @@ export default function DoneScreen() {
   const [_, setIsFirstTime] = useIsFirstTime();
 
   function handleStart() {
+    signIn('demo-mock-token');
     setIsFirstTime(false);
     router.replace('/(app)/chat');
   }
