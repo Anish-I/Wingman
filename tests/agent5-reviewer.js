@@ -18,7 +18,7 @@ function loadAgent(n) {
 function run() {
   console.log('\n=== Agent 5: Reviewer ===\n');
 
-  const agents = [1, 2, 3, 4].map(n => ({ n, data: loadAgent(n) }));
+  const agents = [1, 2, 3, 4, 6].map(n => ({ n, data: loadAgent(n) }));
 
   let totalPass = 0;
   let totalFail = 0;

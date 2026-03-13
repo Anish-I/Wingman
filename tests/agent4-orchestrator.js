@@ -86,10 +86,12 @@ async function run() {
     // Clear history first
     await redis.del(`conv:${testUser.id}`);
 
-    const r1 = await processMessage(testUser, 'My favorite color is electric blue.');
-    const r2 = await processMessage(testUser, 'What color did I just tell you?');
+    // Use a message with no tool-routing keywords (pure conversation).
+    // Words like "zibzab" and "snorkel" won't appear in any tool name or description.
+    const r1 = await processMessage(testUser, 'My secret codeword is zibzab.');
+    const r2 = await processMessage(testUser, 'What secret codeword did I just tell you?');
 
-    const hasContext = typeof r2 === 'string' && (r2.toLowerCase().includes('blue') || r2.toLowerCase().includes('electric'));
+    const hasContext = typeof r2 === 'string' && r2.toLowerCase().includes('zibzab');
     record(
       'Multi-turn: second message has conversation history context',
       hasContext,

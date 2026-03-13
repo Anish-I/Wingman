@@ -18,34 +18,34 @@
       "detail": "returned 1000 tools"
     },
     {
-      "name": "Composio: connection status for ALL 50 apps",
+      "name": "Composio: connection status for ALL 1003 apps",
       "status": "PASS",
-      "detail": "connected=[gmail] (1), missing=49"
+      "detail": "connected=[gmail] (1), missing=1002"
     },
     {
-      "name": "Composio: tool list populated (1000 tools from 12 apps)",
+      "name": "Composio: tool list populated (1000 tools from 53 apps)",
       "status": "PASS",
       "detail": "gmail:0tools"
     },
     {
       "name": "Composio: OAuth link for slack (communication)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/oMfR-yqU...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/GG51QdL6...\""
     },
     {
       "name": "Composio: OAuth link for googlecalendar (calendar)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/x_Eoo1Bk...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/enPDb6GL...\""
     },
     {
       "name": "Composio: OAuth link for googledrive (storage)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/nXz2IVBY...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/5DA118ke...\""
     },
     {
       "name": "Composio: OAuth link for github (dev)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/RK0gIPYT...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/o3H0CARv...\""
     },
     {
       "name": "Composio: appFromToolName parses all tool name formats",
@@ -65,7 +65,7 @@
     {
       "name": "Reminders: parse \"remind me to drink water in 5 minutes\" → valid fire_at",
       "status": "PASS",
-      "detail": "message=\"drink water\", fireAt=\"2026-03-13T00:28:00.867Z\""
+      "detail": "message=\"drink water\", fireAt=\"2026-03-13T02:03:51.207Z\""
     }
   ],
   "summary": {

@@ -5,7 +5,7 @@
     {
       "name": "POST /auth/request-otp valid phone → 200",
       "status": "PASS",
-      "detail": "OTP stored in Redis (812162) — Telnyx delivery suspended (user fixing w/ Telnyx support), core auth logic OK"
+      "detail": "OTP stored in Redis (289066) — Telnyx delivery suspended (user fixing w/ Telnyx support), core auth logic OK"
     },
     {
       "name": "POST /auth/request-otp invalid phone → 400 error",

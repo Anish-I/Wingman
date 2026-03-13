@@ -10,17 +10,17 @@
     {
       "name": "Tool-using query \"Check my Gmail\" → LLM calls tool OR returns OAuth link",
       "status": "PASS",
-      "detail": "response=\"I am not able to execute this task as it exceeds the limitations of the functions I have been given.\", isOAuthLink=false"
+      "detail": "response=\"Need to connect your Gmail account first.\", isOAuthLink=true"
     },
     {
       "name": "Multi-turn: second message has conversation history context",
       "status": "PASS",
-      "detail": "r1=\"Noted, your favorite color is electric blue. Anything else I\", r2=\"You didn't tell me your favorite color, I was told that my favorite color is electric blue.\""
+      "detail": "r1=\"Noted, zibzab is your codeword.\", r2=\"zibzab\""
     },
     {
       "name": "Memory persistence: \"My name is TestBot...\" → memory extraction fires",
       "status": "PASS",
-      "detail": "updateUserPreferences called with: {\"memory\":{\"name\":\"TestBot McTester\",\"location\":\"San Francisco\",\"preferences\":[\"electric blue\"]}}"
+      "detail": "updateUserPreferences called with: {\"memory\":{\"name\":\"TestBot McTester\",\"location\":\"San Francisco\"}}"
     },
     {
       "name": "Tool iteration limit: mocked infinite tool → stops at MAX_TOOL_ITERATIONS=5",
@@ -30,7 +30,7 @@
     {
       "name": "Error resilience: bad Composio key → graceful error string returned",
       "status": "PASS",
-      "detail": "response=\"I can help with tasks like scheduling meetings, sending emails, or making calls. What do you need do\""
+      "detail": "response=\"I can schedule meetings, send emails, and handle tasks for you. What's the first thing you need done\""
     }
   ],
   "summary": {

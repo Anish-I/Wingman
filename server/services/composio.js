@@ -4,34 +4,142 @@ const { redis } = require('./redis');
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 
-// Apps Wingman exposes as tools. Composio silently skips apps the user hasn't connected yet.
+// All 1003 apps available on Composio.
+// Used for connection status checks and OAuth link generation.
+// Tools are fetched without an app filter so Composio returns whatever the user has connected.
 const WINGMAN_APPS = [
-  // Communication
-  'gmail', 'slack', 'discord', 'discordbot', 'whatsapp', 'telegram',
-  'microsoft_teams', 'outlook', 'zoom',
-  // Calendar & Tasks
-  'googlecalendar', 'googletasks', 'cal', 'calendly', 'todoist', 'asana',
-  'trello', 'notion', 'linear', 'jira', 'clickup', 'monday',
-  // Storage & Docs
-  'googledrive', 'googledocs', 'googlesheets', 'googleslides',
-  'dropbox', 'one_drive', 'box', 'airtable',
-  // Dev & Code
-  'github', 'gitlab', 'bitbucket',
-  // CRM & Business
-  'hubspot', 'salesforce', 'pipedrive', 'attio',
-  // Finance
-  'stripe', 'quickbooks', 'xero',
-  // Social
-  'twitter', 'linkedin', 'instagram', 'reddit',
-  // Smart Home / IoT
-  'triggercmd', 'sensibo',
-  // Misc
-  'spotify', 'youtube', 'perplexityai', 'tavily', 'serpapi',
+  'gmail', 'composio', 'github', 'googlecalendar', 'notion', 'googlesheets', 'slack', 'supabase',
+  'outlook', 'perplexityai', 'twitter', 'googledrive', 'googledocs', 'hubspot', 'linear', 'airtable',
+  'codeinterpreter', 'serpapi', 'jira', 'firecrawl', 'tavily', 'youtube', 'slackbot', 'canvas',
+  'bitbucket', 'googletasks', 'discord', 'figma', 'composio_search', 'reddit', 'cal', 'wrike',
+  'exa', 'sentry', 'snowflake', 'hackernews', 'elevenlabs', 'microsoft_teams', 'asana', 'peopledatalabs',
+  'shopify', 'linkedin', 'google_maps', 'one_drive', 'docusign', 'discordbot', 'salesforce', 'calendly',
+  'trello', 'apollo', 'semrush', 'mem0', 'neon', 'weathermap', 'posthog', 'clickup',
+  'brevo', 'stripe', 'klaviyo', 'browserbase_tool', 'mailchimp', 'attio', 'googlemeet', 'text_to_pdf',
+  'zoho', 'fireflies', 'dropbox', 'shortcut', 'confluence', 'freshdesk', 'borneo', 'mixpanel',
+  'coda', 'acculynx', 'ahrefs', 'affinity', 'amplitude', 'heygen', 'agencyzoom', 'googlebigquery',
+  'microsoft_clarity', 'coinbase', 'monday', 'semanticscholar', 'sendgrid', 'junglescout', 'pipedrive', 'bamboohr',
+  'whatsapp', 'dynamics365', 'zendesk', 'googlephotos', 'lmnt', 'metaads', 'zenrows', 'googlesuper',
+  'browser_tool', 'yousearch', 'linkup', 'listennotes', 'typefully', 'bolna', 'rocketlane', 'zoom',
+  'onepage', 'entelligence', 'retellai', 'servicenow', 'googleads', 'pagerduty', 'toneden', 'rafflys',
+  'finage', 'fomo', 'bannerbear', 'miro', 'share_point', 'mocean', 'formcarry', 'appdrag',
+  'metatextai', 'launch_darkly', 'mailerlite', 'contentful', 'close', 'docmosis', 'ably', 'more_trees',
+  'netsuite', 'moz', 'recallai', 'apaleo', 'survey_monkey', 'zoho_books', 'zoho_inventory', 'facebook',
+  'tinypng', 'mopinion', 'crustdata', 'webex', 'brandfetch', 'canva', 'digicert', 'dailybot',
+  'linkhut', 'dropbox_sign', 'timely', 'box', 'smugmug', 'productboard', 'blackbaud', 'webflow',
+  'amcards', 'simplesat', 'flutterwave', 'hackerrank_work', 'freshbooks', 'process_street', 'screenshotone', 'chatwork',
+  'klipfolio', 'demio', 'altoviz', 'd2lbrightspace', 'blackboard', 'lever', 'zoho_bigin', 'pandadoc',
+  'workiom', 'lexoffice', 'gorgias', 'google_analytics', 'todoist', 'zoho_desk', 'ashby', 'datarobot',
+  'ngrok', 'square', 'yandex', 'baserow', 'dialpad', 'formsite', 'ynab', 'kommo',
+  'tisane', 'coinmarketcal', 'browseai', 'maintainx', 'tinyurl', 'bitwarden', 'epic_games', 'timecamp',
+  'piggy', 'alchemy', 'gumroad', 'foursquare', 'open_sea', 'humanloop', 'zoominfo', 'gong',
+  'placekey', 'datagma', 'servicem8', 'textrazor', 'bubble', 'chmeetings', 'cloudflare', 'harvest',
+  'wakatime', 'xero', 'boldsign', 'active_campaign', 'zoho_mail', 'mural', 'brex', 'intercom',
+  'eventbrite', 'beeminder', 'rocket_reach', 'interzoid', 'exist', 'zenserp', 'zoho_invoice', 'stack_exchange',
+  'botbaba', 'datadog', 'waboxapp', 'echtpost', '_21risk', '_2chat', 'abstract', 'abuselpdb',
+  'abyssale', 'accredible_certificates', 'active_trail', 'addressfinder', 'addresszen', 'adrapid', 'adyntel', 'aeroleads',
+  'affinda', 'agent_mail', 'agentql', 'agenty', 'agiled', 'agility_cms', 'ai_ml_api', 'aivoov',
+  'algodocs', 'algolia', 'all_images_ai', 'alpha_vantage', 'alttext_ai', 'amara', 'ambee', 'ambient_weather',
+  'anchor_browser', 'anonyflow', 'anthropic_administrator', 'api_labz', 'api_ninjas', 'api_sports', 'api_bible', 'api2pdf',
+  'apiflash', 'apify', 'apify_mcp', 'apilio', 'apipie_ai', 'apiverve', 'appcircle', 'appointo',
+  'appveyor', 'aryn', 'ascora', 'asin_data_api', 'astica_ai', 'async_interview', 'autobound', 'autom',
+  'ayrshare', 'backendless', 'bart', 'basecamp', 'baselinker', 'basin', 'beaconchain', 'beaconstac',
+  'beamer', 'benchmark_email', 'benzinga', 'bestbuy', 'better_proposals', 'better_stack', 'bettercontact', 'bidsketch',
+  'big_data_cloud', 'bigmailer', 'bigml', 'bigpicture_io', 'bitquery', 'blazemeter', 'blocknative', 'boloforms',
+  'bolt_iot', 'bonsai', 'bookingmood', 'booqable', 'botpress', 'botsonic', 'botstar', 'bouncer',
+  'boxhero', 'breathehr', 'breeze', 'brightdata', 'brilliant_directories', 'browserless', 'btcpay_server', 'bugbug',
+  'bugherd', 'bugsnag', 'buildkite', 'builtwith', 'bunnycdn', 'byteforms', 'cabinpanda', 'calendarhero',
+  'callerapi', 'callingly', 'callpage', 'campaign_cleaner', 'campayn', 'canny', 'capsule_crm', 'carbone',
+  'cardly', 'castingwords', 'cats', 'cdr_platform', 'celigo', 'census_bureau', 'centralstationcrm', 'certifier',
+  'chaser', 'chatbotkit', 'chatfai', 'cincopa', 'circleci', 'claid_ai', 'classmarker', 'clearout',
+  'clickhouse', 'clickmeeting', 'clicksend', 'clientary', 'clockify', 'cloudcart', 'cloudconvert', 'cloudflare_api_key',
+  'cloudflare_browser_rendering', 'cloudinary', 'cloudlayer', 'coassemble', 'codacy', 'codemagic', 'codereadr', 'cody',
+  'coinmarketcap', 'coinranking', 'college_football_data', 'commcare', 'connecteam', 'contentful_graphql', 'context7_mcp', 'control_d',
+  'conversion_tools', 'convertapi', 'convex', 'conveyor', 'convolo_ai', 'corrently', 'countdown_api', 'coupa',
+  'craftmypdf', 'crowdin', 'crowterminal', 'cults', 'curated', 'currencyscoop', 'currents_api', 'cursor',
+  'customerio', 'customgpt', 'customjs', 'cutt_ly', 'dadata_ru', 'daffy', 'dart', 'data247',
+  'databox', 'databricks', 'dataforseo', 'datascope', 'deadline_funnel', 'deepgram', 'deepimage', 'deepseek',
+  'deepwiki_mcp', 'delighted', 'deployhq', 'desktime', 'detrack', 'devin_mcp', 'dialmycalls', 'dictionary_api',
+  'diffbot', 'digital_ocean', 'dnsfilter', 'dock_certs', 'docker_hub', 'docnify', 'docparser', 'docraptor',
+  'docsautomator', 'docsbot_ai', 'docsumo', 'docugenerate', 'documenso', 'documint', 'docupilot', 'docupost',
+  'docuseal', 'doppler', 'doppler_marketing_automation', 'dotsimple', 'dovetail', 'dpd2', 'draftable', 'dreamstudio',
+  'dripcel', 'dromo', 'dropcontact', 'dub', 'dungeon_fighter_online', 'dynapictures', 'e2b', 'eagle_doc',
+  'ecologi', 'egnyte', 'elasticsearch', 'elevenreader', 'elorus', 'emailable', 'emaillistverify', 'emailoctopus',
+  'emelia', 'encodian', 'endorsal', 'engage', 'enginemailer', 'enigma', 'eodhd_apis', 'erpnext',
+  'esignatures_io', 'espocrm', 'esputnik', 'etermin', 'evenium', 'eventee', 'eventzilla', 'everhour',
+  'eversign', 'excel', 'expofp', 'extracta_ai', 'faceup', 'fal_ai', 'faraday', 'fathom',
+  'feathery', 'felt', 'fibery', 'fidel_api', 'files_com', 'fillout_forms', 'findymail', 'finerworks',
+  'fingertip', 'finmei', 'fireberry', 'firmao', 'fixer', 'flexisign', 'flowiseai', 'fluxguard',
+  'fly', 'folk', 'follow_up_boss', 'forcemanager', 'formbricks', 'formdesk', 'fraudlabs_pro', 'freeagent',
+  'freshservice', 'fullenrich', 'gagelist', 'gamma', 'gan_ai', 'gatherup', 'gemini', 'gender_api',
+  'genderapi_io', 'genderize', 'geoapify', 'geocodio', 'geokeo', 'getform', 'getprospect', 'gift_up',
+  'gigasheet', 'giphy', 'gist', 'gitea', 'gitlab', 'givebutter', 'gladia', 'gleap',
+  'globalping', 'godial', 'goodbits', 'goody', 'google_address_validation', 'google_admin', 'google_classroom', 'google_cloud_vision',
+  'google_search_console', 'googleslides', 'gosquared', 'grafana', 'grafbase', 'granola_mcp', 'graphhopper', 'griptape',
+  'grist', 'groqcloud', 'gtmetrix', 'habitica', 'handwrytten', 'happy_scribe', 'hashnode', 'headout',
+  'heartbeat', 'helloleads', 'help_scout', 'helpdesk', 'helpwise', 'here', 'hex', 'heyreach',
+  'heyy', 'heyzine', 'highergov', 'honeybadger', 'honeyhive', 'hookdeck', 'hotspotsystem', 'html_to_image',
+  'hub_planner', 'hugging_face', 'humanitix', 'hunter', 'hypeauditor', 'hyperbrowser', 'hyperise', 'hystruct',
+  'ibm_x_force_exchange', 'icypeas', 'identitycheck', 'ignisign', 'imagekit_io', 'imagior', 'imejis_io', 'imgbb',
+  'imgix', 'incident_io', 'influxdb_cloud', 'insighto_ai', 'instacart', 'instagram', 'instantly', 'intelliprint',
+  'ip2location', 'ip2proxy', 'ip2whois', 'ipdata_co', 'ipinfo_io', 'iqair_airvisual', 'jigsawstack', 'jobnimbus',
+  'jotform', 'jumpcloud', 'kadoa', 'kaggle', 'kaleido', 'kanbanize', 'keen_io', 'keyword',
+  'kibana', 'kickbox', 'kit', 'klazify', 'knack', 'ko_fi', 'kontent_ai', 'kraken_io',
+  'l2s', 'lagrowthmachine', 'labs64_netlicensing', 'landbot', 'langbase', 'laposta', 'leadboxer', 'leadfeeder',
+  'leadiq', 'leexi', 'leiga', 'lemlist', 'lemon_squeezy', 'lessonspace', 'leverly', 'linguapop',
+  'linkedin_ads', 'linkly', 'listclean', 'livesession', 'llmwhisperer', 'lob', 'lodgify', 'logo_dev',
+  'loomio', 'loops_so', 'loyverse', 'magnetic', 'mailbluster', 'mailboxlayer', 'mailcheck', 'mailcoach',
+  'mailercloud', 'mailersend', 'mails_so', 'mailsoftly', 'mailtrap', 'make', 'mapbox', 'mapulus',
+  'marketstack', 'matterport', 'melo', 'mem', 'memberspot', 'memberstack', 'membervault', 'metabase',
+  'mezmo', 'minerstat', 'missive', 'mistral_ai', 'mixmax', 'moco', 'modelry', 'monday_mcp',
+  'moneybird', 'moonclerk', 'moosend', 'motion', 'msg91', 'mx_technologies', 'mx_toolbox', 'nango',
+  'nano_nets', 'nasa', 'nasdaq', 'needle', 'nethunt_crm', 'neuronwriter', 'neutrino', 'neverbounce',
+  'new_relic', 'news_api', 'nextdns', 'niftyimages', 'ninox', 'nocodb', 'nocrm_io', 'northflank',
+  'nozbe_teams', 'npm', 'ntfy', 'nusii_proposals', 'nutshell', 'ocr_web_service', 'ocrspace', 'odoo',
+  'oksign', 'ollama', 'omnisend', 'onedesk', 'onesignal_rest_api', 'onesignal_user_auth', 'openai', 'opencage',
+  'opengraph_io', 'openperplex', 'openrouter', 'openweather_api', 'optimoroute', 'outline', 'owl_protocol', 'page_x',
+  'paperform', 'paradym', 'parallel', 'parma', 'parsehub', 'parsera', 'parseur', 'parsio_io',
+  'passcreator', 'passslot', 'payhere', 'payhip', 'paystack', 'pdf_api_io', 'pdf_co', 'pdf4me',
+  'pdfless', 'pdfmonkey', 'penpot', 'perigon', 'persistiq', 'persona', 'pexels', 'phantombuster',
+  'piloterr', 'pilvio', 'pinecone', 'pingdom', 'pipeline_crm', 'placid', 'plain', 'planly',
+  'planyo_online_booking', 'plasmic', 'platerecognizer', 'plausible_analytics', 'plisio', 'pointagram', 'polygon', 'polygon_io',
+  'poof', 'postalytics', 'postgrid', 'postgrid_verify', 'postiz_mcp', 'postman', 'postmark', 'prerender',
+  'printautopilot', 'prisma', 'prismic', 'proabono', 'procfu', 'productlane', 'project_bubble', 'promptmate_io',
+  'proofly', 'proxiedmail', 'push_by_techulus', 'pushbullet', 'pushover', 'quaderno', 'quickbooks', 'radar',
+  'ragic', 'ragie', 'raisely', 'ramp', 'rawg_video_games_database', 're_amaze', 'realphonevalidation', 'recruitee',
+  'redcircle_api', 'reddit_ads', 'referralrock', 'refiner', 'remarkety', 'remote_retrieval', 'remove_bg', 'render',
+  'renderform', 'rentman', 'repairshopr', 'replicate', 'reply', 'reply_io', 'resend', 'respond_io',
+  'retailed', 'retently', 'rev', 'revolt', 'ritekit', 'rkvst', 'roam', 'roboflow',
+  'rocketadmin', 'rollbar', 'rootly', 'rosette_text_analytics', 'route4me', 'rudderstack_transformation', 'runpod', 'safetyculture',
+  'salesflare', 'salesforce_service_cloud', 'salesmate', 'sap_successfactors', 'satismeter', 'saucelabs', 'scale_ai', 'scheduleonce',
+  'scrape_do', 'scrapegraph_ai', 'scrapfly', 'scrapingant', 'scrapingbee', 'screenshot_fyi', 'search_api', 'seat_geek',
+  'securitytrails', 'segment', 'segmetrics', 'sendbird', 'sendbird_ai_chabot', 'sender', 'sendfox', 'sendlane',
+  'sendloop', 'sendspark', 'sensibo', 'seqera', 'serpdog', 'serphouse', 'serply', 'serveravatar',
+  'sevdesk', 'shipday', 'shipengine', 'shippo', 'short_io', 'short_menu', 'shorten_rest', 'shortpixel',
+  'shotstack', 'sidetracker', 'signaturely', 'signpath', 'signwell', 'similarweb_digitalrank_api', 'simla_com', 'simple_analytics',
+  'simplekpi', 'simplero', 'sitespeakai', 'skyfire', 'slite', 'smartproxy', 'sms_alert', 'smtp2go',
+  'snapchat', 'snowflake_basic', 'softr', 'solcast', 'sourcegraph', 'specific', 'splitwise', 'spoki',
+  'spondyr', 'spotify', 'spotlightr', 'sslmate_cert_spotter_api', 'stack_ai', 'stannp', 'starton', 'statuscake',
+  'storeganise', 'storerocket', 'stormboard', 'stormglass_io', 'storyblok', 'strava', 'streamtime', 'studio_by_ai21_labs',
+  'suitedash', 'supadata', 'superchat', 'supersaas', 'supportbee', 'supportivekoala', 'svix', 'swaggerhub',
+  'sympla', 'synthflow_ai', 'taggun', 'talenthr', 'tally', 'tapfiliate', 'tave', 'tavily_mcp',
+  'taxjar', 'teamcamp', 'telegram', 'telnyx', 'teltel', 'templated', 'test_app', 'textcortex',
+  'textit', 'thanks_io', 'the_odds_api', 'ticketmaster', 'ticktick', 'tidy', 'tiktok', 'timelinesai',
+  'timelink', 'tinyfish_mcp', 'tldv', 'toggl', 'token_metrics', 'tomba', 'tomtom', 'tpscheck',
+  'triggercmd', 'tripadvisor', 'tripadvisor_content_api', 'truvera', 'turbot_pipes', 'turso', 'twelve_data', 'twocaptcha',
+  'typeform', 'typless', 'u301', 'unione', 'unisender', 'updown_io', 'uploadcare', 'uptimerobot',
+  'userflow', 'userlist', 'v0', 'vapi', 'vectorshift', 'veo', 'vercel', 'verifiedemail',
+  'veriphone', 'vestaboard', 'virustotal', 'wachete', 'waiverfile', 'wati', 'webscraper_io', 'webscraping_ai',
+  'webvizio', 'whautomate', 'whoisfreaks', 'whop', 'winston_ai', 'wisepops', 'wit_ai', 'wix',
+  'wix_mcp', 'wiza', 'wolfram_alpha_api', 'woodpecker_co', 'workable', 'workday', 'worksnaps', 'world_news_api',
+  'writer', 'xata', 'y_gy', 'yelp', 'zep', 'zeplin', 'zerobounce', 'zixflow',
+  'zulip', 'zylvie', 'zyte_api'
 ];
 
 /**
  * Get all available tools for a user.
- * Only tools for apps the user has connected will be returned.
+ * Fetches tools for ALL connected apps — no app filter applied.
+ * Composio automatically returns only tools for apps the user has connected.
  * Entity ID is our user's database ID (permanent, never changes).
  */
 async function getTools(userId) {
@@ -42,7 +150,7 @@ async function getTools(userId) {
   if (cached) return JSON.parse(cached);
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-  const tools = await toolset.getTools({ apps: WINGMAN_APPS });
+  const tools = await toolset.getTools({});
   await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(() => {});
   return tools;
 }
@@ -81,26 +189,37 @@ async function getConnectionLink(userId, appName) {
 }
 
 /**
- * Check which of the requested apps the user has already connected.
+ * Check which apps the user has already connected.
+ * If appNames is null or empty, returns ALL connected accounts.
+ * Otherwise filters to only the requested app names.
  * Returns { connected: string[], missing: string[] }
  */
-async function getConnectionStatus(userId, appNames) {
+async function getConnectionStatus(userId, appNames = null) {
   try {
     const res = await fetch(
-      `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${userId}&pageSize=50`,
+      `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${userId}&pageSize=200`,
       { headers: { 'x-api-key': COMPOSIO_API_KEY } }
     );
     const data = await res.json();
-    const connected = new Set(
-      (data.items || [])
-        .filter(c => c.status === 'ACTIVE')
-        .map(c => c.appName.toLowerCase())
-    );
+    const activeItems = (data.items || []).filter(c => c.status === 'ACTIVE');
+    const connected = new Set(activeItems.map(c => c.appName.toLowerCase()));
+
+    // No filter — return all connected apps
+    if (!appNames || appNames.length === 0) {
+      return {
+        connected: [...connected],
+        missing: [],
+      };
+    }
+
     return {
       connected: appNames.filter(a => connected.has(a.toLowerCase())),
       missing: appNames.filter(a => !connected.has(a.toLowerCase())),
     };
   } catch {
+    if (!appNames || appNames.length === 0) {
+      return { connected: [], missing: [] };
+    }
     return { connected: [], missing: appNames };
   }
 }
@@ -141,8 +260,10 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // If top score is still 0, no tools are relevant — answer directly
-  if (scored[0].score === 0) return [];
+  // Require at least 2 keyword matches to avoid false positives on conversational messages.
+  // A single incidental word match (e.g. "secret" → anonyflow) should not trigger tool use.
+  // Real action requests ("send email", "check gmail", "create github issue") score ≥2.
+  if (scored[0].score < 2) return [];
   return scored.slice(0, limit).map(s => s.tool);
 }
 
