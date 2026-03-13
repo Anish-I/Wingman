@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Switch } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
@@ -7,39 +7,49 @@ import ProgressBar from '../../src/components/ProgressBar';
 import GradientButton from '../../src/components/GradientButton';
 import { colors, spacing, radius } from '../../src/theme';
 
-interface PermissionRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
+interface PermissionCardProps {
+  emoji: string;
+  emojiBg: string;
   title: string;
-  description: string;
-  value: boolean;
-  onToggle: (val: boolean) => void;
+  subtitle: string;
+  granted: boolean;
+  onPress: () => void;
 }
 
-function PermissionRow({ icon, title, description, value, onToggle }: PermissionRowProps) {
+function PermissionCard({ emoji, emojiBg, title, subtitle, granted, onPress }: PermissionCardProps) {
   return (
-    <View style={styles.permRow}>
-      <View style={styles.permIcon}>
-        <Ionicons name={icon} size={22} color={colors.accent} />
+    <View style={styles.permCard}>
+      <View style={[styles.emojiCircle, { backgroundColor: emojiBg }]}>
+        <Text style={styles.emoji}>{emoji}</Text>
       </View>
       <View style={styles.permText}>
         <Text style={styles.permTitle}>{title}</Text>
-        <Text style={styles.permDesc}>{description}</Text>
+        <Text style={styles.permSubtitle}>{subtitle}</Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onToggle}
-        trackColor={{ false: colors.border, true: colors.primary }}
-        thumbColor={colors.text}
-      />
+      <TouchableOpacity
+        onPress={onPress}
+        style={[styles.permButton, granted && styles.permButtonGranted]}
+        activeOpacity={0.7}
+      >
+        {granted ? (
+          <>
+            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            <Text style={styles.permButtonTextGranted}>Done</Text>
+          </>
+        ) : (
+          <Text style={styles.permButtonText}>Allow</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
 
 export default function PermissionsScreen() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState(true);
-  const [calendar, setCalendar] = useState(false);
+  const [notifications, setNotifications] = useState(false);
   const [contacts, setContacts] = useState(false);
+  const [calendar, setCalendar] = useState(false);
+  const [location, setLocation] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,30 +58,41 @@ export default function PermissionsScreen() {
         <View style={styles.spacer} />
         <PipCard
           expression="love"
-          message="A few permissions to make the magic happen"
+          message="I need a few permissions to help you out!"
           size="small"
         />
         <View style={styles.permissions}>
-          <PermissionRow
-            icon="notifications-outline"
+          <PermissionCard
+            emoji="🔔"
+            emojiBg={colors.primary}
             title="Notifications"
-            description="Get updates and reminders"
-            value={notifications}
-            onToggle={setNotifications}
+            subtitle="So I can ping you"
+            granted={notifications}
+            onPress={() => setNotifications(true)}
           />
-          <PermissionRow
-            icon="calendar-outline"
-            title="Calendar"
-            description="Manage your schedule"
-            value={calendar}
-            onToggle={setCalendar}
-          />
-          <PermissionRow
-            icon="people-outline"
+          <PermissionCard
+            emoji="👥"
+            emojiBg={colors.purple}
             title="Contacts"
-            description="Send messages to your contacts"
-            value={contacts}
-            onToggle={setContacts}
+            subtitle="To manage your people"
+            granted={contacts}
+            onPress={() => setContacts(true)}
+          />
+          <PermissionCard
+            emoji="📅"
+            emojiBg={colors.accent}
+            title="Calendar"
+            subtitle="To schedule your life"
+            granted={calendar}
+            onPress={() => setCalendar(true)}
+          />
+          <PermissionCard
+            emoji="📍"
+            emojiBg={colors.orange}
+            title="Location"
+            subtitle="For local recommendations"
+            granted={location}
+            onPress={() => setLocation(true)}
           />
         </View>
         <View style={styles.spacer} />
@@ -91,26 +112,48 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: spacing.lg },
   spacer: { flex: 1 },
   permissions: { marginTop: spacing.lg, gap: 12 },
-  permRow: {
+  permCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  permIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
+  emojiCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
   },
+  emoji: { fontSize: 18 },
   permText: { flex: 1 },
-  permTitle: { color: colors.text, fontSize: 16, fontWeight: '600', marginBottom: 2 },
-  permDesc: { color: colors.textSecondary, fontSize: 13 },
+  permTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  permSubtitle: { color: colors.textMuted, fontSize: 13 },
+  permButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+  },
+  permButtonGranted: {
+    backgroundColor: colors.success,
+  },
+  permButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  permButtonTextGranted: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
 });

@@ -7,9 +7,12 @@ import {
   FlatList,
   TextInput,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import GradientButton from '../../src/components/GradientButton';
@@ -17,12 +20,12 @@ import AppCard from '../../src/components/AppCard';
 import { colors, spacing, radius } from '../../src/theme';
 
 const FIRST_APPS = [
-  { slug: 'gmail', name: 'Gmail', emoji: '\u{1F4E7}' },
-  { slug: 'googlecalendar', name: 'Calendar', emoji: '\u{1F4C5}' },
-  { slug: 'slack', name: 'Slack', emoji: '\u{1F4AC}' },
-  { slug: 'github', name: 'GitHub', emoji: '\u{1F419}' },
-  { slug: 'notion', name: 'Notion', emoji: '\u{1F4DD}' },
-  { slug: 'discord', name: 'Discord', emoji: '\u{1F3AE}' },
+  { slug: 'gmail', name: 'Gmail', emoji: '📧' },
+  { slug: 'googlecalendar', name: 'Calendar', emoji: '📅' },
+  { slug: 'slack', name: 'Slack', emoji: '💬' },
+  { slug: 'github', name: 'GitHub', emoji: '🐙' },
+  { slug: 'notion', name: 'Notion', emoji: '📝' },
+  { slug: 'discord', name: 'Discord', emoji: '🎮' },
 ];
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -51,26 +54,49 @@ export default function ConnectScreen() {
     setConnecting(null);
   }
 
-  const pipMessage = connected.length > 0
-    ? `Nice! ${connected.length} app${connected.length > 1 ? 's' : ''} connected. You can add more later.`
-    : "Let's connect your favorite apps.\nYou can always add more later.";
-
   return (
     <SafeAreaView style={styles.container}>
       <ProgressBar step={5} />
       <View style={styles.content}>
-        <PipCard
-          expression={connected.length > 0 ? 'happy' : 'cool'}
-          message={pipMessage}
-          size="small"
-        />
-        <TextInput
-          style={styles.search}
-          placeholder="Search apps..."
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
+        {/* Header */}
+        <View style={styles.header}>
+          <PipCard expression={connected.length > 0 ? 'happy' : 'cool'} size="small" style={styles.pipSmall} />
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>Connect Your Apps</Text>
+            <Text style={styles.headerSubtitle}>
+              {connected.length > 0
+                ? `${connected.length} app${connected.length > 1 ? 's' : ''} connected`
+                : 'Choose apps to get started'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Gradient progress bar */}
+        <View style={styles.progressTrack}>
+          <LinearGradient
+            colors={[colors.primaryLight, colors.accent, colors.purple]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              styles.progressFill,
+              { width: `${Math.max(10, (connected.length / FIRST_APPS.length) * 100)}%` as any },
+            ]}
+          />
+        </View>
+
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.search}
+            placeholder="Search 1000+ apps"
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {/* App grid */}
         <FlatList
           data={filtered}
           numColumns={3}
@@ -95,8 +121,11 @@ export default function ConnectScreen() {
         />
       </View>
       <View style={styles.footer}>
+        <TouchableOpacity onPress={() => router.push('/onboarding/permissions')}>
+          <Text style={styles.skipText}>Skip for now</Text>
+        </TouchableOpacity>
         <GradientButton
-          title={connected.length > 0 ? 'Continue' : 'Skip for now'}
+          title="Continue"
           onPress={() => router.push('/onboarding/permissions')}
         />
       </View>
@@ -107,22 +136,60 @@ export default function ConnectScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, paddingHorizontal: spacing.lg },
-  search: {
-    backgroundColor: colors.inputBg,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  pipSmall: {
+    paddingVertical: 0,
+    marginRight: spacing.sm,
+  },
+  headerText: { flex: 1 },
+  headerTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  progressTrack: {
+    height: 3,
+    backgroundColor: colors.border,
+    borderRadius: radius.full,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: radius.full,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  searchIcon: { marginRight: spacing.sm },
+  search: {
+    flex: 1,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 15,
   },
   grid: { gap: spacing.sm },
   gridItem: { flex: 1 / 3 },
   loadingCard: {
     flex: 1,
-    margin: 4,
+    margin: spacing.xs,
     backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: spacing.md,
@@ -130,6 +197,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 90,
     minWidth: 90,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  skipText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
 });

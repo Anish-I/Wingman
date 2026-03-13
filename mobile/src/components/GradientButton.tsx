@@ -8,14 +8,17 @@ interface GradientButtonProps {
   onPress: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'accent';
+  gradientColors?: readonly [string, string];
 }
 
-export default function GradientButton({ title, onPress, disabled, variant = 'primary' }: GradientButtonProps) {
+export default function GradientButton({ title, onPress, disabled, variant = 'primary', gradientColors: customColors }: GradientButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const gradientColors = variant === 'primary'
-    ? [colors.primaryLight, colors.primary] as const
-    : [colors.accent, colors.accentDark] as const;
+  const gradientColors = customColors
+    ? customColors
+    : variant === 'primary'
+      ? [colors.primaryLight, colors.primary] as const
+      : [colors.accent, colors.accentDark] as const;
 
   function handlePressIn() {
     Animated.spring(scaleAnim, {

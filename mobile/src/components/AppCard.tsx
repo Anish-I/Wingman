@@ -17,11 +17,13 @@ export default function AppCard({ name, emoji, connected, onPress }: AppCardProp
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={styles.emoji}>{emoji}</Text>
-      <Text style={styles.name}>{name}</Text>
+      <View style={styles.emojiContainer}>
+        <Text style={styles.emoji}>{emoji}</Text>
+      </View>
+      <Text style={styles.name} numberOfLines={1}>{name}</Text>
       {connected && (
         <View style={styles.badge}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+          <Ionicons name="checkmark" size={8} color="#FFFFFF" />
         </View>
       )}
     </TouchableOpacity>
@@ -34,7 +36,8 @@ const styles = StyleSheet.create({
     margin: spacing.xs,
     backgroundColor: colors.card,
     borderRadius: radius.md,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
     minWidth: 90,
     borderWidth: 1,
@@ -43,9 +46,17 @@ const styles = StyleSheet.create({
   connected: {
     borderColor: colors.success,
   },
+  emojiContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.sm,
+    backgroundColor: colors.backgroundElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   emoji: {
     fontSize: 28,
-    marginBottom: spacing.sm,
   },
   name: {
     color: colors.textSecondary,
@@ -55,7 +66,13 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+    top: 6,
+    right: 6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import GradientButton from '../../src/components/GradientButton';
@@ -23,10 +25,13 @@ export default function PhoneScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
-  const [step, setStep] = useState<'phone' | 'verify'>('phone');
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [step, setStep] = useState<'phone' | 'verify' | 'success'>('phone');
+  const [code, setCode] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
   const inputs = useRef<TextInput[]>([]);
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
 
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
@@ -51,13 +56,23 @@ export default function PhoneScreen() {
     const newCode = [...code];
     newCode[idx] = text.slice(-1);
     setCode(newCode);
-    if (text && idx < 5) inputs.current[idx + 1]?.focus();
+    if (text && idx < 3) {
+      inputs.current[idx + 1]?.focus();
+      setActiveIdx(idx + 1);
+    }
+  }
+
+  function handleKeyPress(e: any, idx: number) {
+    if (e.nativeEvent.key === 'Backspace' && !code[idx] && idx > 0) {
+      inputs.current[idx - 1]?.focus();
+      setActiveIdx(idx - 1);
+    }
   }
 
   async function handleVerify() {
     const otp = code.join('');
-    if (otp.length !== 6) {
-      Alert.alert('Incomplete', 'Please enter all 6 digits.');
+    if (otp.length !== 4) {
+      Alert.alert('Incomplete', 'Please enter all 4 digits.');
       return;
     }
     setLoading(true);
@@ -65,13 +80,38 @@ export default function PhoneScreen() {
       const { token } = await api.auth.verifyOtp(e164Phone, otp);
       await saveToken(token);
       await registerForPushNotifications();
-      router.push('/onboarding/connect');
+      // Show success state
+      setStep('success');
+      Animated.parallel([
+        Animated.spring(successScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 12,
+          bounciness: 8,
+        }),
+        Animated.timing(successOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      // Auto-advance after delay
+      setTimeout(() => {
+        router.push('/onboarding/connect');
+      }, 1500);
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Invalid code.');
     } finally {
       setLoading(false);
     }
   }
+
+  // Auto-verify when all 4 digits entered
+  useEffect(() => {
+    if (code.every(d => d !== '') && step === 'verify') {
+      handleVerify();
+    }
+  }, [code]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -86,10 +126,12 @@ export default function PhoneScreen() {
           <>
             <PipCard
               expression="thinking"
-              message={"What's your number?\nI'll text you a code to verify."}
+              message="What is your number? I will text you to confirm!"
+              size="small"
             />
             <View style={styles.inputRow}>
               <View style={styles.prefixBox}>
+                <Text style={styles.flagEmoji}>🇺🇸</Text>
                 <Text style={styles.prefix}>+1</Text>
               </View>
               <TextInput
@@ -103,20 +145,27 @@ export default function PhoneScreen() {
               />
             </View>
           </>
-        ) : (
+        ) : step === 'verify' ? (
           <>
             <PipCard
               expression="excited"
-              message={"Check your texts!\nI sent a 6-digit code."}
+              message="Just sent you a code!"
+              size="small"
             />
             <View style={styles.codeRow}>
               {code.map((digit, i) => (
                 <TextInput
                   key={i}
                   ref={(r) => { if (r) inputs.current[i] = r; }}
-                  style={[styles.codeBox, digit ? styles.codeBoxFilled : null]}
+                  style={[
+                    styles.codeBox,
+                    activeIdx === i && styles.codeBoxActive,
+                    digit ? styles.codeBoxFilled : null,
+                  ]}
                   value={digit}
                   onChangeText={(t) => handleCodeChange(t, i)}
+                  onFocus={() => setActiveIdx(i)}
+                  onKeyPress={(e) => handleKeyPress(e, i)}
                   keyboardType="number-pad"
                   maxLength={1}
                   selectTextOnFocus
@@ -124,21 +173,40 @@ export default function PhoneScreen() {
               ))}
             </View>
             <Text style={styles.hint}>Sent to {e164Phone}</Text>
-            <TouchableOpacity onPress={() => { setStep('phone'); setCode(['', '', '', '', '', '']); }}>
+            <TouchableOpacity onPress={() => { setStep('phone'); setCode(['', '', '', '']); }}>
               <Text style={styles.resend}>Wrong number? Go back</Text>
             </TouchableOpacity>
           </>
+        ) : (
+          <View style={styles.successContainer}>
+            <Animated.View
+              style={[
+                styles.successCircle,
+                {
+                  transform: [{ scale: successScale }],
+                  opacity: successOpacity,
+                },
+              ]}
+            >
+              <Ionicons name="checkmark" size={32} color="#FFFFFF" />
+            </Animated.View>
+            <Animated.Text style={[styles.successText, { opacity: successOpacity }]}>
+              Connected!
+            </Animated.Text>
+          </View>
         )}
 
         <View style={styles.spacer} />
       </KeyboardAvoidingView>
-      <View style={styles.footer}>
-        <GradientButton
-          title={loading ? (step === 'phone' ? 'Sending...' : 'Verifying...') : (step === 'phone' ? 'Send Code' : 'Verify')}
-          onPress={step === 'phone' ? handleSendCode : handleVerify}
-          disabled={loading}
-        />
-      </View>
+      {step !== 'success' && (
+        <View style={styles.footer}>
+          <GradientButton
+            title={loading ? (step === 'phone' ? 'Sending...' : 'Verifying...') : (step === 'phone' ? 'Text Me' : 'Verify')}
+            onPress={step === 'phone' ? handleSendCode : handleVerify}
+            disabled={loading}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -154,17 +222,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   prefixBox: {
-    backgroundColor: colors.inputBg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: spacing.sm,
   },
+  flagEmoji: { fontSize: 20 },
   prefix: { color: colors.text, fontSize: 17, fontWeight: '600' },
   phoneInput: {
     flex: 1,
-    backgroundColor: colors.inputBg,
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 16,
@@ -175,26 +247,53 @@ const styles = StyleSheet.create({
   },
   codeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   codeBox: {
-    flex: 1,
+    width: 52,
     height: 56,
-    backgroundColor: colors.inputBg,
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     textAlign: 'center',
     color: colors.text,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
+  codeBoxActive: {
+    borderColor: colors.primaryLight,
+    shadowColor: colors.primaryLight,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   codeBoxFilled: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryLight,
   },
   hint: { color: colors.textMuted, textAlign: 'center', fontSize: 13, marginTop: spacing.md },
   resend: { color: colors.accent, textAlign: 'center', fontSize: 14, marginTop: spacing.sm },
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  successCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  successText: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
 });
