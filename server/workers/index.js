@@ -9,12 +9,22 @@ const { startBriefingWorker } = require('./briefing');
 const { startAlertsWorker } = require('./alerts');
 
 // BullMQ worker: execute scheduled/manual workflow runs
+// Wrapped in try/catch because local Redis 3.x is too old for BullMQ (needs >=5.0).
+// In production (docker-compose Redis 7), this runs normally.
+// BullMQ requires Redis >=5.0. On older local Redis, log a warning and skip.
 const workflowWorker = new Worker('workflows', async (job) => {
   const { workflowId, userId } = job.data;
   console.log(`[worker] Running workflow ${workflowId} for user ${userId}`);
   return runWorkflow(workflowId, userId);
 }, { connection: redis });
 
+workflowWorker.on('error', (err) => {
+  if (err.message.includes('Redis version')) {
+    console.warn('[worker] BullMQ skipped — Redis >=5.0 required (run docker-compose up for Redis 7)');
+  } else {
+    console.error('[worker] Workflow worker error:', err.message);
+  }
+});
 workflowWorker.on('failed', (job, err) => {
   console.error(`[worker] Workflow ${job?.data?.workflowId} failed:`, err.message);
 });

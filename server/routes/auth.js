@@ -49,7 +49,7 @@ function verifyToken(token) {
 }
 
 // POST /auth/request-otp
-router.post('/request-otp', async (req, res) => {
+router.post('/request-otp', otpLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) {

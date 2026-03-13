@@ -5,46 +5,71 @@
     {
       "name": "LLM simple call — \"Say hello\" → non-empty response",
       "status": "PASS",
-      "detail": "response=\"Hello. How can I assist you today?...\""
+      "detail": "response=\"Hello! How can I assist you today?...\""
     },
     {
       "name": "LLM with tool_choice:auto → toolUseBlocks field exists",
       "status": "PASS",
-      "detail": "toolUseBlocks.length=0, text=\"I am not able to execute this task as it exceeds the limitat\""
+      "detail": "toolUseBlocks.length=1, text=\"\""
     },
     {
-      "name": "Composio: fetch tools for entity \"default\"",
+      "name": "Composio: getTools returns array of tools",
       "status": "PASS",
       "detail": "returned 1000 tools"
     },
     {
-      "name": "Composio: connected apps list for entity \"default\"",
+      "name": "Composio: connection status for ALL 50 apps",
       "status": "PASS",
-      "detail": "connected=gmail, missing=4"
+      "detail": "connected=[gmail] (1), missing=49"
     },
     {
-      "name": "Composio: generate OAuth link for SLACK",
+      "name": "Composio: tool list populated (1000 tools from 12 apps)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/ySUV2PRd...\""
+      "detail": "gmail:0tools"
+    },
+    {
+      "name": "Composio: OAuth link for slack (communication)",
+      "status": "PASS",
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/oMfR-yqU...\""
+    },
+    {
+      "name": "Composio: OAuth link for googlecalendar (calendar)",
+      "status": "PASS",
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/x_Eoo1Bk...\""
+    },
+    {
+      "name": "Composio: OAuth link for googledrive (storage)",
+      "status": "PASS",
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/nXz2IVBY...\""
+    },
+    {
+      "name": "Composio: OAuth link for github (dev)",
+      "status": "PASS",
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/RK0gIPYT...\""
+    },
+    {
+      "name": "Composio: appFromToolName parses all tool name formats",
+      "status": "PASS",
+      "detail": "GMAIL_SEND_EMAIL→gmail(✓), GOOGLECALENDAR_CREATE_EVENT→googlecalendar(✓), GITHUB_CREATE_ISSUE→github(✓), SLACK_SEND_MESSAGE→slack(✓)"
     },
     {
       "name": "Memory: extract facts from sample conversation",
-      "status": "FAIL",
-      "detail": "extracted=undefined"
+      "status": "PASS",
+      "detail": "extracted={\"name\":\"Alex\",\"location\":\"Austin, Texas\",\"job\":\"software engineer\",\"interests\":[\"hiking\"]}"
     },
     {
       "name": "Context: build system prompt → non-empty with Wingman identity",
       "status": "PASS",
-      "detail": "length=2118, hasWingman=true"
+      "detail": "length=2117, hasWingman=true"
     },
     {
       "name": "Reminders: parse \"remind me to drink water in 5 minutes\" → valid fire_at",
       "status": "PASS",
-      "detail": "message=\"drink water\", fireAt=\"2026-03-12T05:05:03.446Z\""
+      "detail": "message=\"drink water\", fireAt=\"2026-03-13T00:28:00.867Z\""
     }
   ],
   "summary": {
-    "pass": 7,
-    "fail": 1
+    "pass": 13,
+    "fail": 0
   }
 }
