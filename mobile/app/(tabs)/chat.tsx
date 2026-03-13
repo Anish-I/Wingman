@@ -10,11 +10,44 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import { colors, spacing, radius, shadows } from '../../src/theme';
 import type { Message } from '../../src/types';
+
+function TypingDots() {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: -6, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+        ])
+      );
+    const a1 = animate(dot1, 0);
+    const a2 = animate(dot2, 150);
+    const a3 = animate(dot3, 300);
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={styles.typingDots}>
+      <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
+      <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
+      <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+    </View>
+  );
+}
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -112,8 +145,9 @@ export default function ChatScreen() {
   }
 
   const examplePrompts = [
+    { text: 'Schedule a meeting', icon: 'calendar-outline' as const },
+    { text: 'Check my calendar', icon: 'time-outline' as const },
     { text: 'Send an email', icon: 'mail-outline' as const },
-    { text: 'Check my calendar', icon: 'calendar-outline' as const },
     { text: 'Set a reminder', icon: 'alarm-outline' as const },
   ];
 
@@ -121,6 +155,17 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerAvatar}>
+          <Image
+            source={require('../../assets/pip/pip-happy.png')}
+            style={styles.headerAvatarImg}
+          />
+        </View>
+        <Text style={styles.headerTitle}>Wingman</Text>
+      </View>
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -165,11 +210,7 @@ export default function ChatScreen() {
         />
         {loading && (
           <View style={styles.typingRow}>
-            <View style={styles.typingDots}>
-              <View style={[styles.dot, styles.dot1]} />
-              <View style={[styles.dot, styles.dot2]} />
-              <View style={[styles.dot, styles.dot3]} />
-            </View>
+            <TypingDots />
             <Text style={styles.typing}>Pip is thinking...</Text>
           </View>
         )}
@@ -205,6 +246,32 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 10,
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    overflow: 'hidden',
+  },
+  headerAvatarImg: { width: 32, height: 32 },
+  headerTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
   list: { padding: spacing.md, gap: 4 },
 
   // Messages
@@ -217,13 +284,13 @@ const styles = StyleSheet.create({
   msgRowUser: { justifyContent: 'flex-end' },
   msgRowAssistant: { justifyContent: 'flex-start' },
   avatarContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.card,
     overflow: 'hidden',
   },
-  avatar: { width: 30, height: 30 },
+  avatar: { width: 28, height: 28 },
   bubble: {
     maxWidth: '78%',
     borderRadius: radius.lg,
@@ -263,15 +330,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: colors.accent,
-    opacity: 0.6,
   },
-  dot1: { opacity: 0.4 },
-  dot2: { opacity: 0.6 },
-  dot3: { opacity: 0.8 },
   typing: { color: colors.textMuted, fontSize: 13 },
 
   // Input
@@ -281,7 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     margin: spacing.sm,
     marginBottom: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: spacing.sm,
@@ -346,7 +409,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.card,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1,

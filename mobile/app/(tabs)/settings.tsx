@@ -12,42 +12,61 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
 import { clearToken } from '../../src/auth';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, radius } from '../../src/theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface SettingsRowProps {
   icon: IconName;
+  iconColor?: string;
   label: string;
   value?: string;
   onPress?: () => void;
   showChevron?: boolean;
   destructive?: boolean;
-  accent?: boolean;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
-function SettingsRow({ icon, label, value, onPress, showChevron = true, destructive, accent }: SettingsRowProps) {
-  const iconColor = destructive ? colors.error : accent ? colors.accent : colors.textSecondary;
+function SettingsRow({
+  icon,
+  iconColor = colors.textSecondary,
+  label,
+  value,
+  onPress,
+  showChevron = true,
+  destructive,
+  isFirst,
+  isLast,
+}: SettingsRowProps) {
   const labelColor = destructive ? colors.error : colors.text;
+  const resolvedIconColor = destructive ? colors.error : iconColor;
 
   return (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.6 : 1}
-      disabled={!onPress}
-    >
-      <View style={[styles.rowIconBox, destructive && { backgroundColor: colors.errorMuted }]}>
-        <Ionicons name={icon} size={18} color={iconColor} />
-      </View>
-      <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
-      <View style={styles.rowRight}>
-        {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-        {showChevron && (
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        )}
-      </View>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        style={[
+          styles.row,
+          isFirst && { borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md },
+          isLast && { borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md },
+        ]}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.6 : 1}
+        disabled={!onPress}
+      >
+        <View style={[styles.rowIconBox, destructive && { backgroundColor: colors.errorMuted }]}>
+          <Ionicons name={icon} size={18} color={resolvedIconColor} />
+        </View>
+        <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
+        <View style={styles.rowRight}>
+          {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+          {showChevron && (
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          )}
+        </View>
+      </TouchableOpacity>
+      {!isLast && <View style={styles.divider} />}
+    </>
   );
 }
 
@@ -73,46 +92,44 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <PipCard
-          expression="wave"
-          message={"Need help?\nJust text me."}
-          size="small"
-          style={styles.pip}
-        />
+        {/* Profile header */}
+        <View style={styles.profileSection}>
+          <PipCard expression="wave" size="small" style={styles.pip} />
+          <Text style={styles.username}>Pip User</Text>
+          <Text style={styles.phone}>Phone number</Text>
+        </View>
 
+        {/* Account */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.sectionCard}>
-            <SettingsRow icon="call-outline" label="Phone Number" value="Tap to view" />
-            <View style={styles.divider} />
-            <SettingsRow icon="time-outline" label="Timezone" value="Auto-detect" />
-            <View style={styles.divider} />
-            <SettingsRow icon="lock-closed-outline" label="Set PIN" />
-            <View style={styles.divider} />
-            <SettingsRow icon="apps-outline" label="Connected Apps" value="0 apps" accent />
+            <SettingsRow icon="call-outline" iconColor={colors.accent} label="Phone" value="Tap to view" isFirst />
+            <SettingsRow icon="time-outline" iconColor={colors.orange} label="Timezone" value="Auto-detect" />
+            <SettingsRow icon="lock-closed-outline" iconColor={colors.purple} label="Security" />
+            <SettingsRow icon="apps-outline" iconColor={colors.primaryLight} label="Connected Apps" value={`0 apps`} isLast />
           </View>
         </View>
 
+        {/* Preferences */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.sectionCard}>
-            <SettingsRow icon="moon-outline" label="Theme" value="Dark" />
-            <View style={styles.divider} />
-            <SettingsRow icon="notifications-outline" label="Notifications" value="On" />
+            <SettingsRow icon="moon-outline" iconColor={colors.purple} label="Theme" value="Dark" isFirst />
+            <SettingsRow icon="notifications-outline" iconColor={colors.orange} label="Notifications" value="On" isLast />
           </View>
         </View>
 
+        {/* About */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.sectionCard}>
-            <SettingsRow icon="information-circle-outline" label="Version" value="1.0.0" showChevron={false} />
-            <View style={styles.divider} />
-            <SettingsRow icon="chatbubble-outline" label="Send Feedback" />
-            <View style={styles.divider} />
-            <SettingsRow icon="document-text-outline" label="Privacy Policy" />
+            <SettingsRow icon="information-circle-outline" iconColor={colors.primaryLight} label="Version" value="1.0.0" showChevron={false} isFirst />
+            <SettingsRow icon="chatbubble-outline" iconColor={colors.accent} label="Send Feedback" />
+            <SettingsRow icon="shield-outline" iconColor={colors.textSecondary} label="Privacy Policy" isLast />
           </View>
         </View>
 
+        {/* Log out */}
         <View style={styles.section}>
           <View style={styles.sectionCard}>
             <SettingsRow
@@ -121,6 +138,8 @@ export default function SettingsScreen() {
               showChevron={false}
               onPress={handleLogout}
               destructive
+              isFirst
+              isLast
             />
           </View>
         </View>
@@ -132,8 +151,27 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { paddingBottom: spacing.xxl },
-  pip: { marginHorizontal: spacing.md, marginTop: spacing.sm },
 
+  // Profile
+  profileSection: {
+    alignItems: 'center',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  pip: { marginBottom: 0 },
+  username: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
+  phone: {
+    color: colors.textMuted,
+    fontSize: 14,
+    marginTop: 2,
+  },
+
+  // Sections
   section: { marginTop: spacing.lg, paddingHorizontal: spacing.md },
   sectionTitle: {
     color: colors.textMuted,
@@ -147,17 +185,17 @@ const styles = StyleSheet.create({
   sectionCard: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
   },
 
+  // Rows
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: spacing.md,
     gap: 12,
+    backgroundColor: colors.card,
   },
   rowIconBox: {
     width: 32,

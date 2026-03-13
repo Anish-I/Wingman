@@ -11,11 +11,23 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
-import { colors } from '../../src/theme';
+import PipCard from '../../src/PipCard';
+import { colors, spacing, radius, shadows } from '../../src/theme';
 import type { Workflow } from '../../src/types';
+
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function getTriggerIcon(type: string): { icon: IconName; color: string } {
+  switch (type) {
+    case 'schedule': return { icon: 'time', color: colors.orange };
+    case 'event': return { icon: 'flash', color: colors.purple };
+    default: return { icon: 'hand-left', color: colors.primaryLight };
+  }
+}
 
 export default function WorkflowsScreen() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -78,42 +90,75 @@ export default function WorkflowsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Workflows</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-          <Text style={styles.addBtnText}>+</Text>
-        </TouchableOpacity>
+        <View>
+          <Text style={styles.title}>Automations</Text>
+          <Text style={styles.subtitle}>Your smart workflows</Text>
+        </View>
       </View>
+
       <FlatList
         data={workflows}
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="git-branch-outline" size={64} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>Automate your day</Text>
-            <Text style={styles.emptySubtitle}>
-              Create workflows to handle tasks like sending email summaries every Monday.
-            </Text>
+            <PipCard
+              expression="thinking"
+              message="No workflows yet. Create your first automation!"
+              size="small"
+            />
+            <TouchableOpacity
+              style={styles.emptyCreateBtn}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Text style={styles.emptyCreateText}>Create Workflow</Text>
+            </TouchableOpacity>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View style={styles.rowInfo}>
-              <Text style={styles.rowName}>{item.name}</Text>
-              {item.description ? (
-                <Text style={styles.rowDesc}>{item.description}</Text>
-              ) : null}
-              <Text style={styles.rowMeta}>{item.trigger_type}</Text>
+        renderItem={({ item }) => {
+          const trigger = getTriggerIcon(item.trigger_type);
+          return (
+            <View style={styles.card}>
+              <View style={styles.cardTop}>
+                <View style={[styles.triggerCircle, { backgroundColor: trigger.color + '20' }]}>
+                  <Ionicons name={trigger.icon} size={20} color={trigger.color} />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardName}>{item.name}</Text>
+                  {item.description ? (
+                    <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+                  ) : null}
+                </View>
+                <Switch
+                  value={item.active}
+                  onValueChange={(v) => toggleWorkflow(item.id, v)}
+                  trackColor={{ false: colors.border, true: colors.success }}
+                  thumbColor="#fff"
+                />
+              </View>
+              <View style={styles.cardBottom}>
+                <View style={styles.pill}>
+                  <Ionicons name={trigger.icon} size={11} color={trigger.color} />
+                  <Text style={styles.pillText}>{item.trigger_type}</Text>
+                </View>
+              </View>
             </View>
-            <Switch
-              value={item.active}
-              onValueChange={(v) => toggleWorkflow(item.id, v)}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor="#fff"
-            />
-          </View>
-        )}
+          );
+        }}
       />
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {/* Create Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -126,7 +171,7 @@ export default function WorkflowsScreen() {
               onChangeText={setNewName}
             />
             <TextInput
-              style={[styles.modalInput, { height: 80 }]}
+              style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
               placeholder="Description (optional)"
               placeholderTextColor={colors.textMuted}
               value={newDesc}
@@ -156,58 +201,118 @@ export default function WorkflowsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 100 },
+
+  // Empty state
+  emptyContainer: { alignItems: 'center', marginTop: 40, paddingHorizontal: spacing.lg },
+  emptyCreateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-  },
-  title: { color: colors.text, fontSize: 22, fontWeight: '700' },
-  addBtn: {
+    gap: spacing.sm,
     backgroundColor: colors.primary,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+    marginTop: spacing.lg,
+  },
+  emptyCreateText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+
+  // Workflow cards
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  triggerCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 24, fontWeight: '400', marginTop: -2 },
-  list: { padding: 16, gap: 8 },
-  emptyContainer: { alignItems: 'center', marginTop: 60, paddingHorizontal: 32 },
-  emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: 16, marginBottom: 8 },
-  emptySubtitle: { color: colors.textMuted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  row: {
+  cardInfo: { flex: 1 },
+  cardName: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  cardDesc: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  cardBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    gap: spacing.sm,
   },
-  rowInfo: { flex: 1 },
-  rowName: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  rowDesc: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
-  rowMeta: { color: colors.primary, fontSize: 11, marginTop: 4, textTransform: 'uppercase' },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pillText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  modal: { backgroundColor: colors.background, borderRadius: 24, padding: 24, margin: 8 },
-  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  modal: {
+    backgroundColor: colors.cardElevated,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: spacing.lg },
   modalInput: {
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: radius.sm,
     padding: 14,
     color: colors.text,
     fontSize: 15,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: radius.sm,
     paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   modalCancel: { paddingVertical: 14, alignItems: 'center' },
