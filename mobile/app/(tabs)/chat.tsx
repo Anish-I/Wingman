@@ -75,6 +75,44 @@ export default function ChatScreen() {
     );
   }
 
+  function handleChip(text: string) {
+    setInput(text);
+    // Send after state update via a microtask
+    setTimeout(() => {
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: text,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput('');
+      setLoading(true);
+      api.chat(text)
+        .then(({ reply }) => {
+          const assistantMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: reply,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+        })
+        .catch((err: unknown) => {
+          const errMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: err instanceof Error ? err.message : 'Something went wrong.',
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, errMsg]);
+        })
+        .finally(() => setLoading(false));
+    }, 0);
+  }
+
+  const examplePrompts = ['Send an email', 'Check my calendar', 'Set a reminder'];
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -87,7 +125,27 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(m) => m.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, messages.length === 0 && { flexGrow: 1, justifyContent: 'center' }]}
+          ListEmptyComponent={
+            <View style={styles.welcome}>
+              <Image
+                source={require('../../assets/pip/pip-wave.png')}
+                style={styles.welcomeAvatar}
+              />
+              <Text style={styles.welcomeText}>Hey! I'm Pip. Try asking me something:</Text>
+              <View style={styles.chipRow}>
+                {examplePrompts.map((prompt) => (
+                  <TouchableOpacity
+                    key={prompt}
+                    style={styles.chip}
+                    onPress={() => handleChip(prompt)}
+                  >
+                    <Text style={styles.chipText}>{prompt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          }
         />
         {loading && (
           <View style={styles.typingRow}>
@@ -109,7 +167,11 @@ export default function ChatScreen() {
             onSubmitEditing={send}
             returnKeyType="send"
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={send} disabled={loading}>
+          <TouchableOpacity
+            style={[styles.sendBtn, { opacity: !input.trim() || loading ? 0.4 : 1 }]}
+            onPress={send}
+            disabled={!input.trim() || loading}
+          >
             <Text style={styles.sendText}>{'\u2191'}</Text>
           </TouchableOpacity>
         </View>
@@ -159,4 +221,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendText: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: -2 },
+  welcome: { alignItems: 'center', paddingHorizontal: 24 },
+  welcomeAvatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 16 },
+  welcomeText: { color: colors.textSecondary, fontSize: 16, textAlign: 'center', marginBottom: 20 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
+  chip: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
 });

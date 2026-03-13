@@ -1,5 +1,5 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import React, { useRef } from 'react';
+import { TouchableOpacity, Text, StyleSheet, View, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, fonts } from '../theme';
 
@@ -11,16 +11,36 @@ interface GradientButtonProps {
 }
 
 export default function GradientButton({ title, onPress, disabled, variant = 'primary' }: GradientButtonProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const gradientColors = variant === 'primary'
     ? [colors.primaryLight, colors.primary] as const
     : [colors.accent, colors.accentDark] as const;
   const shadowColor = variant === 'primary' ? colors.primaryDark : colors.accentDark;
 
+  function handlePressIn() {
+    Animated.timing(scaleAnim, {
+      toValue: 0.97,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function handlePressOut() {
+    Animated.timing(scaleAnim, {
+      toValue: 1.0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }
+
   return (
-    <View style={styles.wrapper}>
+    <Animated.View style={[styles.wrapper, { transform: [{ scale: scaleAnim }] }]}>
       <View style={[styles.shadow, { backgroundColor: shadowColor }]} />
       <TouchableOpacity
         onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         disabled={disabled}
         activeOpacity={0.8}
         style={[styles.touchable, disabled && styles.disabled]}
@@ -34,7 +54,7 @@ export default function GradientButton({ title, onPress, disabled, variant = 'pr
           <Text style={styles.text}>{title}</Text>
         </LinearGradient>
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -52,6 +52,23 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>Set PIN</Text>
           <Text style={styles.rowArrow}>{'\u203A'}</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.row}>
+          <Text style={styles.rowLabel}>Connected Apps</Text>
+          <View style={styles.rowRight}>
+            <Text style={styles.rowValue}>0 apps</Text>
+            <Text style={styles.rowArrow}>{'\u203A'}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <TouchableOpacity style={styles.row}>
+          <Text style={styles.rowLabel}>Theme</Text>
+          <View style={styles.rowRight}>
+            <Text style={styles.rowValue}>Dark</Text>
+            <Text style={styles.rowArrow}>{'\u203A'}</Text>
+          </View>
+        </TouchableOpacity>
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
@@ -59,6 +76,10 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>Version</Text>
           <Text style={styles.rowValue}>1.0.0</Text>
         </View>
+        <TouchableOpacity style={styles.row}>
+          <Text style={styles.rowLabel}>Send Feedback</Text>
+          <Text style={styles.rowArrow}>{'\u203A'}</Text>
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={[styles.logoutBtn, loading && { opacity: 0.6 }]}
@@ -87,6 +108,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { color: colors.text, fontSize: 16 },
   rowValue: { color: colors.textMuted, fontSize: 14 },
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowArrow: { color: colors.textMuted, fontSize: 18 },
   logoutBtn: {
     margin: 24,

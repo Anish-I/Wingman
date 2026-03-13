@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import { colors } from '../../src/theme';
 import type { Workflow } from '../../src/types';
@@ -87,7 +88,13 @@ export default function WorkflowsScreen() {
         keyExtractor={(w) => w.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No workflows yet. Tap + to create one.</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="git-branch-outline" size={64} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>Automate your day</Text>
+            <Text style={styles.emptySubtitle}>
+              Create workflows to handle tasks like sending email summaries every Monday.
+            </Text>
+          </View>
         }
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -165,7 +172,9 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#fff', fontSize: 24, fontWeight: '400', marginTop: -2 },
   list: { padding: 16, gap: 8 },
-  empty: { color: colors.textMuted, textAlign: 'center', marginTop: 60, fontSize: 15 },
+  emptyContainer: { alignItems: 'center', marginTop: 60, paddingHorizontal: 32 },
+  emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: 16, marginBottom: 8 },
+  emptySubtitle: { color: colors.textMuted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
