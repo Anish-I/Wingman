@@ -26,17 +26,18 @@ export default function ProgressBar({ step, total = 7 }: ProgressBarProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: 6,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   segment: {
     flex: 1,
-    height: 4,
+    height: 3,
     borderRadius: radius.full,
   },
   active: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   inactive: {
     backgroundColor: colors.border,

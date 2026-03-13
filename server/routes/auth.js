@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
-const { sendSMS } = require('../services/telnyx');
+const { provider } = require('../services/messaging');
 const { getUserByPhone, createUser, updateUserPin } = require('../db/queries');
 
 const router = express.Router();
@@ -61,7 +61,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await redis.set(`otp:${phone}`, otp, 'EX', OTP_TTL);
-    await sendSMS(phone, `Your TextFlow verification code is: ${otp}. It expires in 10 minutes.`);
+    await provider.sendMessage(phone, `Your Wingman verification code is: ${otp}. It expires in 10 minutes.`);
 
     res.json({ success: true, message: 'OTP sent.' });
   } catch (err) {

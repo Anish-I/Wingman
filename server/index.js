@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const smsRoutes = require('./routes/sms');
 const authRoutes = require('./routes/auth');
 const connectRoutes = require('./routes/connect');
+const stubSmsRoutes = require('./routes/stub-sms');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -46,6 +47,13 @@ app.use('/auth', authRoutes);
 app.use('/connect', connectRoutes);
 app.use('/api', require('./routes/api'));
 
+// Mount stub SMS routes when using stub provider
+const msgProvider = (process.env.MESSAGING_PROVIDER || '').toLowerCase();
+if (msgProvider === 'stub' || !process.env.TELNYX_API_KEY) {
+  app.use('/stub', stubSmsRoutes);
+  console.log('[server] Stub SMS routes mounted at /stub');
+}
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -59,7 +67,7 @@ app.use((err, req, res, _next) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`TextFlow server running on port ${PORT}`);
+  console.log(`Wingman server running on port ${PORT}`);
 });
 
 // Graceful shutdown

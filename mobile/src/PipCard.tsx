@@ -6,7 +6,7 @@ import {
   StyleSheet,
   ImageSourcePropType,
 } from 'react-native';
-import { colors, radius, spacing } from './theme';
+import { colors, radius, spacing, shadows } from './theme';
 
 type PipExpression =
   | 'happy' | 'thinking' | 'excited' | 'wave'
@@ -21,13 +21,11 @@ interface PipCardProps {
   size?: 'large' | 'small';
 }
 
-// Map expressions to available assets (4 base images, extras map to closest match)
 const pipImages: Record<string, ImageSourcePropType> = {
   happy: require('../assets/pip/pip-happy.png'),
   thinking: require('../assets/pip/pip-thinking.png'),
   excited: require('../assets/pip/pip-excited.png'),
   wave: require('../assets/pip/pip-wave.png'),
-  // Aliases mapping to existing assets until we have custom cropped emotes
   thumbsup: require('../assets/pip/pip-happy.png'),
   coding: require('../assets/pip/pip-thinking.png'),
   checkmark: require('../assets/pip/pip-happy.png'),
@@ -44,16 +42,18 @@ const pipImages: Record<string, ImageSourcePropType> = {
 };
 
 export default function PipCard({ message, expression = 'happy', style, size = 'large' }: PipCardProps) {
-  const imageSize = size === 'large' ? 180 : 80;
+  const imageSize = size === 'large' ? 140 : 64;
 
   return (
     <View style={[styles.card, style]}>
-      <View style={styles.imageContainer}>
-        <Image
-          source={pipImages[expression] || pipImages.happy}
-          style={[styles.pip, { width: imageSize, height: imageSize }]}
-          resizeMode="contain"
-        />
+      <View style={styles.avatarRing}>
+        <View style={styles.avatarInner}>
+          <Image
+            source={pipImages[expression] || pipImages.happy}
+            style={[styles.pip, { width: imageSize, height: imageSize }]}
+            resizeMode="contain"
+          />
+        </View>
       </View>
       <View style={styles.bubble}>
         <View style={styles.bubblePointer} />
@@ -68,44 +68,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
   },
-  imageContainer: {
-    alignItems: 'center',
+  avatarRing: {
+    padding: 3,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    borderColor: colors.accentMuted,
     marginBottom: spacing.md,
+  },
+  avatarInner: {
+    borderRadius: radius.full,
+    overflow: 'hidden',
+    backgroundColor: colors.cardElevated,
   },
   pip: {
     // Size set dynamically
   },
   bubble: {
-    backgroundColor: colors.bubble,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
-    borderTopLeftRadius: 4,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 16,
     marginHorizontal: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     position: 'relative',
+    ...shadows.md,
   },
   bubblePointer: {
     position: 'absolute',
-    top: -8,
-    left: 24,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightWidth: 8,
-    borderRightColor: 'transparent',
-    borderBottomWidth: 8,
-    borderBottomColor: colors.bubble,
+    top: -7,
+    alignSelf: 'center',
+    left: '50%',
+    marginLeft: -7,
+    width: 14,
+    height: 14,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: colors.borderLight,
+    transform: [{ rotate: '45deg' }],
   },
   text: {
-    color: colors.bubbleText,
+    color: colors.text,
     fontSize: 16,
     lineHeight: 24,
     textAlign: 'center',
+    fontWeight: '500',
   },
 });

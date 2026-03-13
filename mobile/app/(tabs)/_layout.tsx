@@ -13,11 +13,20 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.tabBarBorder,
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 6,
+          paddingTop: 6,
         },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.2,
+        },
         headerShown: false,
       }}
     >
@@ -26,7 +35,7 @@ export default function TabsLayout() {
         options={{
           title: 'Chat',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon name="chatbubble-ellipses-outline" color={color} size={size} />
+            <TabIcon name="chatbubble-ellipses" color={color} size={size - 2} />
           ),
         }}
       />
@@ -35,7 +44,7 @@ export default function TabsLayout() {
         options={{
           title: 'Apps',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon name="apps-outline" color={color} size={size} />
+            <TabIcon name="grid" color={color} size={size - 2} />
           ),
         }}
       />
@@ -44,7 +53,7 @@ export default function TabsLayout() {
         options={{
           title: 'Workflows',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon name="git-branch-outline" color={color} size={size} />
+            <TabIcon name="git-branch" color={color} size={size - 2} />
           ),
         }}
       />
@@ -53,7 +62,7 @@ export default function TabsLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, size }) => (
-            <TabIcon name="settings-outline" color={color} size={size} />
+            <TabIcon name="cog" color={color} size={size - 2} />
           ),
         }}
       />

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { TouchableOpacity, Text, StyleSheet, View, Animated } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, fonts } from '../theme';
+import { colors, radius, spacing, shadows } from '../theme';
 
 interface GradientButtonProps {
   title: string;
@@ -16,39 +16,39 @@ export default function GradientButton({ title, onPress, disabled, variant = 'pr
   const gradientColors = variant === 'primary'
     ? [colors.primaryLight, colors.primary] as const
     : [colors.accent, colors.accentDark] as const;
-  const shadowColor = variant === 'primary' ? colors.primaryDark : colors.accentDark;
 
   function handlePressIn() {
-    Animated.timing(scaleAnim, {
-      toValue: 0.97,
-      duration: 100,
+    Animated.spring(scaleAnim, {
+      toValue: 0.965,
       useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
     }).start();
   }
 
   function handlePressOut() {
-    Animated.timing(scaleAnim, {
-      toValue: 1.0,
-      duration: 150,
+    Animated.spring(scaleAnim, {
+      toValue: 1,
       useNativeDriver: true,
+      speed: 40,
+      bounciness: 6,
     }).start();
   }
 
   return (
     <Animated.View style={[styles.wrapper, { transform: [{ scale: scaleAnim }] }]}>
-      <View style={[styles.shadow, { backgroundColor: shadowColor }]} />
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         style={[styles.touchable, disabled && styles.disabled]}
       >
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0.5 }}
           style={styles.gradient}
         >
           <Text style={styles.text}>{title}</Text>
@@ -60,33 +60,27 @@ export default function GradientButton({ title, onPress, disabled, variant = 'pr
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'relative',
-    marginVertical: 8,
-  },
-  shadow: {
-    position: 'absolute',
-    top: 4,
-    left: 0,
-    right: 0,
-    height: 56,
-    borderRadius: radius.xl,
+    marginVertical: spacing.sm,
+    ...shadows.md,
   },
   touchable: {
-    borderRadius: radius.xl,
+    borderRadius: radius.md,
     overflow: 'hidden',
   },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   gradient: {
-    height: 56,
+    height: 54,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: radius.xl,
+    borderRadius: radius.md,
   },
   text: {
-    color: colors.text,
-    fontSize: 17,
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
+
