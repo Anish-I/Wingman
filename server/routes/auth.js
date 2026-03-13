@@ -115,7 +115,7 @@ router.post('/google', async (req, res) => {
         code: idToken,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: 'wingman://',
+        redirect_uri: req.body.redirect_uri || 'http://localhost:3000/auth/callback',
         grant_type: 'authorization_code',
       }),
     });
