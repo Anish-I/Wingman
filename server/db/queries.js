@@ -154,6 +154,14 @@ async function updateWorkflowRun(runId, { status, result: runResult, error, star
   return res.rows[0];
 }
 
+async function updatePushToken(userId, token) {
+  const result = await query(
+    'UPDATE users SET push_token = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+    [token, userId]
+  );
+  return result.rows[0];
+}
+
 module.exports = {
   getUserByPhone,
   getUserById,
@@ -173,4 +181,5 @@ module.exports = {
   cancelWorkflow,
   createWorkflowRun,
   updateWorkflowRun,
+  updatePushToken,
 };

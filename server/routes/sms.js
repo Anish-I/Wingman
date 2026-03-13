@@ -64,17 +64,28 @@ router.post('/sms', smsLimiter, async (req, res) => {
 
     // Look up or create user
     let user = await getUserByPhone(phone);
+    const isNewUser = !user;
     if (!user) {
       user = await createUser(phone);
-      await provider.sendMessage(phone,
-        'Hey! I\'m Wingman, your personal AI assistant via SMS.\n\n' +
-        'I can email, manage your calendar, search the web, and connect to 250+ apps.\n\n' +
-        'Just tell me what you need — I\'ll ask for any app connections when I need them.'
-      );
     }
 
     // Store incoming message
     await appendMessage(user.id, 'user', messageText);
+
+    // New user SMS discovery path — send app download link
+    if (isNewUser || !user.preferences?.onboarded) {
+      const discoveryMsg =
+        'Hey! I\'m Wingman 🐦 — your personal AI.\n' +
+        'Get set up in 30 seconds:\n' +
+        'https://wingman.app/start\n\n' +
+        '(or just keep texting me here!)';
+      await provider.sendMessage(phone, discoveryMsg);
+      await appendMessage(user.id, 'assistant', discoveryMsg);
+      // Mark as having seen the discovery message
+      const { updateUserPreferences } = require('../db/queries');
+      await updateUserPreferences(user.id, { onboarded: false, discoverySmsSent: true });
+      return res.status(200).json({});
+    }
 
     // Process message through orchestrator
     let responseText;

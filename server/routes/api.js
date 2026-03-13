@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('./auth');
-const { getUserById } = require('../db/queries');
+const { getUserById, updatePushToken } = require('../db/queries');
 const { processMessage } = require('../services/orchestrator');
 const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
@@ -75,24 +75,51 @@ router.patch('/workflows/:id/pause', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/apps — list connected + missing apps
+// GET /api/apps — connection status for all apps
 router.get('/apps', requireAuth, async (req, res) => {
   try {
-    const status = await getConnectionStatus(String(req.user.id), WINGMAN_APPS);
+    const status = await getConnectionStatus(String(req.user.id));
     res.json(status);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/notify/register — save FCM push token
+// POST /api/notify/register — register Expo push token
 router.post('/notify/register', requireAuth, async (req, res) => {
   try {
-    const { fcmToken } = req.body;
-    if (!fcmToken) return res.status(400).json({ error: 'fcmToken required' });
-    const prefs = { ...(req.user.preferences || {}), fcmToken };
-    await updateUserPreferences(req.user.id, prefs);
-    res.json({ message: 'Token registered' });
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'token is required' });
+    }
+    await updatePushToken(req.user.id, token);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/workflows/:id — update workflow (pause/resume)
+router.patch('/workflows/:id', requireAuth, async (req, res) => {
+  try {
+    const { active } = req.body;
+    const { query } = require('../db');
+    const result = await query(
+      'UPDATE workflows SET active = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *',
+      [active !== false, req.params.id, req.user.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Workflow not found' });
+    res.json({ workflow: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/user/preferences — update preferences (timezone, etc.)
+router.patch('/user/preferences', requireAuth, async (req, res) => {
+  try {
+    const updated = await updateUserPreferences(req.user.id, req.body);
+    res.json({ user: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

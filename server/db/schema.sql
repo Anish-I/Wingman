@@ -79,3 +79,6 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
   error TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Push notification token for mobile app
+ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
