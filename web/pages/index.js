@@ -29,8 +29,8 @@ export default function Home() {
   return (
     <Layout>
       <Head>
-        <title>TextFlow — Your digital life, one text away</title>
-        <meta name="description" content="TextFlow is a personal AI you text like a friend. It manages your calendar, finances, tasks, and more." />
+        <title>Wingman — Your digital life, one text away</title>
+        <meta name="description" content="Wingman is a personal AI you text like a friend. It manages your calendar, finances, tasks, and more." />
       </Head>
 
       {/* Hero */}
@@ -39,12 +39,13 @@ export default function Home() {
           Your entire digital life,<br />one text away.
         </h1>
         <p className="mt-6 text-lg sm:text-xl text-neutral-400 max-w-xl mx-auto">
-          TextFlow is a personal AI you text like a friend. It manages your calendar, finances, tasks, and more.
+          Wingman is a personal AI you text like a friend. It manages your calendar, finances, tasks, and more.
         </p>
         <div className="mt-10 inline-block bg-accent text-black font-bold text-xl sm:text-2xl px-8 py-4 rounded-xl">
-          Text <span className="font-mono">START</span> to (555) 123-4567
+          Text <span className="font-mono">START</span> to (762) 320-1647
         </div>
         <p className="mt-3 text-sm text-neutral-500">No app to download. No account to create.</p>
+        <a href="/chat" className="mt-4 inline-block text-accent hover:underline text-sm">Try the Chat Simulator</a>
       </section>
 
       {/* Features */}

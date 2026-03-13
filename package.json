@@ -1,7 +1,7 @@
 {
-  "name": "textflow",
+  "name": "wingman",
   "version": "1.0.0",
-  "description": "TextFlow — Your entire digital life, one text away. SMS-native AI agent powered by Claude, Twilio, and Zapier.",
+  "description": "Wingman — Your entire digital life, one text away. SMS-native AI agent powered by Claude, Twilio, and Zapier.",
   "private": true,
   "workspaces": [
     "server",

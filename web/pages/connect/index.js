@@ -8,7 +8,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function ConnectPage() {
   const router = useRouter();
-  const { token } = router.query;
+  const queryToken = router.query.token;
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    setToken(queryToken || stored || null);
+  }, [queryToken]);
 
   const [apps, setApps] = useState([]);
   const [connectedSlugs, setConnectedSlugs] = useState([]);
@@ -84,13 +90,13 @@ export default function ConnectPage() {
   return (
     <Layout>
       <Head>
-        <title>Connect Your Apps — TextFlow</title>
+        <title>Connect Your Apps — Wingman</title>
       </Head>
 
       <div className="max-w-2xl mx-auto px-4 py-10">
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Connect your apps</h1>
         <p className="text-neutral-400 mb-6">
-          The more you connect, the more TextFlow can do for you.
+          The more you connect, the more Wingman can do for you.
         </p>
 
         {/* Progress */}

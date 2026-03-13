@@ -12,7 +12,7 @@ if (!jwtSecret && process.env.NODE_ENV === 'production') {
   console.error('FATAL: JWT_SECRET must be set in production');
   process.exit(1);
 }
-const JWT_SECRET = jwtSecret || 'textflow-dev-secret';
+const JWT_SECRET = jwtSecret || 'wingman-dev-secret';
 const OTP_TTL = 600; // 10 minutes
 
 // Rate limit OTP requests: 5 per 15 minutes per IP
