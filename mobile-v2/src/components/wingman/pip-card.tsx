@@ -60,6 +60,7 @@ const sizeMap: Record<NonNullable<PipCardProps['size']>, number> = {
 
 export default function PipCard({ expression = 'happy', size = 'large', className, message: _message }: PipCardProps) {
   const imageSize = sizeMap[size];
+  const scaledSize = Math.round(imageSize * 1.25);
 
   return (
     <View className={`items-center ${className ?? ''}`}>
@@ -76,8 +77,7 @@ export default function PipCard({ expression = 'happy', size = 'large', classNam
       >
         <Image
           source={pipImages[expression] || pipImages.happy}
-          style={{ width: imageSize, height: imageSize }}
-          resizeMode="contain"
+          style={{ width: scaledSize, height: scaledSize, resizeMode: 'cover' }}
         />
       </View>
     </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PipCard from '@/components/wingman/pip-card';
@@ -50,6 +50,12 @@ function SettingsRow({ icon, iconColor = '#9A9BBF', label, value, onPress, showC
 
 export default function SettingsScreen() {
   function handleLogout() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Log out\n\nAre you sure?')) {
+        signOut();
+      }
+      return;
+    }
     Alert.alert('Log out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {

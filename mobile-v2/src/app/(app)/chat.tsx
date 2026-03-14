@@ -90,16 +90,16 @@ export default function ChatScreen() {
     return (
       <View className={`flex-row items-end gap-2 my-0.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
         {!isUser && (
-          <View className="w-7 h-7 rounded-full bg-card overflow-hidden">
-            <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 28, height: 28 }} />
+          <View className="w-7 h-7 rounded-full bg-[#1A1A1A] overflow-hidden items-center justify-center">
+            <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 32, height: 32, resizeMode: 'cover' }} />
           </View>
         )}
         <View
           className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
-            isUser ? 'bg-[#3B5998] rounded-br-[4px]' : 'bg-white rounded-bl-[4px] shadow-sm'
+            isUser ? 'bg-[#3B5998] rounded-br-[4px]' : 'bg-[#1E1E1E] rounded-bl-[4px]'
           }`}
         >
-          <Text className={`text-[15px] leading-[22px] ${isUser ? 'text-white' : 'text-[#1A1B2E]'}`}>
+          <Text className={`text-[15px] leading-[22px] ${isUser ? 'text-white' : 'text-[#E0E0E0]'}`}>
             {item.content}
           </Text>
         </View>
@@ -111,8 +111,8 @@ export default function ChatScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-background border-b border-border gap-2.5">
-        <View className="w-10 h-10 rounded-full bg-card overflow-hidden">
-          <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 40, height: 40 }} />
+        <View className="w-10 h-10 rounded-full bg-[#1A1A1A] overflow-hidden items-center justify-center">
+          <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 46, height: 46, resizeMode: 'cover' }} />
         </View>
         <View>
           <Text className="text-foreground text-lg font-bold">Wingman</Text>
@@ -135,8 +135,8 @@ export default function ChatScreen() {
           contentContainerStyle={messages.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : undefined}
           ListEmptyComponent={
             <View className="items-center px-6">
-              <View className="w-[88px] h-[88px] rounded-full bg-card border-2 border-[rgba(110,198,184,0.12)] justify-center items-center overflow-hidden mb-4">
-                <Image source={require('../../../assets/pip/pip-wave.png')} style={{ width: 80, height: 80 }} />
+              <View className="w-[88px] h-[88px] rounded-full bg-[#1A1A1A] border-2 border-[rgba(110,198,184,0.12)] justify-center items-center overflow-hidden mb-4">
+                <Image source={require('../../../assets/pip/pip-wave.png')} style={{ width: 100, height: 100, resizeMode: 'cover' }} />
               </View>
               <Text className="text-foreground text-[22px] font-bold mb-1">Hey! I'm Pip</Text>
               <Text className="text-muted-foreground text-[15px] text-center mb-6 leading-[22px]">

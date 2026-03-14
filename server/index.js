@@ -56,6 +56,16 @@ if (msgProvider === 'stub' || !process.env.TELNYX_API_KEY) {
 
 
 // Start workflow worker (BullMQ consumer)
+// Catch unhandled rejections from BullMQ Redis version check gracefully
+process.on('unhandledRejection', (reason) => {
+  const msg = reason?.message || String(reason);
+  if (msg.includes('Redis version') || msg.includes('maxRetriesPerRequest')) {
+    console.warn('[workflow-worker] BullMQ skipped — Redis >=5.0 required (local dev fallback)');
+  } else {
+    console.error('[server] Unhandled rejection:', msg);
+  }
+});
+
 try {
   require('./workers/workflow-worker');
   console.log('[server] Workflow worker started');

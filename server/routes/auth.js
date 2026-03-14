@@ -6,7 +6,7 @@ const { provider } = require('../services/messaging');
 const { getUserByPhone, createUser, updateUserPin } = require('../db/queries');
 
 const router = express.Router();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret && process.env.NODE_ENV === 'production') {
   console.error('FATAL: JWT_SECRET must be set in production');
