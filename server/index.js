@@ -13,6 +13,9 @@ const stubSmsRoutes = require('./routes/stub-sms');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy headers (required for Cloudflare Tunnel / reverse proxies)
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet());
 
