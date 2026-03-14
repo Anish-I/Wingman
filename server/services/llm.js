@@ -105,41 +105,61 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
     params.tool_choice = 'auto';
   }
 
-  try {
-    const response = await client.chat.completions.create(params);
-    const choice = response.choices[0];
-    const message = choice.message;
+  const MAX_RETRIES = 3;
+  let lastErr;
 
-    const text = message.content || '';
-    const toolUseBlocks = [];
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await client.chat.completions.create(params);
+      const choice = response.choices[0];
+      const message = choice.message;
 
-    if (message.tool_calls) {
-      for (const tc of message.tool_calls) {
-        toolUseBlocks.push({
-          type: 'tool_use',
-          id: tc.id,
-          name: tc.function.name,
-          input: JSON.parse(tc.function.arguments),
-        });
+      const text = message.content || '';
+      const toolUseBlocks = [];
+
+      if (message.tool_calls) {
+        for (const tc of message.tool_calls) {
+          toolUseBlocks.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.function.name,
+            input: JSON.parse(tc.function.arguments),
+          });
+        }
       }
-    }
 
-    return {
-      text,
-      toolUseBlocks,
-      stopReason: choice.finish_reason,
-      usage: response.usage,
-    };
-  } catch (err) {
-    if (err.status === 429) {
-      throw new Error('AI service is busy. Please try again in a moment.');
+      return {
+        text,
+        toolUseBlocks,
+        stopReason: choice.finish_reason,
+        usage: response.usage,
+      };
+    } catch (err) {
+      lastErr = err;
+      if (err.status === 429 && attempt < MAX_RETRIES) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.warn(`[llm] Rate limited, retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      if (err.status === 503 && attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1500));
+        continue;
+      }
+      break;
     }
-    if (err.status === 503) {
-      throw new Error('AI service is temporarily overloaded. Please try again shortly.');
-    }
-    console.error('LLM call failed:', err);
-    throw new Error('Failed to process your message. Please try again.');
   }
+
+  if (lastErr?.status === 429) {
+    console.error('[llm] Rate limit hit after retries');
+    throw new Error('One moment — I\'m processing a lot of requests. Try again in a few seconds.');
+  }
+  if (lastErr?.status === 503) {
+    throw new Error('AI service is temporarily busy. Please try again shortly.');
+  }
+  console.error('LLM call failed:', lastErr);
+  throw new Error('Failed to process your message. Please try again.');
 }
 
 module.exports = { callLLM, MODEL_DEFAULT, MODEL_COMPLEX };
