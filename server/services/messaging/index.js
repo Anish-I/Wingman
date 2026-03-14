@@ -1,22 +1,27 @@
 'use strict';
 const TelnyxProvider = require('./telnyx');
+const TwilioProvider = require('./twilio');
 const StubProvider = require('./stub');
 
 let PROVIDER = (process.env.MESSAGING_PROVIDER || '').toLowerCase();
 
-// Auto-fallback to stub if TELNYX_API_KEY is missing or empty
+// Auto-detect provider from env vars
 if (!PROVIDER) {
-  if (!process.env.TELNYX_API_KEY) {
-    PROVIDER = 'stub';
-    console.warn('[messaging] WARNING: TELNYX_API_KEY not set — falling back to stub provider');
-  } else {
+  if (process.env.TWILIO_ACCOUNT_SID) {
+    PROVIDER = 'twilio';
+  } else if (process.env.TELNYX_API_KEY) {
     PROVIDER = 'telnyx';
+  } else {
+    PROVIDER = 'stub';
+    console.warn('[messaging] WARNING: No SMS credentials set — falling back to stub provider');
   }
 }
 
 let provider;
 if (PROVIDER === 'stub') {
   provider = new StubProvider();
+} else if (PROVIDER === 'twilio') {
+  provider = new TwilioProvider();
 } else {
   provider = new TelnyxProvider();
 }
