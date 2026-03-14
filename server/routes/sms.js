@@ -105,6 +105,9 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
 });
 
 async function handleIncomingSMS(phone, messageText, res, isTwilio) {
+  console.log(`[SMS] incoming from ${phone}: "${messageText}"`);
+  console.log(`[SMS] looking up user...`);
+
   const respond = (status) => {
     if (isTwilio) return res.status(status).send('<Response></Response>');
     return res.status(status).json({});
@@ -157,7 +160,9 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   }
 
   await appendMessage(user.id, 'assistant', responseText);
+  console.log(`[SMS] sending reply to ${phone}: "${responseText.substring(0,80)}"`);
   await provider.sendMessage(phone, responseText);
+  console.log(`[SMS] reply sent to ${phone}`);
   return respond(200);
 }
 

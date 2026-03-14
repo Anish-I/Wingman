@@ -1,13 +1,23 @@
 {
-  "columns": ["backlog", "todo", "in_progress", "review", "done"],
+  "columns": [
+    "backlog",
+    "todo",
+    "in_progress",
+    "review",
+    "done"
+  ],
   "tasks": [
     {
       "id": "WING-001",
       "title": "Fix Composio app connections",
       "description": "getConnectionStatus returns empty connected/missing arrays even for valid users. Investigate Composio API response and add better error messages.",
-      "column": "todo",
+      "column": "in_progress",
       "priority": "high",
-      "labels": ["backend", "composio", "bug"],
+      "labels": [
+        "backend",
+        "composio",
+        "bug"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-001.md"
@@ -18,7 +28,10 @@
       "description": "Tests currently use hardcoded phone numbers. Add unique phone numbers per run and clean up test users after each test.",
       "column": "backlog",
       "priority": "medium",
-      "labels": ["testing", "infrastructure"],
+      "labels": [
+        "testing",
+        "infrastructure"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-002.md"
@@ -29,7 +42,10 @@
       "description": "Set up Railway/Render/Fly.io deployment and wire it into the deploy-prod.yml GitHub Action.",
       "column": "backlog",
       "priority": "medium",
-      "labels": ["devops", "deployment"],
+      "labels": [
+        "devops",
+        "deployment"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-003.md"
@@ -40,7 +56,10 @@
       "description": "Add health check monitoring, error alerting, and uptime tracking for the production server.",
       "column": "backlog",
       "priority": "low",
-      "labels": ["devops", "monitoring"],
+      "labels": [
+        "devops",
+        "monitoring"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-004.md"
@@ -51,7 +70,11 @@
       "description": "BullMQ workflow jobs currently fail silently on transient errors. Add configurable retry with exponential backoff.",
       "column": "todo",
       "priority": "high",
-      "labels": ["backend", "workflows", "reliability"],
+      "labels": [
+        "backend",
+        "workflows",
+        "reliability"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-005.md"
@@ -62,7 +85,11 @@
       "description": "Prevent abuse by rate-limiting workflow executions per user. Use existing Redis infrastructure.",
       "column": "backlog",
       "priority": "medium",
-      "labels": ["backend", "security", "workflows"],
+      "labels": [
+        "backend",
+        "security",
+        "workflows"
+      ],
       "assignee": "claude-code",
       "created_at": "2026-03-14T00:00:00Z",
       "context_file": "kanban/context/WING-006.md"

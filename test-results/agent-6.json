@@ -5,7 +5,7 @@
     {
       "name": "Full library: Composio SDK apps.list() returns 900+ apps",
       "status": "PASS",
-      "detail": "appCount=1003"
+      "detail": "appCount=1006"
     },
     {
       "name": "getTools(default) — returns array of tools for connected apps",
@@ -35,27 +35,27 @@
     {
       "name": "OAuth link: slack (communication)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/WnZHxZmM...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/ljcGATtC...\""
     },
     {
       "name": "OAuth link: googlecalendar (calendar)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/42P3_jps...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/KidWUYrs...\""
     },
     {
       "name": "OAuth link: github (dev)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/6jcu1KlK...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/4iwQ0xeZ...\""
     },
     {
       "name": "OAuth link: googledrive (storage)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/MABXnsLu...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/6MiSKPRl...\""
     },
     {
       "name": "OAuth link: hubspot (crm)",
       "status": "PASS",
-      "detail": "link=\"https://backend.composio.dev/api/v3/s/grXoAicK...\""
+      "detail": "link=\"https://backend.composio.dev/api/v3/s/dktsvyeG...\""
     },
     {
       "name": "Cache invalidation + refetch: tool count consistent",

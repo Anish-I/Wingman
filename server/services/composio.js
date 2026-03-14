@@ -203,14 +203,25 @@ async function getConnectionStatus(userId, appNames = null) {
 
   try {
     // Composio uses entityId (our userId as string) to identify users.
-    // The REST API accepts both `user_uuid` and `entityId` — try entityId first
-    // as it aligns with how getTools/getConnectionLink identify users.
+    // Must match how getTools/getConnectionLink identify users (entityId, not user_uuid).
     const entityId = String(userId);
-    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
+    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&showActiveOnly=true&pageSize=200`;
     const res = await fetch(url, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
 
+    // If user_uuid returns nothing, retry with entityId param (Composio API accepts both
+    // but may resolve differently depending on how the entity was originally created)
+    let data = await res.json();
+    if ((!data.items || data.items.length === 0) && res.ok) {
+      console.log(`[composio] user_uuid=${entityId} returned 0 items, retrying with entityId param`);
+      const retryUrl = `https://backend.composio.dev/api/v1/connectedAccounts?entityId=${entityId}&showActiveOnly=true&pageSize=200`;
+      const retryRes = await fetch(retryUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
+      if (retryRes.ok) {
+        data = await retryRes.json();
+      }
+    }
+
     if (!res.ok) {
-      const body = await res.text().catch(() => '(no body)');
+      const body = JSON.stringify(data).slice(0, 500);
       console.error(`[composio] getConnectionStatus failed: HTTP ${res.status} — ${body}`);
       return {
         connected: [],
@@ -219,14 +230,13 @@ async function getConnectionStatus(userId, appNames = null) {
       };
     }
 
-    const data = await res.json();
-    console.log(`[composio] getConnectionStatus for user ${entityId}: ${(data.items || []).length} accounts found, ${(data.items || []).filter(c => c.status === 'ACTIVE').length} active`);
+    const items = data.items || [];
+    const activeItems = items.filter(c => c.status === 'ACTIVE');
+    console.log(`[composio] getConnectionStatus for user ${entityId}: ${items.length} accounts found, ${activeItems.length} active`);
 
-    const activeItems = (data.items || []).filter(c => c.status === 'ACTIVE');
-
-    if (data.items && data.items.length > 0 && activeItems.length === 0) {
-      const statuses = [...new Set(data.items.map(c => c.status))];
-      console.warn(`[composio] User ${entityId} has ${data.items.length} accounts but none are ACTIVE. Statuses: ${statuses.join(', ')}`);
+    if (items.length > 0 && activeItems.length === 0) {
+      const statuses = [...new Set(items.map(c => c.status))];
+      console.warn(`[composio] User ${entityId} has ${items.length} accounts but none are ACTIVE. Statuses: ${statuses.join(', ')}`);
     }
 
     const connected = new Set(activeItems.map(c => c.appName.toLowerCase()));
