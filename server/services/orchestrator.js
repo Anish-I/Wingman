@@ -25,6 +25,7 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
+  try {
   const userId = String(user.id);
 
   const [history, allTools] = await Promise.all([
@@ -115,6 +116,13 @@ async function processMessage(user, messageText) {
   extractAndSaveMemory(user, messages).catch(() => {});
 
   return finalText;
+  } catch (err) {
+    // Friendly message for rate limit errors
+    if (err.message && /rate limit|busy|too many/i.test(err.message)) {
+      return "One sec — juggling a few things. Try again in a moment.";
+    }
+    throw err;
+  }
 }
 
 module.exports = { processMessage };

@@ -15,8 +15,24 @@ Return ONLY valid JSON with these fields (omit any you can't determine):
 }
 Only include facts explicitly stated or strongly implied. Do not guess. Return {} if nothing is extractable.`;
 
+const EXTRACTION_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const MIN_MESSAGES_FOR_EXTRACTION = 3;
+const EXTRACTION_DELAY_MS = 2000; // 2s delay to avoid competing with main response
+
 async function extractAndSaveMemory(user, messages) {
   try {
+    // Only run if conversation has enough messages
+    if (messages.length < MIN_MESSAGES_FOR_EXTRACTION) return;
+
+    // Only run if last extraction was > 5 minutes ago
+    const lastExtracted = user.preferences?.memory_extracted_at;
+    if (lastExtracted && (Date.now() - new Date(lastExtracted).getTime()) < EXTRACTION_COOLDOWN_MS) {
+      return;
+    }
+
+    // Delay to avoid competing with the main LLM response
+    await new Promise(r => setTimeout(r, EXTRACTION_DELAY_MS));
+
     const recent = messages.slice(-10);
     const conversationText = recent
       .map(m => {
@@ -66,7 +82,7 @@ async function extractAndSaveMemory(user, messages) {
       }
     }
 
-    await queries.updateUserPreferences(user.id, { memory: merged });
+    await queries.updateUserPreferences(user.id, { memory: merged, memory_extracted_at: new Date().toISOString() });
   } catch (err) {
     console.error('[memory] extraction failed:', err.message);
   }
