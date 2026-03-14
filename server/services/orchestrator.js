@@ -4,6 +4,7 @@ const { getConversationHistory, appendMessage } = require('./redis');
 const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
+const { shouldCache, getCachedResponse, setCachedResponse } = require('./llm-cache');
 
 const MAX_TOOL_ITERATIONS = 5;
 
@@ -36,6 +37,15 @@ async function processMessage(user, messageText) {
   const selectedTools = selectToolsForMessage(allTools, messageText);
   const tools = [...LOCAL_TOOLS, ...selectedTools];
   console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
+
+  // Check semantic cache before doing any LLM work
+  if (shouldCache(messageText)) {
+    const cached = await getCachedResponse(messageText);
+    if (cached) {
+      await appendMessage(user.id, 'assistant', cached);
+      return cached;
+    }
+  }
 
   const memoryContext = getMemoryContext(user);
   const { systemPrompt } = buildContext(user, tools, memoryContext);
@@ -111,6 +121,11 @@ async function processMessage(user, messageText) {
 
   const finalText = response?.text || 'Done! Let me know if you need anything else.';
   await appendMessage(user.id, 'assistant', finalText);
+
+  // Cache the response if eligible
+  if (shouldCache(messageText) && finalText) {
+    await setCachedResponse(messageText, finalText);
+  }
 
   // Fire-and-forget: extract memory from conversation
   extractAndSaveMemory(user, messages).catch(() => {});

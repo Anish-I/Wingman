@@ -3,40 +3,67 @@
 const OpenAI = require('openai');
 const { queueLLMCall } = require('./llm-queue');
 
-// Provider config — set LLM_PROVIDER in .env to switch: "together" | "gemini" | "groq"
-const PROVIDER = (process.env.LLM_PROVIDER || 'together').toLowerCase();
+// Build all provider clients (initialize regardless of LLM_PROVIDER)
+const providers = [];
 
-let client;
-let MODEL_DEFAULT;
-let MODEL_COMPLEX;
+// Primary provider from env (default: gemini per task spec)
+const PRIMARY = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
 
-if (PROVIDER === 'gemini') {
-  client = new OpenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+// Gemini client
+if (process.env.GEMINI_API_KEY) {
+  providers.push({
+    name: 'gemini',
+    client: new OpenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    }),
+    model: process.env.TOGETHER_MODEL || 'gemini-2.5-flash',
+    modelComplex: process.env.TOGETHER_MODEL_COMPLEX || 'gemini-2.5-flash',
   });
-  MODEL_DEFAULT = process.env.TOGETHER_MODEL || 'gemini-2.0-flash';
-  MODEL_COMPLEX = process.env.TOGETHER_MODEL_COMPLEX || 'gemini-2.0-flash';
-} else if (PROVIDER === 'groq') {
-  client = new OpenAI({
-    apiKey: process.env.GROQ_API_KEY,
-    baseURL: 'https://api.groq.com/openai/v1',
-  });
-  MODEL_DEFAULT = process.env.TOGETHER_MODEL || 'llama-3.3-70b-versatile';
-  MODEL_COMPLEX = process.env.TOGETHER_MODEL_COMPLEX || 'llama-3.3-70b-versatile';
-} else {
-  // Default: Together AI
-  client = new OpenAI({
-    apiKey: process.env.TOGETHER_API_KEY,
-    baseURL: 'https://api.together.xyz/v1',
-  });
-  MODEL_DEFAULT = process.env.TOGETHER_MODEL || 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
-  MODEL_COMPLEX = process.env.TOGETHER_MODEL_COMPLEX || 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 }
 
+// Together AI client
+if (process.env.TOGETHER_API_KEY) {
+  providers.push({
+    name: 'together',
+    client: new OpenAI({
+      apiKey: process.env.TOGETHER_API_KEY,
+      baseURL: 'https://api.together.xyz/v1',
+    }),
+    model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    modelComplex: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+  });
+}
+
+// Groq client
+if (process.env.GROQ_API_KEY) {
+  providers.push({
+    name: 'groq',
+    client: new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: 'https://api.groq.com/openai/v1',
+    }),
+    model: 'llama-3.3-70b-versatile',
+    modelComplex: 'llama-3.3-70b-versatile',
+  });
+}
+
+// Sort providers: primary first, rest as fallbacks
+providers.sort((a, b) => {
+  if (a.name === PRIMARY) return -1;
+  if (b.name === PRIMARY) return 1;
+  return 0;
+});
+
+if (providers.length === 0) {
+  console.error('[llm] No provider API keys configured!');
+}
+
+const MODEL_DEFAULT = providers[0]?.model || 'gemini-2.5-flash';
+const MODEL_COMPLEX = providers[0]?.modelComplex || 'gemini-2.5-flash';
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '2048', 10);
 
-console.log(`[llm] Provider: ${PROVIDER} | Model: ${MODEL_DEFAULT}`);
+console.log(`[llm] Provider chain: ${providers.map(p => p.name).join(' → ')} | Primary model: ${MODEL_DEFAULT}`);
 
 function toOpenAITools(anthropicTools) {
   return anthropicTools.map((tool) => ({
@@ -97,65 +124,84 @@ function toOpenAIMessages(messages, systemPrompt) {
 
 async function callLLM(systemPrompt, messages, tools, options = {}) {
   const { complex = false } = options;
-  const model = complex ? MODEL_COMPLEX : MODEL_DEFAULT;
 
-  const params = {
-    model,
-    max_tokens: MAX_TOKENS,
-    messages: toOpenAIMessages(messages, systemPrompt),
-  };
+  const openAIMessages = toOpenAIMessages(messages, systemPrompt);
 
+  let openAITools;
   if (tools && tools.length > 0) {
-    const openAITools = options.alreadyOpenAIFormat ? tools : toOpenAITools(tools);
-    params.tools = openAITools;
-    params.tool_choice = 'auto';
+    openAITools = options.alreadyOpenAIFormat ? tools : toOpenAITools(tools);
   }
 
   return queueLLMCall(async () => {
-    const MAX_RETRIES = 3;
-    let lastErr;
+    // Try each provider in fallback order
+    for (let i = 0; i < providers.length; i++) {
+      const provider = providers[i];
+      const model = complex ? provider.modelComplex : provider.model;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await client.chat.completions.create(params);
-        const choice = response.choices[0];
-        const message = choice.message;
-        const text = message.content || '';
-        const toolUseBlocks = [];
+      const params = {
+        model,
+        max_tokens: MAX_TOKENS,
+        messages: openAIMessages,
+      };
 
-        if (message.tool_calls) {
-          for (const tc of message.tool_calls) {
-            toolUseBlocks.push({
-              type: 'tool_use',
-              id: tc.id,
-              name: tc.function.name,
-              input: JSON.parse(tc.function.arguments),
-            });
-          }
-        }
-
-        return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
-      } catch (err) {
-        lastErr = err;
-        if ((err.status === 429 || err.status === 503) && attempt < MAX_RETRIES) {
-          const delay = Math.pow(2, attempt - 1) * 1000;
-          console.warn(`[llm] ${err.status} on attempt ${attempt}, retrying in ${delay}ms`);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        break;
+      if (openAITools) {
+        params.tools = openAITools;
+        params.tool_choice = 'auto';
       }
+
+      const MAX_RETRIES = 3;
+      let lastErr;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const response = await provider.client.chat.completions.create(params);
+          const choice = response.choices[0];
+          const message = choice.message;
+          const text = message.content || '';
+          const toolUseBlocks = [];
+
+          if (message.tool_calls) {
+            for (const tc of message.tool_calls) {
+              toolUseBlocks.push({
+                type: 'tool_use',
+                id: tc.id,
+                name: tc.function.name,
+                input: JSON.parse(tc.function.arguments),
+              });
+            }
+          }
+
+          if (i > 0) {
+            console.log(`[llm] Fell back to ${provider.name} (was: ${providers[0].name})`);
+          }
+
+          return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
+        } catch (err) {
+          lastErr = err;
+          if ((err.status === 429 || err.status === 503) && attempt < MAX_RETRIES) {
+            const delay = Math.pow(2, attempt - 1) * 1000;
+            console.warn(`[llm] ${provider.name} ${err.status} on attempt ${attempt}, retrying in ${delay}ms`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          break;
+        }
+      }
+
+      // If rate limited / unavailable after retries, try next provider
+      if (lastErr?.status === 429 || lastErr?.status === 503) {
+        console.log(`[llm] Primary (${provider.name}) rate limited, falling back to ${providers[i + 1]?.name || 'none'}`);
+        continue;
+      }
+
+      // Real error (not rate limit), don't try other providers
+      console.error('[llm] Call failed:', lastErr?.message || lastErr);
+      throw new Error('Failed to process your message. Please try again.');
     }
 
-    if (lastErr?.status === 429) {
-      console.error('[llm] Rate limit hit after retries');
-      throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
-    }
-    if (lastErr?.status === 503) {
-      throw new Error('AI service is temporarily busy. Please try again shortly.');
-    }
-    console.error('[llm] Call failed:', lastErr?.message || lastErr);
-    throw new Error('Failed to process your message. Please try again.');
+    // All providers exhausted
+    console.error('[llm] All providers rate limited');
+    throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
   });
 }
 

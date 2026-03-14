@@ -1,6 +1,7 @@
 'use strict';
 const { callLLM } = require('./llm');
 const { createAndScheduleWorkflow } = require('./workflows');
+const { getCachedWorkflowPlan, setCachedWorkflowPlan } = require('./llm-cache');
 
 const PLANNER_SYSTEM_PROMPT = `You are a workflow planner for Wingman. Given a user's natural language request, create one or more workflow definitions.
 
@@ -20,6 +21,10 @@ For recurring tasks, parse the schedule into a cron expression.
 RESPOND WITH ONLY THE JSON ARRAY — no markdown, no explanation.`;
 
 async function planWorkflows(userMessage) {
+  // Check cache first
+  const cached = await getCachedWorkflowPlan(userMessage);
+  if (cached) return cached;
+
   const messages = [{ role: 'user', content: userMessage }];
   const response = await callLLM(PLANNER_SYSTEM_PROMPT, messages, [], {});
 
@@ -36,6 +41,9 @@ async function planWorkflows(userMessage) {
     console.error('[planner] Failed to parse LLM response:', response.text);
     throw new Error('Failed to plan workflow — could not parse response');
   }
+
+  // Cache the plan
+  await setCachedWorkflowPlan(userMessage, plans);
 
   return plans;
 }
