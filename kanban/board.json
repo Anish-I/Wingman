@@ -5,7 +5,7 @@
       "id": "WING-001",
       "title": "Fix Composio app connections",
       "description": "getConnectionStatus returns empty connected/missing arrays even for valid users. Investigate Composio API response and add better error messages.",
-      "column": "todo",
+      "column": "review",
       "priority": "high",
       "labels": ["backend", "composio", "bug"],
       "assignee": "claude-code",
