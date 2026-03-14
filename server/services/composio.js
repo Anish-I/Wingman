@@ -195,13 +195,40 @@ async function getConnectionLink(userId, appName) {
  * Returns { connected: string[], missing: string[] }
  */
 async function getConnectionStatus(userId, appNames = null) {
+  if (!COMPOSIO_API_KEY) {
+    const msg = 'COMPOSIO_API_KEY is not set — cannot check connection status';
+    console.error(`[composio] ${msg}`);
+    return { connected: [], missing: appNames || [], error: msg };
+  }
+
   try {
-    const res = await fetch(
-      `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${userId}&pageSize=200`,
-      { headers: { 'x-api-key': COMPOSIO_API_KEY } }
-    );
+    // Composio uses entityId (our userId as string) to identify users.
+    // The REST API accepts both `user_uuid` and `entityId` — try entityId first
+    // as it aligns with how getTools/getConnectionLink identify users.
+    const entityId = String(userId);
+    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
+    const res = await fetch(url, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '(no body)');
+      console.error(`[composio] getConnectionStatus failed: HTTP ${res.status} — ${body}`);
+      return {
+        connected: [],
+        missing: appNames || [],
+        error: `Composio API returned HTTP ${res.status}`,
+      };
+    }
+
     const data = await res.json();
+    console.log(`[composio] getConnectionStatus for user ${entityId}: ${(data.items || []).length} accounts found, ${(data.items || []).filter(c => c.status === 'ACTIVE').length} active`);
+
     const activeItems = (data.items || []).filter(c => c.status === 'ACTIVE');
+
+    if (data.items && data.items.length > 0 && activeItems.length === 0) {
+      const statuses = [...new Set(data.items.map(c => c.status))];
+      console.warn(`[composio] User ${entityId} has ${data.items.length} accounts but none are ACTIVE. Statuses: ${statuses.join(', ')}`);
+    }
+
     const connected = new Set(activeItems.map(c => c.appName.toLowerCase()));
 
     // No filter — return all connected apps
@@ -216,11 +243,12 @@ async function getConnectionStatus(userId, appNames = null) {
       connected: appNames.filter(a => connected.has(a.toLowerCase())),
       missing: appNames.filter(a => !connected.has(a.toLowerCase())),
     };
-  } catch {
+  } catch (err) {
+    console.error(`[composio] getConnectionStatus error for user ${userId}:`, err.message || err);
     if (!appNames || appNames.length === 0) {
-      return { connected: [], missing: [] };
+      return { connected: [], missing: [], error: err.message };
     }
-    return { connected: [], missing: appNames };
+    return { connected: [], missing: appNames, error: err.message };
   }
 }
 

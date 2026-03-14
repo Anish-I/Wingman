@@ -53,7 +53,7 @@ function httpRequest(method, urlPath, body = null, headers = {}) {
 async function run() {
   console.log('\n=== Agent 3: Routes/API Tester ===\n');
 
-  const TEST_PHONE = '+15550009999';
+  const TEST_PHONE = `+1555${Date.now().toString().slice(-7)}`;
 
   // Pre-cleanup: remove test phone from DB and Redis
   const Redis = require('ioredis');
@@ -183,7 +183,7 @@ async function run() {
   // We use a fresh phone number and hit the endpoint until we get 429
   // NOTE: The actual limit is max:5 (not 21 as initially stated). Test verifies it fires.
   try {
-    const rateLimitPhone = '+15550001234';
+    const rateLimitPhone = `+1555${(Date.now() + 1).toString().slice(-7)}`;
     let limitHit = false;
     let limitAt = -1;
 

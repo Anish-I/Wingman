@@ -1,0 +1,26 @@
+name: AI PR Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: AI Review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const diff = execSync('git diff origin/${{ github.base_ref }}...HEAD').toString();
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body: `## 🤖 Automated PR Review\n\n_AI review triggered. Diff size: ${diff.length} chars._\n\nReview pending — connect Claude Code agent for full analysis.`,
+              event: 'COMMENT'
+            });

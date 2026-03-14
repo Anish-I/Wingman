@@ -113,7 +113,7 @@ async function run() {
   }
 
   // 6. PostgreSQL CRUD smoke test
-  const testPhone = `+19995550001`;
+  const testPhone = `+1555${Date.now().toString().slice(-7)}`;
   try {
     await pool.query('DELETE FROM users WHERE phone = $1', [testPhone]);
     const ins = await pool.query('INSERT INTO users (phone, name) VALUES ($1, $2) RETURNING *', [testPhone, 'Agent1TestUser']);

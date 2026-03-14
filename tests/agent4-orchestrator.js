@@ -36,7 +36,7 @@ async function run() {
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: 1 });
 
   // Create a test user for orchestrator tests
-  const TEST_PHONE = '+19995559999';
+  const TEST_PHONE = `+1555${Date.now().toString().slice(-7)}`;
   let testUser;
   try {
     await pool.query('DELETE FROM users WHERE phone = $1', [TEST_PHONE]);
