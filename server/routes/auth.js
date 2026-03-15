@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, createUser, updateUserPin } = require('../db/queries');
+const { getUserByPhone, getUserById, createUser, updateUserPin } = require('../db/queries');
 
 const router = express.Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
@@ -148,6 +148,33 @@ router.post('/google', async (req, res) => {
   } catch (err) {
     console.error('Google auth error:', err);
     res.status(500).json({ error: 'Google sign-in failed.' });
+  }
+});
+
+// GET /auth/me — current user info
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization token required.' });
+    }
+    const payload = verifyToken(authHeader.slice(7));
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+    const user = await getUserById(payload.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.json({
+      id: user.id,
+      phone: user.phone,
+      name: user.name,
+      preferences: user.preferences || {},
+    });
+  } catch (err) {
+    console.error('Auth me error:', err);
+    res.status(500).json({ error: 'Failed to fetch user info.' });
   }
 });
 

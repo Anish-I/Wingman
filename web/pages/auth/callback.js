@@ -28,7 +28,8 @@ export default function AuthCallback() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Authentication failed');
-        localStorage.setItem('wingman_token', data.token);
+        const { setToken } = await import('../../lib/auth');
+        setToken(data.token);
         router.push('/chat');
       } catch (err) {
         setError(err.message);

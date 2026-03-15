@@ -181,10 +181,12 @@ async function executeTool(userId, toolCallBlock) {
  * The URL is single-use and opens in the user's browser.
  * Once authorized, Composio persists the session indefinitely.
  */
-async function getConnectionLink(userId, appName) {
+async function getConnectionLink(userId, appName, redirectUrl = null) {
   const client = new Composio({ apiKey: COMPOSIO_API_KEY });
   const entity = await client.getEntity(String(userId));
-  const conn = await entity.initiateConnection({ appName });
+  const params = { appName };
+  if (redirectUrl) params.redirectUrl = redirectUrl;
+  const conn = await entity.initiateConnection(params);
   return conn.redirectUrl;
 }
 
