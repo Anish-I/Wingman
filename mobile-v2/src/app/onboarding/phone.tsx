@@ -208,7 +208,7 @@ export default function PhoneScreen() {
                       borderRadius: 8,
                       backgroundColor: '#1A1A1A',
                       borderWidth: activeIdx === i ? 2 : 1,
-                      borderColor: activeIdx === i ? '#FF3B30' : '#3A3A3A',
+                      borderColor: activeIdx === i ? '#4A7BD9' : '#3A3A3A',
                       textAlign: 'center',
                       fontFamily: 'Sora_700Bold',
                       fontSize: 28,
@@ -237,7 +237,7 @@ export default function PhoneScreen() {
                     handleSendCode();
                   }}
                 >
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FF3B30' }}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#4A7BD9' }}>
                     Resend
                   </Text>
                 </TouchableOpacity>

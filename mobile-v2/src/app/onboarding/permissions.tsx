@@ -14,7 +14,7 @@ const PERMISSIONS = [
     icon: 'notifications-outline' as const,
     title: 'Notifications',
     subtitle: 'Get instant task updates',
-    bg: '#FF3B3020',
+    bg: '#3B599820',
   },
   {
     icon: 'people-outline' as const,
@@ -114,7 +114,7 @@ export default function PermissionsScreen() {
                       </Text>
                     </MotiView>
                   ) : (
-                    <View className="bg-[#FF3B30] rounded px-3 py-1.5">
+                    <View className="bg-[#3B5998] rounded px-3 py-1.5">
                       <Text
                         className="text-white text-[11px]"
                         style={{ fontFamily: 'Inter_600SemiBold' }}

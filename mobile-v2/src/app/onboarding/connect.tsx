@@ -72,8 +72,8 @@ export default function ConnectScreen() {
           </Text>
           {/* Count row */}
           <View className="flex-row items-center" style={{ gap: 6 }}>
-            <View className="rounded px-2.5" style={{ backgroundColor: '#FF3B3020', paddingVertical: 4 }}>
-              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: '#FF3B30' }}>
+            <View className="rounded px-2.5" style={{ backgroundColor: '#4A7BD920', paddingVertical: 4 }}>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: '#4A7BD9' }}>
                 {connected.length} CONNECTED
               </Text>
             </View>

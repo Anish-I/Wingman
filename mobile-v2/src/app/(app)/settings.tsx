@@ -43,7 +43,7 @@ function SettingsRow({ icon, iconColor = '#9A9BBF', label, value, onPress, showC
           {showChevron && <Ionicons name="chevron-forward" size={16} color="#5D6279" />}
         </View>
       </TouchableOpacity>
-      {!isLast && <View className="h-px bg-[#2E2F4D] ml-14" />}
+      {!isLast && <View className="h-px bg-border ml-14" />}
     </>
   );
 }

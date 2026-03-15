@@ -10,7 +10,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 
 const FEATURES = [
-  { icon: 'calendar-outline' as const, title: 'Schedule meetings', bg: '#FF3B3020' },
+  { icon: 'calendar-outline' as const, title: 'Schedule meetings', bg: '#4A7BD920' },
   { icon: 'checkmark-circle-outline' as const, title: 'Manage tasks', bg: '#32D74B20' },
   { icon: 'musical-notes-outline' as const, title: 'Control music', bg: '#9B7EC820' },
   { icon: 'mail-outline' as const, title: 'Send emails', bg: '#3B599820' },
@@ -64,7 +64,7 @@ export default function FeaturesScreen() {
                 >
                   {feat.title}
                 </Text>
-                <Ionicons name="chevron-forward" size={14} color="#FF3B30" />
+                <Ionicons name="chevron-forward" size={14} color="#4A7BD9" />
               </View>
             </MotiView>
           ))}

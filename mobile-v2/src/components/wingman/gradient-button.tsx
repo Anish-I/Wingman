@@ -21,7 +21,7 @@ export default function GradientButton({
   showArrow,
 }: GradientButtonProps) {
   const isPrimary = variant === 'primary';
-  const bgColor = isPrimary ? '#FF3B30' : '#32D74B';
+  const bgColor = isPrimary ? '#3B5998' : '#32D74B';
 
   return (
     <MotiView className="w-full">

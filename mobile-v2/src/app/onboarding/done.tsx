@@ -11,7 +11,7 @@ import SectionLabel from '@/components/wingman/section-label';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { signIn } from '@/features/auth/use-auth-store';
 
-const CONFETTI_COLORS = ['#FF3B30', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
+const CONFETTI_COLORS = ['#4A7BD9', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -151,7 +151,7 @@ export default function DoneScreen() {
                 gap: 6,
               }}
             >
-              <Ionicons name={chip.icon} size={14} color="#FF3B30" />
+              <Ionicons name={chip.icon} size={14} color="#4A7BD9" />
               <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFFFFF' }}>
                 {chip.label}
               </Text>

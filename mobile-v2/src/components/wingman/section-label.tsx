@@ -6,7 +6,7 @@ interface SectionLabelProps {
   color?: string;
 }
 
-export default function SectionLabel({ text, color = '#FF3B30' }: SectionLabelProps) {
+export default function SectionLabel({ text, color = '#4A7BD9' }: SectionLabelProps) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ width: 24, height: 2, backgroundColor: color, borderRadius: 1 }} />

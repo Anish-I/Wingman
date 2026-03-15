@@ -30,8 +30,8 @@
   --color-pip-success: #32D74B;
   --color-pip-error: #FF3B30;
   --color-pip-warning: #FBBF24;
-  --color-pip-accent-red: #FF3B30;
-  --color-pip-accent-red-soft: #FF3B3020;
+  --color-pip-accent-blue: #4A7BD9;
+  --color-pip-accent-blue-soft: #4A7BD920;
 
   /* Charcoal palette (kept for compatibility) */
   --color-charcoal-50: #F2F2F2;
@@ -119,7 +119,7 @@
 
   --color-border: #2A2A2A;
   --color-input: #1A1A1A;
-  --color-ring: #FF3B30;
+  --color-ring: #4A7BD9;
 
   --color-destructive: #FF3B30;
   --color-destructive-foreground: #ffffff;

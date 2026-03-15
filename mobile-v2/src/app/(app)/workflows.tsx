@@ -55,7 +55,7 @@ export default function WorkflowsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center">
-        <ActivityIndicator color="#3B5998" />
+        <ActivityIndicator color="#4A7BD9" />
       </SafeAreaView>
     );
   }
