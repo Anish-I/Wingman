@@ -57,6 +57,10 @@ if (msgProvider === 'stub' || !process.env.TELNYX_API_KEY) {
   console.log('[server] Stub SMS routes mounted at /stub');
 }
 
+// Add route for root URL
+app.get('/', (req, res) => {
+  res.json({ message: 'Wingman server is running' });
+});
 
 // Start workflow worker (BullMQ consumer)
 // Catch unhandled rejections from BullMQ Redis version check gracefully
