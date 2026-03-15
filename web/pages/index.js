@@ -159,30 +159,19 @@ export default function Home() {
 
       {/* Features */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-24">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
-          variants={fadeUp}
-          className="text-center mb-16"
-        >
+        <div className="text-center mb-16 animate-fade-up" style={{ animationDelay: '0.4s', animationFillMode: 'both' }}>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Everything you need, nothing you don't
           </h2>
           <p className="text-zinc-400 text-lg max-w-xl mx-auto">
             No complex dashboards. No learning curve. Just tell Wingman what you need.
           </p>
-        </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {features.map((f, i) => (
-            <motion.div
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 stagger-children">
+          {features.map((f) => (
+            <div
               key={f.title}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-50px' }}
-              variants={fadeUp}
-              custom={i}
               className="group bg-surface border border-border rounded-2xl p-6 card-hover"
             >
               <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center mb-4 group-hover:bg-accent/15 transition-colors">
@@ -190,34 +179,23 @@ export default function Home() {
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
               <p className="text-zinc-400 text-sm leading-relaxed">{f.desc}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
 
       {/* How it works */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-24">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
-          variants={fadeUp}
-          className="text-center mb-16"
-        >
+        <div className="text-center mb-16 animate-fade-up" style={{ animationDelay: '0.6s', animationFillMode: 'both' }}>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Up and running in minutes
           </h2>
-        </motion.div>
+        </div>
 
-        <div className="space-y-6">
-          {steps.map((s, i) => (
-            <motion.div
+        <div className="space-y-6 stagger-children">
+          {steps.map((s) => (
+            <div
               key={s.num}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-50px' }}
-              variants={fadeUp}
-              custom={i}
               className="flex items-start gap-6 bg-surface border border-border rounded-2xl p-6"
             >
               <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-accent/10 text-accent font-bold text-lg flex items-center justify-center font-mono">
@@ -227,7 +205,7 @@ export default function Home() {
                 <h3 className="text-lg font-semibold text-white mb-1">{s.title}</h3>
                 <p className="text-zinc-400 leading-relaxed">{s.desc}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
