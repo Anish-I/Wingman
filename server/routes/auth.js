@@ -30,23 +30,12 @@ function isValidPhone(phone) {
 
 // Simple JWT implementation (sign / verify)
 function signToken(payload, expiresInSeconds = 86400) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const now = Math.floor(Date.now() / 1000);
-  const body = Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds })).toString('base64url');
-  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-  return `${header}.${body}.${signature}`;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresInSeconds });
 }
 
 function verifyToken(token) {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const [header, body, signature] = parts;
-    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-    if (signature !== expected) return null;
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
+    return jwt.verify(token, JWT_SECRET);
   } catch {
     return null;
   }
@@ -63,7 +52,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
     await redis.set(`otp:${phone}`, otp, 'EX', OTP_TTL);
     await provider.sendMessage(phone, `Your Wingman verification code is: ${otp}. It expires in 10 minutes.`);
 
