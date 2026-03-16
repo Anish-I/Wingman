@@ -28,7 +28,7 @@ async function requireAuth(req, res, next) {
 router.post('/chat', requireAuth, async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: 'message is required' });
     }
     const reply = await processMessage(req.user, message.trim());

@@ -33,19 +33,23 @@ function signToken(payload, expiresInSeconds = 86400) {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const now = Math.floor(Date.now() / 1000);
   const body = Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds })).toString('base64url');
-  const signature = crypto.createHmac('sha256', jwtSecret).update(`${header}.${body}`).digest('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
   return `${header}.${body}.${signature}`;
 }
 
 function verifyToken(token) {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, body, signature] = parts;
-  const expected = crypto.createHmac('sha256', jwtSecret).update(`${header}.${body}`).digest('base64url');
-  if (signature !== expected) return null;
-  const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-  return payload;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [header, body, signature] = parts;
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (signature !== expected) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 // POST /auth/request-otp
@@ -196,7 +200,7 @@ router.post('/set-pin', async (req, res) => {
       return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
     }
 
-    const pinHash = crypto.createHash('sha256').update(pin + jwtSecret).digest('hex');
+    const pinHash = crypto.createHash('sha256').update(pin + JWT_SECRET).digest('hex');
     await updateUserPin(payload.userId, pinHash);
 
     res.json({ success: true, message: 'PIN set successfully.' });
