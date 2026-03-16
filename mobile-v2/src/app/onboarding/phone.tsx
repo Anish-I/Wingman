@@ -17,7 +17,7 @@ export default function PhoneScreen() {
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
   const [step, setStep] = useState<'phone' | 'verify' | 'success'>('phone');
-  const [code, setCode] = useState(['', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputs = useRef<TextInput[]>([]);
@@ -44,7 +44,7 @@ export default function PhoneScreen() {
     const newCode = [...code];
     newCode[idx] = text.slice(-1);
     setCode(newCode);
-    if (text && idx < 3) {
+    if (text && idx < 5) {
       inputs.current[idx + 1]?.focus();
       setActiveIdx(idx + 1);
     }
@@ -59,8 +59,8 @@ export default function PhoneScreen() {
 
   async function handleVerify() {
     const otp = code.join('');
-    if (otp.length !== 4) {
-      Alert.alert('Incomplete', 'Please enter all 4 digits.');
+    if (otp.length !== 6) {
+      Alert.alert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
     setLoading(true);
@@ -203,15 +203,15 @@ export default function PhoneScreen() {
                       if (r) inputs.current[i] = r;
                     }}
                     style={{
-                      width: 60,
-                      height: 64,
+                      width: 48,
+                      height: 56,
                       borderRadius: 8,
                       backgroundColor: '#1A1A1A',
                       borderWidth: activeIdx === i ? 2 : 1,
                       borderColor: activeIdx === i ? '#4A7BD9' : '#3A3A3A',
                       textAlign: 'center',
                       fontFamily: 'Sora_700Bold',
-                      fontSize: 28,
+                      fontSize: 24,
                       color: '#FFFFFF',
                     }}
                     value={digit}
@@ -232,7 +232,7 @@ export default function PhoneScreen() {
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
-                    setCode(['', '', '', '']);
+                    setCode(['', '', '', '', '', '']);
                     setActiveIdx(0);
                     handleSendCode();
                   }}

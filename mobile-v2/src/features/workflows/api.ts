@@ -31,6 +31,13 @@ export const useCreateWorkflow = createMutation<WorkflowResponse, { name: string
   },
 });
 
+export const usePlanWorkflow = createMutation<WorkflowResponse, { description: string }>({
+  mutationFn: async (variables) => {
+    const { data } = await client.post<WorkflowResponse>('/api/workflows/plan', variables);
+    return data;
+  },
+});
+
 export const useUpdateWorkflow = createMutation<WorkflowResponse, { id: string; patch: Record<string, unknown> }>({
   mutationFn: async ({ id, patch }) => {
     try {

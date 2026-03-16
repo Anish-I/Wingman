@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 
@@ -18,12 +19,13 @@ interface SettingsRowProps {
   isLast?: boolean;
 }
 
-function SettingsRow({ icon, iconColor = '#9A9BBF', label, value, onPress, showChevron = true, isFirst, isLast }: SettingsRowProps) {
+function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showChevron = true, isFirst, isLast }: SettingsRowProps) {
   return (
     <>
       <TouchableOpacity
-        className="flex-row items-center py-3.5 px-4 gap-3 bg-card"
+        className="flex-row items-center py-4 px-4 gap-3"
         style={[
+          { backgroundColor: '#1A1A1A' },
           isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
           isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
         ]}
@@ -32,18 +34,22 @@ function SettingsRow({ icon, iconColor = '#9A9BBF', label, value, onPress, showC
         disabled={!onPress}
       >
         <View
-          className="w-8 h-8 rounded-full justify-center items-center"
-          style={{ backgroundColor: iconColor + '20' }}
+          className="w-9 h-9 rounded-xl justify-center items-center"
+          style={{ backgroundColor: iconColor + '18' }}
         >
           <Ionicons name={icon} size={18} color={iconColor} />
         </View>
-        <Text className="flex-1 text-[15px] font-medium text-foreground">{label}</Text>
+        <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
         <View className="flex-row items-center gap-1.5">
-          {value ? <Text className="text-muted-foreground text-sm">{value}</Text> : null}
-          {showChevron && <Ionicons name="chevron-forward" size={16} color="#5D6279" />}
+          {value ? (
+            <View className="bg-[#242424] rounded-lg px-2.5 py-1">
+              <Text className="text-[#8A8A8A] text-[12px] font-semibold">{value}</Text>
+            </View>
+          ) : null}
+          {showChevron && <Ionicons name="chevron-forward" size={16} color="#3A3A3A" />}
         </View>
       </TouchableOpacity>
-      {!isLast && <View className="h-px bg-border ml-14" />}
+      {!isLast && <View className="h-px bg-[#242424] ml-14" />}
     </>
   );
 }
@@ -56,7 +62,7 @@ export default function SettingsScreen() {
       }
       return;
     }
-    Alert.alert('Log out', 'Are you sure?', [
+    Alert.alert('Log out', 'Are you sure you want to leave Pip?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log out',
@@ -69,41 +75,106 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="pb-12">
-        <View className="items-center pt-4 pb-2">
-          <PipCard expression="wave" size="medium" className="mb-0" />
-          <Text className="text-foreground text-lg font-bold mt-1">Pip User</Text>
-        </View>
+        {/* Profile header */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 12 }}
+          className="items-center pt-6 pb-4"
+        >
+          <PipCard expression="happy" size="medium" className="mb-0" />
+          <Text className="text-foreground text-xl font-extrabold mt-2">Pip User</Text>
+          <View className="flex-row items-center gap-1.5 mt-1">
+            <View className="w-2 h-2 rounded-full bg-[#32D74B]" />
+            <Text className="text-[#32D74B] text-xs font-semibold">Active</Text>
+          </View>
+        </MotiView>
 
-        <View className="mt-6 px-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2 ml-1">Account</Text>
-          <View className="bg-card rounded-2xl overflow-hidden">
+        {/* Stats row */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ delay: 200 }}
+          className="flex-row gap-3 px-4 mb-6"
+        >
+          {[
+            { num: '0', label: 'Apps', color: '#4A7BD9' },
+            { num: '0', label: 'Workflows', color: '#9B7EC8' },
+            { num: '0', label: 'Messages', color: '#6EC6B8' },
+          ].map((stat, i) => (
+            <MotiView
+              key={stat.label}
+              from={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', damping: 12, delay: 300 + i * 80 }}
+              className="flex-1 bg-[#1A1A1A] rounded-2xl py-3 items-center border border-[#2A2A2A]"
+            >
+              <Text style={{ color: stat.color, fontSize: 22, fontWeight: '800' }}>{stat.num}</Text>
+              <Text className="text-[#8A8A8A] text-[10px] font-bold uppercase mt-0.5">{stat.label}</Text>
+            </MotiView>
+          ))}
+        </MotiView>
+
+        {/* Account section */}
+        <MotiView
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: 400 }}
+          className="mt-2 px-4"
+        >
+          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Account</Text>
+          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" />
             <SettingsRow icon="apps-outline" iconColor="#4A7BD9" label="Connected Apps" value="0 apps" isLast />
           </View>
-        </View>
+        </MotiView>
 
-        <View className="mt-6 px-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2 ml-1">Preferences</Text>
-          <View className="bg-card rounded-2xl overflow-hidden">
+        {/* Preferences section */}
+        <MotiView
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: 500 }}
+          className="mt-6 px-4"
+        >
+          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Preferences</Text>
+          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value="Dark" />
             <SettingsRow icon="language-outline" iconColor="#4A7BD9" label="Language" value="English" isLast />
           </View>
-        </View>
+        </MotiView>
 
-        <View className="mt-6 px-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2 ml-1">About</Text>
-          <View className="bg-card rounded-2xl overflow-hidden">
+        {/* About section */}
+        <MotiView
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: 600 }}
+          className="mt-6 px-4"
+        >
+          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">About</Text>
+          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
             <SettingsRow icon="information-circle-outline" iconColor="#4A7BD9" label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />
-            <SettingsRow icon="document-text-outline" iconColor="#9A9BBF" label="Terms" isLast />
+            <SettingsRow icon="document-text-outline" iconColor="#8A8A8A" label="Terms" isLast />
           </View>
-        </View>
+        </MotiView>
 
-        <TouchableOpacity className="items-center py-4 mt-8 mx-4" onPress={handleLogout} activeOpacity={0.6}>
-          <Text className="text-[#F87171] text-base font-semibold">Log Out</Text>
-        </TouchableOpacity>
+        {/* Logout */}
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 700 }}
+        >
+          <TouchableOpacity
+            className="flex-row items-center justify-center gap-2 py-4 mt-8 mx-4 bg-[#FF3B30]/10 rounded-2xl"
+            onPress={handleLogout}
+            activeOpacity={0.6}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FF3B30" />
+            <Text className="text-[#FF3B30] text-base font-bold">Log Out</Text>
+          </TouchableOpacity>
+        </MotiView>
       </ScrollView>
     </SafeAreaView>
   );

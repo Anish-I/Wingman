@@ -1,4 +1,5 @@
 import { createMutation } from 'react-query-kit';
+import { AxiosError } from 'axios';
 import { client } from '@/lib/api/client';
 
 type ChatResponse = { reply: string };
@@ -12,10 +13,14 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
     try {
       const { data } = await client.post<ChatResponse>('/api/chat', variables);
       return data;
-    } catch {
-      // Demo mode: return mock response when backend is unavailable
-      await new Promise((r) => setTimeout(r, 800));
-      return { reply: MOCK_REPLY };
+    } catch (err) {
+      // Only fall back to demo mode for network errors (no response from server)
+      if (err instanceof AxiosError && !err.response) {
+        await new Promise((r) => setTimeout(r, 800));
+        return { reply: MOCK_REPLY };
+      }
+      // For actual server errors (401, 500, etc.), re-throw so the user sees the error
+      throw err;
     }
   },
 });
