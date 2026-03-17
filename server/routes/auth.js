@@ -46,6 +46,7 @@ function isValidPhone(phone) {
 
 function signToken(payload, expiresInSeconds = 86400) {
   return jwt.sign(payload, JWT_SECRET, {
+    algorithm: 'HS256',
     expiresIn: expiresInSeconds,
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
@@ -55,6 +56,7 @@ function signToken(payload, expiresInSeconds = 86400) {
 function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     });
