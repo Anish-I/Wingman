@@ -47,4 +47,22 @@ export const api = {
     updatePreferences: (prefs: object) =>
       req<{ user: import('./types').User }>('PATCH', '/api/user/preferences', prefs),
   },
+  composio: {
+    listApps: () =>
+      fetch('https://backend.composio.dev/api/v1/apps?additionalFields=logo', {
+        headers: { 'Content-Type': 'application/json' },
+      }).then(async (res) => {
+        if (!res.ok) throw new Error('Failed to fetch Composio apps');
+        return res.json() as Promise<{
+          items: Array<{
+            appId: string;
+            key: string;
+            name: string;
+            logo?: string;
+            categories?: string[];
+            description?: string;
+          }>;
+        }>;
+      }),
+  },
 };

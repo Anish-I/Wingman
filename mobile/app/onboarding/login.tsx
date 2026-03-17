@@ -86,17 +86,24 @@ export default function LoginScreen() {
 
   async function handleGoogleSignIn() {
     if (!GOOGLE_CLIENT_ID) {
-      Alert.alert('Not configured', 'Google sign-in is not available yet.');
+      Alert.alert(
+        'Google Sign-In',
+        'Google sign-in requires configuration. Set EXPO_PUBLIC_GOOGLE_CLIENT_ID in your environment.',
+      );
       return;
     }
+    setLoading(true);
     try {
       await googlePromptAsync();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Google sign-in failed.');
+      Alert.alert('Google Sign-In Error', err?.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleAppleSignIn() {
+    setLoading(true);
     try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -109,18 +116,31 @@ export default function LoginScreen() {
           ? [credential.fullName.givenName, credential.fullName.familyName].filter(Boolean).join(' ')
           : undefined;
         await handleSocialLogin('apple', credential.identityToken, appleName || undefined);
+      } else {
+        Alert.alert('Apple Sign-In', 'No identity token received. Please try again.');
+        setLoading(false);
       }
     } catch (err: any) {
+      setLoading(false);
       if (err.code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Error', err?.message || 'Apple sign-in failed.');
+        Alert.alert('Apple Sign-In Error', err?.message || 'Apple sign-in failed. Please try again.');
       }
     }
   }
 
-  function handlePhoneContinue() {
+  async function handlePhoneContinue() {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10) return;
-    router.push({ pathname: '/onboarding/phone', params: { phone } });
+    const formatted = `+1${digits.slice(-10)}`;
+    setLoading(true);
+    try {
+      await api.auth.requestOtp(formatted);
+      router.push({ pathname: '/onboarding/verify', params: { phone: formatted } });
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to send verification code.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

@@ -10,14 +10,15 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import { colors, spacing, radius } from '../../src/theme';
 
 export default function PhoneScreen() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const params = useLocalSearchParams<{ phone?: string }>();
+  const [phone, setPhone] = useState(params.phone ?? '');
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState('');
 
