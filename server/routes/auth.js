@@ -27,6 +27,16 @@ const otpLimiter = rateLimit({
   message: { error: 'Too many OTP requests, please try again later.' },
 });
 
+// Rate limit OTP verification: 5 attempts per 15 minutes per phone (or IP fallback)
+const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.body?.phone || req.ip,
+  message: { error: 'Too many attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -73,7 +83,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
 });
 
 // POST /auth/verify-otp
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { phone, code } = req.body;
     if (!phone || !code) {
@@ -89,10 +99,10 @@ router.post('/verify-otp', async (req, res) => {
 
     const stored = await redis.get(`otp:${phone}`);
     if (!stored || stored !== code) {
-      await redis.incr(attemptKey);
-      if (attempts === 0) {
-        await redis.expire(attemptKey, OTP_TTL);
-      }
+      const newCount = await redis.incr(attemptKey);
+      // Always set TTL after incr to prevent keys persisting without expiry
+      await redis.expire(attemptKey, OTP_TTL);
+      console.log(`[otp-rate-limit] phone=${phone} attempts=${newCount} ttl=${OTP_TTL}s key=${attemptKey}`);
       return res.status(401).json({ error: 'Invalid or expired OTP.' });
     }
 
