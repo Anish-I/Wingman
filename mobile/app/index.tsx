@@ -11,5 +11,5 @@ export default function Index() {
 
   if (authed === null) return null;
   if (authed) return <Redirect href="/(tabs)/chat" />;
-  return <Redirect href="/onboarding/welcome" />;
+  return <Redirect href="/onboarding/" />;
 }

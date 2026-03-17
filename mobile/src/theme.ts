@@ -16,8 +16,8 @@ export const colors = {
   glassElevated: 'rgba(255, 255, 255, 0.08)',
 
   // Borders & dividers
-  border: '#2a2a45',
-  borderLight: '#2a2a45',
+  border: '#2a2a4e',
+  borderLight: '#2a2a4e',
   borderSubtle: '#1f1f35',
 
   // Brand — purple accent
@@ -26,11 +26,12 @@ export const colors = {
   primaryDark: '#5549e0',
   primaryMuted: 'rgba(108, 99, 255, 0.15)',
 
-  // Accent — teal highlight, used sparingly
-  accent: '#6EC6B8',
-  accentDark: '#5AAE9F',
-  accentMuted: 'rgba(110, 198, 184, 0.12)',
-  accentGlow: 'rgba(110, 198, 184, 0.25)',
+  // Accent — teal highlight
+  teal: '#00d4d4',
+  accent: '#00d4d4',
+  accentDark: '#00b3b3',
+  accentMuted: 'rgba(0, 212, 212, 0.12)',
+  accentGlow: 'rgba(0, 212, 212, 0.25)',
 
   // Extended palette
   purple: '#6c63ff',
@@ -39,7 +40,8 @@ export const colors = {
 
   // Text
   text: '#FFFFFF',
-  textSecondary: '#9A9BBF',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#8888aa',
   textMuted: '#5D6279',
   textInverse: '#0f0f1a',
 
@@ -51,8 +53,8 @@ export const colors = {
   bubbleUserText: '#FFFFFF',
 
   // Semantic
-  success: '#34C759',
-  successMuted: 'rgba(52, 199, 89, 0.12)',
+  success: '#00c896',
+  successMuted: 'rgba(0, 200, 150, 0.12)',
   error: '#F87171',
   errorMuted: 'rgba(248, 113, 113, 0.12)',
   warning: '#FBBF24',
@@ -64,15 +66,15 @@ export const colors = {
   overlayLight: 'rgba(15, 15, 26, 0.5)',
 
   // Tab bar
-  tabBar: '#0f0f1a',
-  tabBarBorder: '#1f1f35',
+  tabBar: '#1a1a2e',
+  tabBarBorder: '#2a2a4e',
 };
 
 export const gradients = {
   primary: ['#8b83ff', '#6c63ff', '#5549e0'] as const,
-  accent: ['#7DD4C6', '#6EC6B8', '#5AAE9F'] as const,
+  accent: ['#00e6e6', '#00d4d4', '#00b3b3'] as const,
   card: ['rgba(26, 26, 46, 0.9)', 'rgba(26, 26, 46, 0.6)'] as const,
-  glow: ['rgba(110, 198, 184, 0.08)', 'rgba(110, 198, 184, 0)'] as const,
+  glow: ['rgba(0, 212, 212, 0.08)', 'rgba(0, 212, 212, 0)'] as const,
   surface: ['#1a1a2e', '#0f0f1a'] as const,
   purple: ['#8b83ff', '#6c63ff'] as const,
   purpleDark: ['#6c63ff', '#5549e0'] as const,
@@ -99,6 +101,9 @@ export const radius = {
   xs: 6,
   sm: 10,
   md: 14,
+  card: 16,
+  button: 12,
+  pill: 24,
   lg: 20,
   xl: 28,
   xxl: 36,

@@ -8,13 +8,13 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Switch,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import PipCard from '../../src/PipCard';
 import { clearToken, getToken } from '../../src/auth';
 import { colors, spacing, radius } from '../../src/theme';
-import type { User } from '../../src/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -28,6 +28,10 @@ interface SettingsRowProps {
   destructive?: boolean;
   isFirst?: boolean;
   isLast?: boolean;
+  toggle?: boolean;
+  toggleValue?: boolean;
+  onToggle?: (v: boolean) => void;
+  badge?: string;
 }
 
 function SettingsRow({
@@ -40,6 +44,10 @@ function SettingsRow({
   destructive,
   isFirst,
   isLast,
+  toggle,
+  toggleValue,
+  onToggle,
+  badge,
 }: SettingsRowProps) {
   const labelColor = destructive ? colors.error : colors.text;
   const resolvedIconColor = destructive ? colors.error : iconColor;
@@ -49,22 +57,34 @@ function SettingsRow({
       <TouchableOpacity
         style={[
           styles.row,
-          isFirst && { borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md },
-          isLast && { borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md },
+          isFirst && { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+          isLast && { borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
         ]}
         onPress={onPress}
         activeOpacity={onPress ? 0.6 : 1}
-        disabled={!onPress}
+        disabled={!onPress && !toggle}
       >
         <View style={[styles.rowIconBox, destructive && { backgroundColor: colors.errorMuted }]}>
           <Ionicons name={icon} size={18} color={resolvedIconColor} />
         </View>
         <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
         <View style={styles.rowRight}>
+          {badge ? (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{badge}</Text>
+            </View>
+          ) : null}
           {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-          {showChevron && (
+          {toggle ? (
+            <Switch
+              value={toggleValue}
+              onValueChange={onToggle}
+              trackColor={{ false: colors.border, true: colors.success }}
+              thumbColor="#fff"
+            />
+          ) : showChevron ? (
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
       {!isLast && <View style={styles.divider} />}
@@ -90,8 +110,8 @@ function formatPhone(phone: string): string {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<{ name: string; phone: string } | null>(null);
+  const [notificationsOn, setNotificationsOn] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -108,15 +128,14 @@ export default function SettingsScreen() {
   }, []);
 
   async function handleLogout() {
-    Alert.alert('Log out', 'Are you sure?', [
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Log out',
+        text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          setLoading(true);
           await clearToken();
-          router.replace('/onboarding/signup');
+          router.replace('/onboarding/login');
         },
       },
     ]);
@@ -127,7 +146,15 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Profile header */}
         <View style={styles.profileSection}>
-          <PipCard expression="wave" size="small" style={styles.pip} />
+          <View style={styles.avatarCircle}>
+            {user ? (
+              <Text style={styles.avatarInitial}>
+                {user.name.charAt(0).toUpperCase()}
+              </Text>
+            ) : (
+              <Ionicons name="person" size={28} color={colors.textMuted} />
+            )}
+          </View>
           {user ? (
             <>
               <Text style={styles.username}>{user.name}</Text>
@@ -138,42 +165,42 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* Account */}
+        {/* Settings sections */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.sectionCard}>
-            <SettingsRow icon="call-outline" iconColor={colors.accent} label="Phone" value="Tap to view" isFirst />
-            <SettingsRow icon="time-outline" iconColor={colors.orange} label="Timezone" value="Auto-detect" />
-            <SettingsRow icon="lock-closed-outline" iconColor={colors.purple} label="Security" />
-            <SettingsRow icon="apps-outline" iconColor={colors.primaryLight} label="Connected Apps" value={`0 apps`} isLast />
+            <SettingsRow
+              icon="notifications-outline"
+              iconColor={colors.orange}
+              label="Notifications"
+              toggle
+              toggleValue={notificationsOn}
+              onToggle={setNotificationsOn}
+              showChevron={false}
+              isFirst
+            />
+            <SettingsRow
+              icon="apps-outline"
+              iconColor={colors.primaryLight}
+              label="Connected Apps"
+              badge="0"
+              isLast
+            />
           </View>
         </View>
 
-        {/* Preferences */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.sectionCard}>
-            <SettingsRow icon="moon-outline" iconColor={colors.purple} label="Theme" value="Dark" isFirst />
-            <SettingsRow icon="notifications-outline" iconColor={colors.orange} label="Notifications" value="On" isLast />
+            <SettingsRow icon="shield-outline" iconColor={colors.textSecondary} label="Privacy" isFirst />
+            <SettingsRow icon="help-circle-outline" iconColor={colors.teal} label="Help & Support" isLast />
           </View>
         </View>
 
-        {/* About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow icon="information-circle-outline" iconColor={colors.primaryLight} label="Version" value="1.0.0" showChevron={false} isFirst />
-            <SettingsRow icon="chatbubble-outline" iconColor={colors.accent} label="Send Feedback" />
-            <SettingsRow icon="shield-outline" iconColor={colors.textSecondary} label="Privacy Policy" isLast />
-          </View>
-        </View>
-
-        {/* Log out */}
+        {/* Sign Out */}
         <View style={styles.section}>
           <View style={styles.sectionCard}>
             <SettingsRow
               icon="log-out-outline"
-              label="Log out"
+              label="Sign Out"
               showChevron={false}
               onPress={handleLogout}
               destructive
@@ -194,37 +221,44 @@ const styles = StyleSheet.create({
   // Profile
   profileSection: {
     alignItems: 'center',
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
-  pip: { marginBottom: 0 },
+  avatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  avatarInitial: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: '700',
+  },
   username: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    marginTop: spacing.xs,
   },
   phone: {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 2,
   },
 
   // Sections
-  section: { marginTop: spacing.lg, paddingHorizontal: spacing.md },
-  sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
-  },
+  section: { marginTop: spacing.md, paddingHorizontal: spacing.md },
   sectionCard: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: radius.card,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   // Rows
@@ -247,6 +281,18 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowValue: { color: colors.textMuted, fontSize: 14 },
+  countBadge: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginRight: 4,
+  },
+  countBadgeText: {
+    color: colors.primaryLight,
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   divider: {
     height: 1,
