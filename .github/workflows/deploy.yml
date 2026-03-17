@@ -1,0 +1,19 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: Add EAS Build / deployment steps here
+      - name: Deploy placeholder
+        run: echo "Deploy step — configure EAS or server deploy here"
