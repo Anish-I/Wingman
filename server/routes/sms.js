@@ -26,10 +26,14 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // --- Twilio path ---
       if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
         console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Twilio signature check skipped');
-      } else if (req.headers['x-twilio-signature']) {
+      } else {
+        if (!req.headers['x-twilio-signature']) {
+          console.warn('[security] Missing x-twilio-signature header');
+          return res.status(403).json({ error: 'Forbidden' });
+        }
         const isValid = provider.validateIncoming(req);
         if (!isValid) {
-          console.warn('Invalid Twilio signature');
+          console.warn('[security] Invalid Twilio signature');
           return res.status(403).json({ error: 'Forbidden' });
         }
       }
@@ -63,11 +67,15 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // --- Telnyx path ---
       if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
         console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Telnyx signature check skipped');
-      } else if (req.headers['telnyx-signature-ed25519']) {
+      } else {
+        if (!req.headers['telnyx-signature-ed25519']) {
+          console.warn('[security] Missing telnyx-signature-ed25519 header');
+          return res.status(403).json({ error: 'Forbidden' });
+        }
         const rawBody = JSON.stringify(req.body);
         const isValid = provider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
-          console.warn('Invalid Telnyx signature');
+          console.warn('[security] Invalid Telnyx signature');
           return res.status(403).json({ error: 'Forbidden' });
         }
       }
