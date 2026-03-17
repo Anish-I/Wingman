@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
@@ -209,13 +210,64 @@ router.post('/set-pin', async (req, res) => {
       return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
     }
 
-    const pinHash = crypto.createHash('sha256').update(pin + JWT_SECRET).digest('hex');
+    const pinHash = await bcrypt.hash(pin, 12);
     await updateUserPin(payload.userId, pinHash);
 
     res.json({ success: true, message: 'PIN set successfully.' });
   } catch (err) {
     console.error('Set PIN error:', err);
     res.status(500).json({ error: 'Failed to set PIN.' });
+  }
+});
+
+// POST /auth/verify-pin
+router.post('/verify-pin', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization token required.' });
+    }
+
+    const payload = verifyToken(authHeader.slice(7));
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+
+    const { pin } = req.body;
+    if (!pin || !/^\d{4,8}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
+    }
+
+    // Rate limit: max 5 attempts per userId per 15 minutes
+    const attemptKey = `pin_verify_attempts:${payload.userId}`;
+    const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
+    if (attempts >= 5) {
+      return res.status(429).json({ error: 'Too many PIN verification attempts. Try again later.' });
+    }
+
+    const user = await getUserById(payload.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    if (!user.pin_hash) {
+      return res.status(400).json({ error: 'No PIN set for this account.' });
+    }
+
+    const valid = await bcrypt.compare(pin, user.pin_hash);
+
+    if (!valid) {
+      await redis.incr(attemptKey);
+      if (attempts === 0) {
+        await redis.expire(attemptKey, 15 * 60);
+      }
+    } else {
+      await redis.del(attemptKey);
+    }
+
+    res.json({ success: true, valid });
+  } catch (err) {
+    console.error('Verify PIN error:', err);
+    res.status(500).json({ error: 'Failed to verify PIN.' });
   }
 });
 

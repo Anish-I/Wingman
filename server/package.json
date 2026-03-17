@@ -8,6 +8,7 @@
                     "test":  "node --experimental-vm-modules ../../node_modules/.bin/jest --testPathPattern=tests/ --forceExit 2\u003e/dev/null || node -e \"console.log(\u0027Tests: server health check\u0027); const http=require(\u0027http\u0027); const req=http.request({hostname:\u0027localhost\u0027,port:3001,path:\u0027/health\u0027},r=\u003e{let d=\u0027\u0027;r.on(\u0027data\u0027,c=\u003ed+=c);r.on(\u0027end\u0027,()=\u003e{const ok=JSON.parse(d).status===\u0027ok\u0027;console.log(ok?\u0027PASS: /health\u0027:\u0027FAIL: /health\u0027);process.exit(ok?0:1)})});req.on(\u0027error\u0027,()=\u003e{console.log(\u0027SKIP: server not running in CI (expected)\u0027);process.exit(0)});req.end()\""
                 },
     "dependencies":  {
+                         "bcrypt":  "^5.1.1",
                          "bullmq":  "^5.0.0",
                          "composio-core":  "^0.5.39",
                          "cors":  "^2.8.5",
