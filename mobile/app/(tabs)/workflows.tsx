@@ -114,7 +114,7 @@ export default function WorkflowsScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.accent }]}>—</Text>
+          <Text style={[styles.statValue, { color: colors.accent }]}>0</Text>
           <Text style={styles.statLabel}>Runs today</Text>
         </View>
       </View>

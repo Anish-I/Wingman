@@ -411,10 +411,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
-    backgroundColor: colors.glass,
+    backgroundColor: 'rgba(26, 26, 46, 0.7)',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   bubbleText: {
     color: colors.text,
@@ -449,6 +449,7 @@ const styles = StyleSheet.create({
   // Quick action chips bar
   actionChipBar: {
     paddingHorizontal: spacing.md,
+    paddingRight: 16,
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
