@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
 const { provider } = require('../services/messaging');
@@ -7,12 +8,13 @@ const { getUserByPhone, getUserById, createUser, updateUserPin } = require('../d
 
 const router = express.Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret && process.env.NODE_ENV === 'production') {
-  console.error('FATAL: JWT_SECRET must be set in production');
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required');
   process.exit(1);
 }
-const JWT_SECRET = jwtSecret || 'wingman-dev-secret';
+const JWT_ISSUER = 'wingman';
+const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
 
 // Rate limit OTP requests: 5 per 15 minutes per IP
@@ -28,14 +30,20 @@ function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
 
-// Simple JWT implementation (sign / verify)
 function signToken(payload, expiresInSeconds = 86400) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresInSeconds });
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: expiresInSeconds,
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+  });
 }
 
 function verifyToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
   } catch {
     return null;
   }
