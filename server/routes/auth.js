@@ -4,11 +4,41 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const Redis = require('ioredis');
+const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
 const { getUserByPhone, getUserById, createUser, updateUserPin } = require('../db/queries');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const appleJwksClient = jwksClient({
+  jwksUri: 'https://appleid.apple.com/auth/keys',
+  cache: true,
+  cacheMaxEntries: 5,
+  cacheMaxAge: 10 * 60 * 1000,
+});
+
+async function verifyAppleToken(token) {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Invalid Apple token format.');
+  }
+  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
+  if (!header.kid) {
+    throw new Error('Apple token missing kid in header.');
+  }
+  const signingKey = await appleJwksClient.getSigningKey(header.kid);
+  const verifyOptions = {
+    algorithms: ['RS256'],
+    issuer: 'https://appleid.apple.com',
+  };
+  if (process.env.APPLE_CLIENT_ID) {
+    verifyOptions.audience = process.env.APPLE_CLIENT_ID;
+  } else {
+    console.warn('APPLE_CLIENT_ID not set — skipping audience check for Apple token verification');
+  }
+  return jwt.verify(token, signingKey.getPublicKey(), verifyOptions);
+}
 
 const router = express.Router();
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
@@ -219,19 +249,19 @@ router.post('/social', async (req, res) => {
       socialName = payload.name || payload.email;
       socialEmail = payload.email;
     } else if (authProvider === 'apple') {
-      // Decode Apple identity token (JWT) — Apple tokens are signed JWTs
-      // For production, verify against Apple's public keys; here we decode the payload
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return res.status(401).json({ error: 'Invalid Apple token format.' });
+      // Cryptographically verify Apple identity token against Apple's JWKS
+      try {
+        const payload = await verifyAppleToken(token);
+        if (!payload.sub) {
+          return res.status(401).json({ error: 'Invalid Apple token.' });
+        }
+        socialId = payload.sub;
+        socialEmail = payload.email;
+        socialName = req.body.name || socialEmail || 'Apple User';
+      } catch (appleErr) {
+        console.error('Apple token verification failed:', appleErr.message);
+        return res.status(401).json({ error: 'Invalid or expired Apple token.' });
       }
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-      if (!payload.sub) {
-        return res.status(401).json({ error: 'Invalid Apple token.' });
-      }
-      socialId = payload.sub;
-      socialEmail = payload.email;
-      socialName = req.body.name || socialEmail || 'Apple User';
     }
 
     // Use <provider>:<id> as synthetic phone key
