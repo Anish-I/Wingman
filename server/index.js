@@ -1,5 +1,11 @@
 require('dotenv').config();
 
+// Debug: Log environment status
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET not loaded from .env');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -104,6 +110,22 @@ app.use((err, req, res, _next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Wingman server running on port ${PORT}`);
+});
+
+// Listen for unhandled errors after startup
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message);
+  console.error(err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  const msg = reason?.message || String(reason);
+  // Ignore known BullMQ/Redis version issues
+  if (!msg.includes('Redis version') && !msg.includes('maxRetriesPerRequest')) {
+    console.error('[FATAL] Unhandled rejection:', msg);
+    console.error(reason);
+  }
 });
 
 // Graceful shutdown
