@@ -116,7 +116,7 @@ export default function SettingsScreen() {
         onPress: async () => {
           setLoading(true);
           await clearToken();
-          router.replace('/onboarding/welcome');
+          router.replace('/onboarding/signup');
         },
       },
     ]);
