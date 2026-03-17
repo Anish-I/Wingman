@@ -131,6 +131,7 @@ export default function SignupScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* Hero Mascot */}
           <Animated.View style={[styles.heroContainer, { opacity: fadeAnim }]}>
+            <View style={styles.purpleGlow} />
             <Animated.View style={[styles.glowRing, { opacity: glowAnim }]} />
             <View style={styles.mascotRing}>
               <Image
@@ -245,6 +246,13 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     backgroundColor: colors.accentGlow,
   },
+  purpleGlow: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(108, 99, 255, 0.15)',
+  },
   mascotRing: {
     width: 130,
     height: 130,
@@ -279,6 +287,11 @@ const styles = StyleSheet.create({
   // SSO container
   ssoContainer: {
     width: '100%',
+    backgroundColor: colors.glass,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: spacing.md,
   },
 
   // Google button
