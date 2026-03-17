@@ -5,7 +5,9 @@
     "scripts": {
         "start": "node index.js",
         "dev": "nodemon index.js",
-        "test": "npx jest --testPathPatterns=tests/ --forceExit"
+        "test": "npx jest --testPathPatterns=tests/ --forceExit",
+        "db:seed": "node scripts/seed.js",
+        "db:reset": "node scripts/seed.js --reset"
     },
     "dependencies": {
         "bcrypt": "^5.1.1",
