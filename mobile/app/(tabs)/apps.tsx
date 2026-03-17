@@ -48,6 +48,7 @@ export default function AppsScreen() {
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [authError, setAuthError] = useState(false);
 
@@ -96,23 +97,25 @@ export default function AppsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Apps</Text>
-        <Text style={styles.subtitle}>
-          {connected.length} of {KNOWN_APPS.length} connected
-        </Text>
+        <Text style={styles.title}>Your Apps</Text>
+        <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.searchToggle}>
+          <Ionicons name="search-outline" size={22} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
-        <TextInput
-          style={styles.search}
-          placeholder="Search apps..."
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      {showSearch && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.search}
+            placeholder="Search apps..."
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+        </View>
+      )}
 
       {/* Category filter pills */}
       <ScrollView
@@ -191,24 +194,34 @@ export default function AppsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
   title: { color: colors.text, fontSize: 28, fontWeight: '800' },
-  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  searchToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.glass,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.border,
   },
   searchIcon: { marginRight: spacing.sm },
   search: {
@@ -230,10 +243,10 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.glass,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.border,
   },
   pillActive: {
     backgroundColor: colors.primaryMuted,
@@ -255,11 +268,11 @@ const styles = StyleSheet.create({
   appCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.glass,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.border,
     gap: 12,
   },
   appIconCircle: {
@@ -302,13 +315,11 @@ const styles = StyleSheet.create({
   connectBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.primaryMuted,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderRadius: radius.button,
+    backgroundColor: colors.primary,
   },
   connectBtnText: {
-    color: colors.primaryLight,
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
   },
