@@ -45,7 +45,8 @@ router.get('/workflows', requireAuth, async (req, res) => {
     const workflows = await listWorkflows(req.user.id);
     res.json({ workflows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -61,7 +62,8 @@ router.post('/workflows', requireAuth, async (req, res) => {
     });
     res.status(201).json({ workflow });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -71,7 +73,8 @@ router.patch('/workflows/:id/pause', requireAuth, async (req, res) => {
     await stopWorkflow(req.params.id, req.user.id);
     res.json({ message: 'Workflow paused' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -81,7 +84,8 @@ router.get('/apps', requireAuth, async (req, res) => {
     const status = await getConnectionStatus(String(req.user.id));
     res.json(status);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -95,7 +99,8 @@ router.post('/notify/register', requireAuth, async (req, res) => {
     await updatePushToken(req.user.id, token);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -111,7 +116,8 @@ router.patch('/workflows/:id', requireAuth, async (req, res) => {
     if (!result.rows[0]) return res.status(404).json({ error: 'Workflow not found' });
     res.json({ workflow: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -121,7 +127,8 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     const updated = await updateUserPreferences(req.user.id, req.body);
     res.json({ user: updated });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -171,7 +178,8 @@ router.get('/templates', requireAuth, async (req, res) => {
     const templates = await require('../services/template-library').search(searchTerm, category);
     res.json({ templates });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -181,7 +189,8 @@ router.post('/templates', requireAuth, async (req, res) => {
     const template = await require('../services/template-library').publish(req.user.id, req.body);
     res.status(201).json({ template });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -191,7 +200,8 @@ router.post('/templates/:id/instantiate', requireAuth, async (req, res) => {
     const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, req.body);
     res.status(201).json({ workflow });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[api] error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

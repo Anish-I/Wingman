@@ -71,12 +71,24 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone and code are required.' });
     }
 
+    // Rate limit: max 5 failed attempts per phone per 10 minutes
+    const attemptKey = `otp_attempts:${phone}`;
+    const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
+    if (attempts >= 5) {
+      return res.status(429).json({ error: 'Too many verification attempts. Try again in 10 minutes.' });
+    }
+
     const stored = await redis.get(`otp:${phone}`);
     if (!stored || stored !== code) {
+      await redis.incr(attemptKey);
+      if (attempts === 0) {
+        await redis.expire(attemptKey, OTP_TTL);
+      }
       return res.status(401).json({ error: 'Invalid or expired OTP.' });
     }
 
     await redis.del(`otp:${phone}`);
+    await redis.del(attemptKey);
 
     let user = await getUserByPhone(phone);
     if (!user) {
