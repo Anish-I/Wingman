@@ -17,8 +17,8 @@ if (process.env.GEMINI_API_KEY) {
       apiKey: process.env.GEMINI_API_KEY,
       baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
     }),
-    model: process.env.TOGETHER_MODEL || 'gemini-2.5-flash',
-    modelComplex: process.env.TOGETHER_MODEL_COMPLEX || 'gemini-2.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    modelComplex: process.env.GEMINI_MODEL_COMPLEX || 'gemini-2.5-flash',
   });
 }
 
@@ -30,8 +30,8 @@ if (process.env.TOGETHER_API_KEY) {
       apiKey: process.env.TOGETHER_API_KEY,
       baseURL: 'https://api.together.xyz/v1',
     }),
-    model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
-    modelComplex: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    model: process.env.TOGETHER_MODEL || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct',
+    modelComplex: process.env.TOGETHER_MODEL_COMPLEX || 'meta-llama/Llama-4-Maverick-17B-128E-Instruct',
   });
 }
 
