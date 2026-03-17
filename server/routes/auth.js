@@ -372,9 +372,9 @@ router.post('/verify-pin', async (req, res) => {
 
     if (!valid) {
       await redis.incr(attemptKey);
-      if (attempts === 0) {
-        await redis.expire(attemptKey, 15 * 60);
-      }
+      // Always refresh TTL on each failure to create a proper sliding window,
+      // preventing attackers from waiting out a stale TTL and retrying
+      await redis.expire(attemptKey, 15 * 60);
     } else {
       await redis.del(attemptKey);
     }
