@@ -135,7 +135,7 @@ export default function SignupScreen() {
             <Animated.View style={[styles.glowRing, { opacity: glowAnim }]} />
             <View style={styles.mascotRing}>
               <Image
-                source={require('../../assets/pip/pip-wave.png')}
+                source={require('../../assets/pip/pip-happy.png')}
                 style={styles.mascotImage}
                 resizeMode="contain"
               />
