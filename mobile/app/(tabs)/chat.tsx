@@ -164,7 +164,7 @@ export default function ChatScreen() {
           <StatusRing size={28}>
             <View style={styles.avatarContainer}>
               <Image
-                source={require('../../assets/pip/pip-happy.png')}
+                source={require('../../assets/pip/pip-icon.png')}
                 style={styles.avatar}
               />
             </View>
@@ -210,7 +210,7 @@ export default function ChatScreen() {
         <StatusRing size={32}>
           <View style={styles.headerAvatar}>
             <Image
-              source={require('../../assets/pip/pip-happy.png')}
+              source={require('../../assets/pip/pip-icon.png')}
               style={styles.headerAvatarImg}
             />
           </View>
@@ -243,7 +243,7 @@ export default function ChatScreen() {
               <View style={styles.welcomeAvatarGlow}>
                 <View style={styles.welcomeAvatarRing}>
                   <Image
-                    source={require('../../assets/pip/pip-wave.png')}
+                    source={require('../../assets/pip/pip-happy.png')}
                     style={styles.welcomeAvatar}
                   />
                 </View>
