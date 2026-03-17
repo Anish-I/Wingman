@@ -11,21 +11,21 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import PipCard from '../../src/PipCard';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, radius, shadows, gradients } from '../../src/theme';
 import type { Workflow } from '../../src/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-function getTriggerIcon(type: string): { icon: IconName; color: string } {
+function getTriggerIcon(type: string): { icon: IconName; color: string; label: string } {
   switch (type) {
-    case 'schedule': return { icon: 'time', color: colors.orange };
-    case 'event': return { icon: 'flash', color: colors.purple };
-    default: return { icon: 'hand-left', color: colors.primaryLight };
+    case 'schedule': return { icon: 'time', color: colors.orange, label: 'Scheduled' };
+    case 'event': return { icon: 'flash', color: colors.purple, label: 'Event' };
+    default: return { icon: 'hand-left', color: colors.primaryLight, label: 'Manual' };
   }
 }
 
@@ -84,6 +84,8 @@ export default function WorkflowsScreen() {
     }
   }
 
+  const activeCount = workflows.filter(w => w.active).length;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -95,9 +97,25 @@ export default function WorkflowsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Workflows</Text>
-          <Text style={styles.subtitle}>Your smart workflows</Text>
+        <Text style={styles.title}>Workflows</Text>
+        <Text style={styles.subtitle}>Automate your tasks</Text>
+      </View>
+
+      {/* Stats bar */}
+      <View style={styles.statsBar}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{activeCount}</Text>
+          <Text style={styles.statLabel}>Active</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{workflows.length}</Text>
+          <Text style={styles.statLabel}>Total</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statCard}>
+          <Text style={[styles.statValue, { color: colors.accent }]}>—</Text>
+          <Text style={styles.statLabel}>Runs today</Text>
         </View>
       </View>
 
@@ -131,7 +149,10 @@ export default function WorkflowsScreen() {
                   <Ionicons name={trigger.icon} size={20} color={trigger.color} />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>{item.name}</Text>
+                  <View style={styles.cardNameRow}>
+                    <Text style={styles.cardName}>{item.name}</Text>
+                    <View style={[styles.statusDot, { backgroundColor: item.active ? colors.success : colors.textMuted }]} />
+                  </View>
                   {item.description ? (
                     <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
                   ) : null}
@@ -144,29 +165,40 @@ export default function WorkflowsScreen() {
                 />
               </View>
               <View style={styles.cardBottom}>
-                <View style={styles.pill}>
-                  <Ionicons name={trigger.icon} size={11} color={trigger.color} />
-                  <Text style={styles.pillText}>{item.trigger_type}</Text>
+                <View style={[styles.triggerBadge, { backgroundColor: trigger.color + '15' }]}>
+                  <Ionicons name={trigger.icon} size={12} color={trigger.color} />
+                  <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.label}</Text>
                 </View>
+                <Text style={styles.cardMeta}>
+                  {item.active ? 'Active' : 'Paused'}
+                </Text>
               </View>
             </View>
           );
         }}
       />
 
-      {/* FAB */}
+      {/* Gradient FAB */}
       <TouchableOpacity
-        style={styles.fab}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.8}
+        style={styles.fabWrapper}
       >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
+        <LinearGradient
+          colors={gradients.purple}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fab}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* Create Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>New Workflow</Text>
             <TextInput
               style={styles.modalInput}
@@ -185,11 +217,18 @@ export default function WorkflowsScreen() {
               multiline
             />
             <TouchableOpacity
-              style={[styles.modalBtn, creating && { opacity: 0.6 }]}
               onPress={createWorkflow}
               disabled={creating}
+              activeOpacity={0.85}
             >
-              <Text style={styles.modalBtnText}>{creating ? 'Creating\u2026' : 'Create'}</Text>
+              <LinearGradient
+                colors={gradients.purple}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.modalBtn, creating && { opacity: 0.6 }]}
+              >
+                <Text style={styles.modalBtnText}>{creating ? 'Creating\u2026' : 'Create Workflow'}</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.modalCancel}
@@ -209,10 +248,44 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   title: { color: colors.text, fontSize: 28, fontWeight: '800' },
   subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+
+  // Stats bar
+  statsBar: {
+    flexDirection: 'row',
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
+    backgroundColor: colors.glass,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingVertical: 16,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.glassBorder,
+  },
+
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 100 },
 
   // Empty state
@@ -222,7 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: 14,
     marginTop: spacing.lg,
@@ -231,9 +304,11 @@ const styles = StyleSheet.create({
 
   // Workflow cards
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
+    backgroundColor: colors.glass,
+    borderRadius: radius.lg,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   cardTop: {
     flexDirection: 'row',
@@ -241,87 +316,108 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   triggerCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardInfo: { flex: 1 },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   cardName: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
   cardDesc: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
   cardBottom: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    gap: spacing.sm,
+    borderTopColor: colors.glassBorder,
   },
-  pill: {
+  triggerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.backgroundElevated,
+    gap: 5,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  pillText: {
-    color: colors.textMuted,
+  triggerBadgeText: {
     fontSize: 11,
-    textTransform: 'uppercase',
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  cardMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
 
   // FAB
-  fab: {
+  fabWrapper: {
     position: 'absolute',
     bottom: 24,
     right: 24,
+    ...shadows.lg,
+  },
+  fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
   },
 
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modal: {
     backgroundColor: colors.cardElevated,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: spacing.lg },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalTitle: { color: colors.text, fontSize: 22, fontWeight: '700', marginBottom: spacing.lg },
   modalInput: {
-    backgroundColor: colors.card,
-    borderRadius: radius.sm,
+    backgroundColor: colors.glass,
+    borderRadius: radius.md,
     padding: 14,
     color: colors.text,
     fontSize: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
   nameError: {
-    color: '#FF6B6B',
+    color: colors.error,
     fontSize: 13,
     marginBottom: 8,
     marginLeft: 4,
   },
   modalBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: spacing.sm,

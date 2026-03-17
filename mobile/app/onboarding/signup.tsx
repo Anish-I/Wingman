@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Animated,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import PipCard from '../../src/PipCard';
-import ProgressBar from '../../src/components/ProgressBar';
-import GradientButton from '../../src/components/GradientButton';
-import { colors, spacing, radius } from '../../src/theme';
+import { colors, spacing, radius, shadows, gradients } from '../../src/theme';
 import { api } from '../../src/api';
 import { saveToken } from '../../src/auth';
 
@@ -34,6 +34,26 @@ export default function SignupScreen() {
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const glowAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+    ]).start();
+
+    // Pulsing glow on mascot
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 0.6, duration: 2000, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.3, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [fadeAnim, slideAnim, glowAnim]);
 
   // Google Auth via expo-auth-session
   const [googleRequest, googleResponse, googlePromptAsync] = AuthSession.useAuthRequest(
@@ -104,60 +124,82 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ProgressBar step={3} />
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <PipCard expression="wave" size="small" />
+          {/* Hero Mascot */}
+          <Animated.View style={[styles.heroContainer, { opacity: fadeAnim }]}>
+            <Animated.View style={[styles.glowRing, { opacity: glowAnim }]} />
+            <View style={styles.mascotRing}>
+              <Image
+                source={require('../../assets/pip/pip-wave.png')}
+                style={styles.mascotImage}
+                resizeMode="contain"
+              />
+            </View>
+          </Animated.View>
 
-          <Text style={styles.headline}>Join the Flock 🦩</Text>
+          {/* Headlines */}
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <Text style={styles.headline}>Welcome to Wingman</Text>
+            <Text style={styles.subtitle}>Your AI-powered life assistant</Text>
+          </Animated.View>
 
-          {/* Google SSO Button */}
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleSignIn}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          {/* Apple SSO Button — iOS native only */}
-          {Platform.OS === 'ios' && (
+          {/* SSO Buttons */}
+          <Animated.View style={[styles.ssoContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {/* Google Button */}
             <TouchableOpacity
-              style={styles.appleButton}
-              onPress={handleAppleSignIn}
+              style={styles.googleButton}
+              onPress={handleGoogleSignIn}
               disabled={loading}
               activeOpacity={0.85}
             >
-              <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
-              <Text style={styles.appleText}>Continue with Apple</Text>
+              <View style={styles.googleIconContainer}>
+                <Text style={styles.googleIcon}>G</Text>
+              </View>
+              <Text style={styles.googleText}>Continue with Google</Text>
             </TouchableOpacity>
-          )}
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
+            {/* Apple Button — iOS only */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
+                <Text style={styles.appleText}>Continue with Apple</Text>
+              </TouchableOpacity>
+            )}
 
-          {/* Name Input */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Your name"
-              placeholderTextColor={colors.textMuted}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              autoComplete="given-name"
-            />
-          </View>
-          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with phone</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Phone CTA */}
+            <TouchableOpacity
+              style={styles.phoneButton}
+              onPress={() => {
+                const trimmed = name.trim();
+                if (trimmed.length >= 2) {
+                  router.push({ pathname: '/onboarding/phone', params: { name: trimmed } });
+                } else {
+                  router.push('/onboarding/phone');
+                }
+              }}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.phoneIcon}>📱</Text>
+              <Text style={styles.phoneText}>Continue with Phone Number</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Sign In Link */}
           <View style={styles.signinRow}>
@@ -168,90 +210,134 @@ export default function SignupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      <View style={styles.footer}>
-        {loading ? (
-          <ActivityIndicator color={colors.accent} size="large" />
-        ) : (
-          <GradientButton
-            title="Continue"
-            onPress={() => {
-              const trimmed = name.trim();
-              if (trimmed.length < 2) {
-                setNameError('Please enter your name');
-                return;
-              }
-              setNameError('');
-              router.push({ pathname: '/onboarding/phone', params: { name: trimmed } });
-            }}
-            gradientColors={['#9B7EC8', '#7B5EA8']}
-          />
-        )}
-      </View>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f1a' },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xxl,
+    alignItems: 'center',
   },
+
+  // Hero mascot
+  heroContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+    width: 160,
+    height: 160,
+  },
+  glowRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: colors.accentGlow,
+  },
+  mascotRing: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: colors.card,
+    borderWidth: 3,
+    borderColor: colors.accent,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.glow(colors.accent),
+  },
+  mascotImage: { width: 120, height: 120 },
+
+  // Headlines
   headline: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: colors.text,
+    fontSize: 30,
     fontWeight: '800',
     textAlign: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.sm,
     letterSpacing: 0.3,
   },
-  // Google button — white bg with Google-colored G
+  subtitle: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 24,
+  },
+
+  // SSO container
+  ssoContainer: {
+    width: '100%',
+  },
+
+  // Google button
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: radius.md,
-    height: 54,
+    borderRadius: radius.lg,
+    height: 56,
     marginBottom: 12,
     paddingHorizontal: spacing.md,
+    ...shadows.md,
+  },
+  googleIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   googleIcon: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#4285F4',
-    marginRight: 10,
   },
   googleText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f1f1f',
   },
-  // Apple button — black bg, white text
+
+  // Apple button
   appleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000000',
-    borderRadius: radius.md,
-    height: 54,
+    borderRadius: radius.lg,
+    height: 56,
     marginBottom: 12,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#222',
+    ...shadows.md,
   },
   appleIcon: {
     fontSize: 20,
     color: '#FFFFFF',
-    marginRight: 10,
+    marginRight: 12,
   },
   appleText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },
+
   // Divider
   dividerRow: {
     flexDirection: 'row',
@@ -261,7 +347,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#3A3B5C',
+    backgroundColor: colors.border,
   },
   dividerText: {
     color: colors.textMuted,
@@ -269,30 +355,35 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     textTransform: 'lowercase',
   },
-  // Input
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 13,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  inputContainer: { marginBottom: spacing.sm },
-  input: {
-    backgroundColor: '#242540',
-    borderRadius: radius.md,
+
+  // Phone button
+  phoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: radius.lg,
+    height: 56,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     paddingHorizontal: spacing.md,
-    paddingVertical: 16,
-    color: '#FFFFFF',
-    fontSize: 17,
-    borderWidth: 1,
-    borderColor: '#3A3B5C',
   },
+  phoneIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  phoneText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
   // Sign in link
   signinRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
   signinMuted: {
@@ -300,9 +391,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   signinLink: {
-    color: '#6EC6B8',
+    color: colors.accent,
     fontSize: 14,
     fontWeight: '600',
   },
-  footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+
+  // Loading overlay
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

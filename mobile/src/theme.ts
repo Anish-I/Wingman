@@ -1,25 +1,30 @@
 // Wingman Design System — "Pip"
-// Layered dark surfaces, blue accents, refined depth
+// Premium dark surfaces, purple accent, glassmorphism depth
 
 export const colors = {
   // Surface hierarchy (darkest → lightest)
-  background: '#1A1B2E',
-  backgroundElevated: '#242540',
-  card: '#242540',
-  cardHover: '#2E2F4D',
-  cardElevated: '#2E2F4D',
-  inputBg: '#242540',
+  background: '#0f0f1a',
+  backgroundElevated: '#1a1a2e',
+  card: '#1a1a2e',
+  cardHover: '#242442',
+  cardElevated: '#242442',
+  inputBg: '#1a1a2e',
+
+  // Glassmorphism
+  glass: 'rgba(255, 255, 255, 0.05)',
+  glassBorder: 'rgba(255, 255, 255, 0.08)',
+  glassElevated: 'rgba(255, 255, 255, 0.08)',
 
   // Borders & dividers
-  border: '#3A3B5C',
-  borderLight: '#3A3B5C',
-  borderSubtle: '#2E2F4D',
+  border: '#2a2a45',
+  borderLight: '#2a2a45',
+  borderSubtle: '#1f1f35',
 
-  // Brand
-  primary: '#3B5998',
-  primaryLight: '#4A7BD9',
-  primaryDark: '#2D4474',
-  primaryMuted: 'rgba(59, 89, 152, 0.15)',
+  // Brand — purple accent
+  primary: '#6c63ff',
+  primaryLight: '#8b83ff',
+  primaryDark: '#5549e0',
+  primaryMuted: 'rgba(108, 99, 255, 0.15)',
 
   // Accent — teal highlight, used sparingly
   accent: '#6EC6B8',
@@ -28,20 +33,21 @@ export const colors = {
   accentGlow: 'rgba(110, 198, 184, 0.25)',
 
   // Extended palette
-  purple: '#9B7EC8',
+  purple: '#6c63ff',
+  purpleLight: '#8b83ff',
   orange: '#F5A623',
 
   // Text
   text: '#FFFFFF',
   textSecondary: '#9A9BBF',
   textMuted: '#5D6279',
-  textInverse: '#1A1B2E',
+  textInverse: '#0f0f1a',
 
   // Chat bubbles
   bubble: '#FFFFFF',
-  bubbleText: '#1A1B2E',
+  bubbleText: '#0f0f1a',
   bubbleShadow: 'rgba(0, 0, 0, 0.12)',
-  bubbleUser: '#3B5998',
+  bubbleUser: '#6c63ff',
   bubbleUserText: '#FFFFFF',
 
   // Semantic
@@ -51,23 +57,25 @@ export const colors = {
   errorMuted: 'rgba(248, 113, 113, 0.12)',
   warning: '#FBBF24',
   warningMuted: 'rgba(251, 191, 36, 0.12)',
-  info: '#4A7BD9',
+  info: '#6c63ff',
 
   // Overlay
-  overlay: 'rgba(26, 27, 46, 0.75)',
-  overlayLight: 'rgba(26, 27, 46, 0.5)',
+  overlay: 'rgba(15, 15, 26, 0.85)',
+  overlayLight: 'rgba(15, 15, 26, 0.5)',
 
   // Tab bar
-  tabBar: '#1A1B2E',
-  tabBarBorder: '#3A3B5C',
+  tabBar: '#0f0f1a',
+  tabBarBorder: '#1f1f35',
 };
 
 export const gradients = {
-  primary: ['#4A7BD9', '#3B5998', '#2D4474'] as const,
+  primary: ['#8b83ff', '#6c63ff', '#5549e0'] as const,
   accent: ['#7DD4C6', '#6EC6B8', '#5AAE9F'] as const,
-  card: ['rgba(36, 37, 64, 0.9)', 'rgba(36, 37, 64, 0.6)'] as const,
+  card: ['rgba(26, 26, 46, 0.9)', 'rgba(26, 26, 46, 0.6)'] as const,
   glow: ['rgba(110, 198, 184, 0.08)', 'rgba(110, 198, 184, 0)'] as const,
-  surface: ['#242540', '#1A1B2E'] as const,
+  surface: ['#1a1a2e', '#0f0f1a'] as const,
+  purple: ['#8b83ff', '#6c63ff'] as const,
+  purpleDark: ['#6c63ff', '#5549e0'] as const,
 };
 
 export const fonts = {

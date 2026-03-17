@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  ScrollView,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import PipCard from '../../src/PipCard';
-import { colors, spacing, radius } from '../../src/theme';
+import { colors, spacing, radius, shadows } from '../../src/theme';
 
 interface AppInfo {
   slug: string;
@@ -39,12 +40,15 @@ const KNOWN_APPS: AppInfo[] = [
   { slug: 'spotify', name: 'Spotify', emoji: '\u{1F3B5}', color: '#1DB954', category: 'Entertainment' },
 ];
 
+const CATEGORIES = ['All', ...new Set(KNOWN_APPS.map(a => a.category))];
+
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export default function AppsScreen() {
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [authError, setAuthError] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -75,12 +79,11 @@ export default function AppsScreen() {
     if (result.type === 'success') await fetchStatus();
   }
 
-  const filtered = search
-    ? KNOWN_APPS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
-    : KNOWN_APPS;
-
-  // Group by category
-  const categories = [...new Set(filtered.map(a => a.category))];
+  const filtered = KNOWN_APPS.filter(a => {
+    const matchesSearch = !search || a.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || a.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   if (loading) {
     return (
@@ -93,12 +96,13 @@ export default function AppsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Connected Apps</Text>
+        <Text style={styles.title}>Apps</Text>
         <Text style={styles.subtitle}>
           {connected.length} of {KNOWN_APPS.length} connected
         </Text>
       </View>
 
+      {/* Search bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
@@ -110,6 +114,28 @@ export default function AppsScreen() {
         />
       </View>
 
+      {/* Category filter pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pillRow}
+        style={styles.pillScroll}
+      >
+        {CATEGORIES.map(cat => {
+          const isActive = selectedCategory === cat;
+          return (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.pill, isActive && styles.pillActive]}
+              onPress={() => setSelectedCategory(cat)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{cat}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {authError && (
         <PipCard
           expression="thinking"
@@ -119,44 +145,41 @@ export default function AppsScreen() {
       )}
 
       <FlatList
-        data={categories}
-        keyExtractor={c => c}
+        data={filtered}
+        keyExtractor={a => a.slug}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <PipCard
             expression="wave"
-            message="Connect your favorite apps to get started!"
+            message="No apps found"
             size="small"
           />
         }
-        renderItem={({ item: category }) => {
-          const apps = filtered.filter(a => a.category === category);
+        renderItem={({ item: app }) => {
+          const isConnected = connected.includes(app.slug);
           return (
-            <View style={styles.categorySection}>
-              <Text style={styles.categoryTitle}>{category}</Text>
-              <View style={styles.grid}>
-                {apps.map(app => {
-                  const isConnected = connected.includes(app.slug);
-                  return (
-                    <TouchableOpacity
-                      key={app.slug}
-                      style={styles.tile}
-                      onPress={() => !isConnected && handleConnect(app.slug)}
-                      activeOpacity={isConnected ? 1 : 0.7}
-                    >
-                      {isConnected && (
-                        <View style={styles.connectedBadge}>
-                          <Ionicons name="checkmark" size={9} color="#FFFFFF" />
-                        </View>
-                      )}
-                      <View style={[styles.emojiCircle, { backgroundColor: app.color + '20' }]}>
-                        <Text style={styles.emoji}>{app.emoji}</Text>
-                      </View>
-                      <Text style={styles.tileName} numberOfLines={1}>{app.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+            <View style={styles.appCard}>
+              <View style={[styles.appIconCircle, { backgroundColor: app.color + '20' }]}>
+                <Text style={styles.appEmoji}>{app.emoji}</Text>
               </View>
+              <View style={styles.appInfo}>
+                <Text style={styles.appName}>{app.name}</Text>
+                <Text style={styles.appCategory}>{app.category}</Text>
+              </View>
+              {isConnected ? (
+                <View style={styles.connectedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                  <Text style={styles.connectedText}>Connected</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.connectBtn}
+                  onPress={() => handleConnect(app.slug)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.connectBtnText}>Connect</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         }}
@@ -174,16 +197,18 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.text, fontSize: 28, fontWeight: '800' },
   subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+
+  // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: radius.md,
+    backgroundColor: colors.glass,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
   searchIcon: { marginRight: spacing.sm },
   search: {
@@ -192,57 +217,99 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
-  categorySection: {
-    marginBottom: spacing.lg,
+
+  // Category pills
+  pillScroll: {
+    maxHeight: 44,
+    marginBottom: spacing.md,
   },
-  categoryTitle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  pillRow: {
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  tile: {
-    width: '30%',
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: 12,
-    alignItems: 'center',
-    position: 'relative',
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
-  connectedBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
+  pillActive: {
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.primary,
   },
-  emojiCircle: {
+  pillText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  pillTextActive: {
+    color: colors.primaryLight,
+  },
+
+  // App list
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.sm },
+
+  // App card
+  appCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.glass,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 12,
+  },
+  appIconCircle: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
-  emoji: { fontSize: 24 },
-  tileName: {
+  appEmoji: { fontSize: 24 },
+  appInfo: { flex: 1 },
+  appName: {
     color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  appCategory: {
+    color: colors.textMuted,
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  // Connected badge
+  connectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.successMuted,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  connectedText: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Connect button
+  connectBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  connectBtnText: {
+    color: colors.primaryLight,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
