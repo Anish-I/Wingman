@@ -19,14 +19,25 @@ app.set('trust proxy', 1);
 // Security headers
 app.use(helmet());
 
-// CORS — require CORS_ORIGIN in production
-const corsOrigin = process.env.CORS_ORIGIN;
-if (process.env.NODE_ENV === 'production' && !corsOrigin) {
+// CORS — allow Expo web dev ports + env-configurable production origin
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:8081',
+  'http://localhost:8082',
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
+
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
   console.error('FATAL: CORS_ORIGIN must be set in production');
   process.exit(1);
 }
 app.use(cors({
-  origin: corsOrigin || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
