@@ -24,11 +24,13 @@ export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="onboarding/index" />
+      <Stack.Screen name="onboarding/login" />
+      <Stack.Screen name="onboarding/phone" />
+      <Stack.Screen name="onboarding/verify" />
       <Stack.Screen name="onboarding/welcome" />
       <Stack.Screen name="onboarding/features" />
       <Stack.Screen name="onboarding/signup" />
-      <Stack.Screen name="onboarding/phone" />
-      <Stack.Screen name="onboarding/verify" />
       <Stack.Screen name="onboarding/connect" />
       <Stack.Screen name="onboarding/permissions" />
       <Stack.Screen name="onboarding/done" />

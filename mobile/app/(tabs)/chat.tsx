@@ -51,7 +51,6 @@ function TypingDots() {
   );
 }
 
-// Animated status ring component
 function StatusRing({ size, children }: { size: number; children: React.ReactNode }) {
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
 
@@ -73,7 +72,7 @@ function StatusRing({ size, children }: { size: number; children: React.ReactNod
           height: size + 8,
           borderRadius: (size + 8) / 2,
           borderWidth: 2,
-          borderColor: colors.accent,
+          borderColor: colors.teal,
           opacity: pulseAnim,
         }}
       />
@@ -207,7 +206,7 @@ export default function ChatScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <StatusRing size={32}>
+        <StatusRing size={40}>
           <View style={styles.headerAvatar}>
             <Image
               source={require('../../assets/pip/pip-icon.png')}
@@ -216,7 +215,7 @@ export default function ChatScreen() {
           </View>
         </StatusRing>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Wingman</Text>
+          <Text style={styles.headerTitle}>Pip</Text>
           <View style={styles.statusRow}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Online</Text>
@@ -248,7 +247,7 @@ export default function ChatScreen() {
                   />
                 </View>
               </View>
-              <Text style={styles.welcomeTitle}>Hey! I'm Pip</Text>
+              <Text style={styles.welcomeTitle}>What can I help with?</Text>
               <Text style={styles.welcomeSubtitle}>
                 Your AI assistant. Try asking me something:
               </Text>
@@ -265,7 +264,7 @@ export default function ChatScreen() {
                     onPress={() => handleChip(prompt.text)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name={prompt.icon} size={16} color={colors.accent} />
+                    <Ionicons name={prompt.icon} size={16} color={colors.teal} />
                     <Text style={styles.chipText}>{prompt.text}</Text>
                   </TouchableOpacity>
                 ))}
@@ -306,7 +305,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Message Wingman..."
+            placeholder="Message Pip..."
             placeholderTextColor={colors.textMuted}
             multiline
             onSubmitEditing={send}
@@ -352,13 +351,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     overflow: 'hidden',
   },
-  headerAvatarImg: { width: 32, height: 32 },
+  headerAvatarImg: { width: 40, height: 40 },
   headerInfo: { flex: 1 },
   headerTitle: {
     color: colors.text,
@@ -371,13 +370,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.accent,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   statusText: {
-    color: colors.accent,
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -403,7 +402,7 @@ const styles = StyleSheet.create({
   avatar: { width: 28, height: 28 },
   bubble: {
     maxWidth: '78%',
-    borderRadius: radius.lg,
+    borderRadius: radius.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -442,7 +441,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.teal,
   },
   typing: { color: colors.textMuted, fontSize: 13 },
 
@@ -474,15 +473,15 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: colors.glass,
+    backgroundColor: colors.card,
     margin: spacing.sm,
     marginBottom: spacing.md,
-    borderRadius: radius.xl,
+    borderRadius: radius.card,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.border,
   },
   input: {
     flex: 1,
@@ -516,11 +515,11 @@ const styles = StyleSheet.create({
     borderRadius: 44,
     backgroundColor: colors.card,
     borderWidth: 2,
-    borderColor: colors.accent,
+    borderColor: colors.teal,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    ...shadows.glow(colors.accent),
+    ...shadows.glow(colors.teal),
   },
   welcomeAvatar: { width: 80, height: 80 },
   welcomeTitle: {
@@ -548,7 +547,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.glass,
-    borderRadius: radius.lg,
+    borderRadius: radius.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1,
