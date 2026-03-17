@@ -210,6 +210,7 @@ router.post('/set-pin', async (req, res) => {
       return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
     }
 
+    // bcrypt with cost 12 - replaces SHA-256+pepper (see SECURITY-AUDIT C3)
     const pinHash = await bcrypt.hash(pin, 12);
     await updateUserPin(payload.userId, pinHash);
 
