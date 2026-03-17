@@ -11,10 +11,12 @@ import {
   Platform,
   Image,
   Animated,
+  ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, radius, shadows, gradients } from '../../src/theme';
 import type { Message } from '../../src/types';
 
 function TypingDots() {
@@ -45,6 +47,37 @@ function TypingDots() {
       <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
       <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
       <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+    </View>
+  );
+}
+
+// Animated status ring component
+function StatusRing({ size, children }: { size: number; children: React.ReactNode }) {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.8, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 1500, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View style={{ width: size + 8, height: size + 8, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: size + 8,
+          height: size + 8,
+          borderRadius: (size + 8) / 2,
+          borderWidth: 2,
+          borderColor: colors.accent,
+          opacity: pulseAnim,
+        }}
+      />
+      {children}
     </View>
   );
 }
@@ -128,18 +161,33 @@ export default function ChatScreen() {
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
         {!isUser && (
-          <View style={styles.avatarContainer}>
-            <Image
-              source={require('../../assets/pip/pip-happy.png')}
-              style={styles.avatar}
-            />
+          <StatusRing size={28}>
+            <View style={styles.avatarContainer}>
+              <Image
+                source={require('../../assets/pip/pip-happy.png')}
+                style={styles.avatar}
+              />
+            </View>
+          </StatusRing>
+        )}
+        {isUser ? (
+          <LinearGradient
+            colors={gradients.purple}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.bubble, styles.bubbleUser]}
+          >
+            <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
+              {item.content}
+            </Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.bubble, styles.bubbleAssistant]}>
+            <Text style={styles.bubbleText}>
+              {item.content}
+            </Text>
           </View>
         )}
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-          <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>
-            {item.content}
-          </Text>
-        </View>
       </View>
     );
   }
@@ -149,6 +197,8 @@ export default function ChatScreen() {
     { text: 'Check my calendar', icon: 'time-outline' as const },
     { text: 'Send an email', icon: 'mail-outline' as const },
     { text: 'Set a reminder', icon: 'alarm-outline' as const },
+    { text: 'Summarize my day', icon: 'sunny-outline' as const },
+    { text: 'Draft a message', icon: 'chatbubble-outline' as const },
   ];
 
   const canSend = input.trim().length > 0 && !loading;
@@ -157,13 +207,21 @@ export default function ChatScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerAvatar}>
-          <Image
-            source={require('../../assets/pip/pip-happy.png')}
-            style={styles.headerAvatarImg}
-          />
+        <StatusRing size={32}>
+          <View style={styles.headerAvatar}>
+            <Image
+              source={require('../../assets/pip/pip-happy.png')}
+              style={styles.headerAvatarImg}
+            />
+          </View>
+        </StatusRing>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>Wingman</Text>
+          <View style={styles.statusRow}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Online</Text>
+          </View>
         </View>
-        <Text style={styles.headerTitle}>Wingman</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -182,17 +240,24 @@ export default function ChatScreen() {
           ]}
           ListEmptyComponent={
             <View style={styles.welcome}>
-              <View style={styles.welcomeAvatarRing}>
-                <Image
-                  source={require('../../assets/pip/pip-wave.png')}
-                  style={styles.welcomeAvatar}
-                />
+              <View style={styles.welcomeAvatarGlow}>
+                <View style={styles.welcomeAvatarRing}>
+                  <Image
+                    source={require('../../assets/pip/pip-wave.png')}
+                    style={styles.welcomeAvatar}
+                  />
+                </View>
               </View>
               <Text style={styles.welcomeTitle}>Hey! I'm Pip</Text>
               <Text style={styles.welcomeSubtitle}>
                 Your AI assistant. Try asking me something:
               </Text>
-              <View style={styles.chipRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipScrollContent}
+                style={styles.chipScroll}
+              >
                 {examplePrompts.map((prompt) => (
                   <TouchableOpacity
                     key={prompt.text}
@@ -204,7 +269,7 @@ export default function ChatScreen() {
                     <Text style={styles.chipText}>{prompt.text}</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             </View>
           }
         />
@@ -214,6 +279,28 @@ export default function ChatScreen() {
             <Text style={styles.typing}>Pip is thinking...</Text>
           </View>
         )}
+
+        {/* Quick action chips (visible when there are messages) */}
+        {messages.length > 0 && !loading && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.actionChipBar}
+          >
+            {examplePrompts.slice(0, 4).map((prompt) => (
+              <TouchableOpacity
+                key={prompt.text}
+                style={styles.actionChip}
+                onPress={() => handleChip(prompt.text)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={prompt.icon} size={14} color={colors.primary} />
+                <Text style={styles.actionChipText}>{prompt.text}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
@@ -226,16 +313,22 @@ export default function ChatScreen() {
             returnKeyType="send"
           />
           <TouchableOpacity
-            style={[styles.sendBtn, canSend && styles.sendBtnActive]}
             onPress={send}
             disabled={!canSend}
             activeOpacity={0.7}
           >
-            <Ionicons
-              name="arrow-up"
-              size={20}
-              color={canSend ? '#FFFFFF' : colors.textMuted}
-            />
+            <LinearGradient
+              colors={canSend ? gradients.purple : [colors.border, colors.border]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sendBtn}
+            >
+              <Ionicons
+                name="arrow-up"
+                size={20}
+                color={canSend ? '#FFFFFF' : colors.textMuted}
+              />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -266,10 +359,27 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   headerAvatarImg: { width: 32, height: 32 },
+  headerInfo: { flex: 1 },
   headerTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '700',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
+  statusText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '500',
   },
 
   list: { padding: spacing.md, gap: 4 },
@@ -298,14 +408,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleUser: {
-    backgroundColor: colors.bubbleUser,
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.glass,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.glassBorder,
   },
   bubbleText: {
     color: colors.text,
@@ -313,7 +422,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   bubbleTextUser: {
-    color: colors.bubbleUserText,
+    color: '#FFFFFF',
   },
 
   // Typing
@@ -337,11 +446,34 @@ const styles = StyleSheet.create({
   },
   typing: { color: colors.textMuted, fontSize: 13 },
 
+  // Quick action chips bar
+  actionChipBar: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  actionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  actionChipText: {
+    color: colors.primaryLight,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
   // Input
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: colors.card,
+    backgroundColor: colors.glass,
     margin: spacing.sm,
     marginBottom: spacing.md,
     borderRadius: radius.xl,
@@ -349,7 +481,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
   input: {
     flex: 1,
@@ -359,36 +491,41 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   sendBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.border,
-  },
-  sendBtnActive: {
-    backgroundColor: colors.primary,
   },
 
   // Welcome
   welcome: { alignItems: 'center', paddingHorizontal: spacing.lg },
+  welcomeAvatarGlow: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.accentGlow,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   welcomeAvatarRing: {
     width: 88,
     height: 88,
     borderRadius: 44,
     backgroundColor: colors.card,
     borderWidth: 2,
-    borderColor: colors.accentMuted,
+    borderColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: spacing.md,
+    ...shadows.glow(colors.accent),
   },
   welcomeAvatar: { width: 80, height: 80 },
   welcomeTitle: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     marginBottom: spacing.xs,
   },
   welcomeSubtitle: {
@@ -398,22 +535,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     lineHeight: 22,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+  chipScroll: {
+    maxHeight: 100,
+  },
+  chipScrollContent: {
     gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.card,
+    backgroundColor: colors.glass,
     borderRadius: radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
   chipText: {
     color: colors.text,
