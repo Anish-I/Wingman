@@ -1,7 +1,10 @@
-version: '3.9'
+# Local development services only — do not use in production.
+# Start with: docker compose up -d
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: wingman
       POSTGRES_PASSWORD: wingman
@@ -13,12 +16,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
-      - "6380:6379"
-    volumes:
-      - redisdata:/data
+      - "6379:6379"
 
 volumes:
   pgdata:
-  redisdata:
-
