@@ -13,10 +13,9 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
-import { colors, spacing, radius, shadows, gradients } from '../../src/theme';
+import { colors, spacing, radius, shadows } from '../../src/theme';
 import type { Message } from '../../src/types';
 
 function TypingDots() {
@@ -170,16 +169,11 @@ export default function ChatScreen() {
           </StatusRing>
         )}
         {isUser ? (
-          <LinearGradient
-            colors={gradients.purple}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.bubble, styles.bubbleUser]}
-          >
+          <View style={[styles.bubble, styles.bubbleUser]}>
             <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
               {item.content}
             </Text>
-          </LinearGradient>
+          </View>
         ) : (
           <View style={[styles.bubble, styles.bubbleAssistant]}>
             <Text style={styles.bubbleText}>
@@ -196,8 +190,6 @@ export default function ChatScreen() {
     { text: 'Check my calendar', icon: 'time-outline' as const },
     { text: 'Send an email', icon: 'mail-outline' as const },
     { text: 'Set a reminder', icon: 'alarm-outline' as const },
-    { text: 'Summarize my day', icon: 'sunny-outline' as const },
-    { text: 'Draft a message', icon: 'chatbubble-outline' as const },
   ];
 
   const canSend = input.trim().length > 0 && !loading;
@@ -251,12 +243,7 @@ export default function ChatScreen() {
               <Text style={styles.welcomeSubtitle}>
                 Your AI assistant. Try asking me something:
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipScrollContent}
-                style={styles.chipScroll}
-              >
+              <View style={styles.chipGrid}>
                 {examplePrompts.map((prompt) => (
                   <TouchableOpacity
                     key={prompt.text}
@@ -268,7 +255,7 @@ export default function ChatScreen() {
                     <Text style={styles.chipText}>{prompt.text}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             </View>
           }
         />
@@ -316,18 +303,18 @@ export default function ChatScreen() {
             disabled={!canSend}
             activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={canSend ? gradients.purple : [colors.border, colors.border]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.sendBtn}
+            <View
+              style={[
+                styles.sendBtn,
+                { backgroundColor: canSend ? colors.primary : colors.border },
+              ]}
             >
               <Ionicons
                 name="arrow-up"
                 size={20}
                 color={canSend ? '#FFFFFF' : colors.textMuted}
               />
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -407,6 +394,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleUser: {
+    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
@@ -535,10 +523,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     lineHeight: 22,
   },
-  chipScroll: {
-    maxHeight: 100,
-  },
-  chipScrollContent: {
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
