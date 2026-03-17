@@ -57,14 +57,11 @@ The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder strin
 
 ## HIGH
 
-### H1. OTP Verify Endpoint Has No Rate Limiting
+### H1. ~~OTP Verify Endpoint Has No Rate Limiting~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/auth.js:74`
+**File:** `server/routes/auth.js`
 
-The `/auth/request-otp` endpoint is rate-limited to 5 per 15 minutes, but `/auth/verify-otp` has **no rate limiter**. A 6-digit OTP has only 900,000 possible values. An attacker can brute-force all codes within the 10-minute TTL.
-
-**Impact:** OTP authentication bypass — account takeover for any phone number.
-**Remediation:** Add a strict rate limiter to `/auth/verify-otp` (e.g., 5 attempts per phone per 10 minutes), or implement exponential backoff and account lockout after N failed attempts.
+**Fix:** Added two layers of rate limiting to `POST /auth/verify-otp`: (1) `express-rate-limit` middleware (`otpVerifyLimiter`) keyed by phone number — 5 attempts per 15 minutes; (2) Redis-based per-phone attempt counter (`otp_attempts:<phone>`) — 5 failed attempts per 10-minute OTP TTL window, with TTL refreshed on each failure. On successful verification, both the OTP and attempt counter are cleared.
 
 ### H2. OTP Generated with Math.random() (Not Cryptographically Secure)
 
@@ -230,18 +227,11 @@ MMKV is created without encryption options. On rooted/jailbroken devices, the JW
 **Impact:** Token extraction on compromised devices.
 **Remediation:** Use `createMMKV({ encryptionKey: '...' })` with a device-derived key.
 
-### L3. PIN Validation Allows Non-Numeric Input
+### L3. ~~PIN Validation Allows Non-Numeric Input~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/auth.js:195`
+**File:** `server/routes/auth.js`
 
-```js
-if (!pin || pin.length < 4 || pin.length > 8)
-```
-
-Only length is validated, not that the PIN is numeric. Users could set alphabetic PINs, which while stronger, may create inconsistency with a UI expecting digits.
-
-**Impact:** UX inconsistency; minor.
-**Remediation:** Add `/^\d{4,8}$/.test(pin)` validation.
+**Fix:** Replaced length-only check with `/^\d{4,8}$/.test(pin)` regex validation on both `POST /auth/set-pin` and `POST /auth/verify-pin`. Returns `400` with message `'PIN must be 4-8 numeric digits.'` if input contains non-digit characters or is outside the length range.
 
 ### L4. Dependency Vulnerabilities (Low Severity)
 
