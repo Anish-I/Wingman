@@ -32,6 +32,7 @@ const redirectUri = AuthSession.makeRedirectUri({ preferLocalhost: true });
 export default function SignupScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Google Auth via expo-auth-session
@@ -156,6 +157,7 @@ export default function SignupScreen() {
               autoComplete="given-name"
             />
           </View>
+          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
           {/* Sign In Link */}
           <View style={styles.signinRow}>
@@ -172,7 +174,15 @@ export default function SignupScreen() {
         ) : (
           <GradientButton
             title="Continue"
-            onPress={() => router.push({ pathname: '/onboarding/phone', params: { name } })}
+            onPress={() => {
+              const trimmed = name.trim();
+              if (trimmed.length < 2) {
+                setNameError('Please enter your name');
+                return;
+              }
+              setNameError('');
+              router.push({ pathname: '/onboarding/phone', params: { name: trimmed } });
+            }}
             gradientColors={['#9B7EC8', '#7B5EA8']}
           />
         )}
@@ -260,6 +270,12 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   // Input
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    marginTop: 4,
+    marginLeft: 4,
+  },
   inputContainer: { marginBottom: spacing.sm },
   input: {
     backgroundColor: '#242540',

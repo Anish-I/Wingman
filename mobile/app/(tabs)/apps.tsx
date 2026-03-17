@@ -65,7 +65,7 @@ export default function AppsScreen() {
 
   async function handleConnect(slug: string) {
     if (Platform.OS === 'web') {
-      window.location.href = `${BASE}/connect/${slug}`;
+      window.open(`${BASE}/connect/${slug}`, '_blank');
       return;
     }
     const result = await WebBrowser.openAuthSessionAsync(
