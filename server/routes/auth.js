@@ -74,7 +74,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' });
     }
 
-    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     await redis.set(`otp:${phone}`, otp, 'EX', OTP_TTL);
     await provider.sendMessage(phone, `Your Wingman verification code is: ${otp}. It expires in 10 minutes.`);
 
