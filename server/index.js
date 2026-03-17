@@ -1,5 +1,41 @@
 require('dotenv').config();
 
+// Global error traps — capture startup and runtime crashes with detailed logging
+process.on('uncaughtException', (err) => {
+  const msg = err?.message || String(err);
+  const isExpected = msg.includes('ECONNREFUSED') || msg.includes('Redis');
+  
+  console.error(`[${isExpected ? 'WARN' : 'FATAL'}] Uncaught exception:`, msg);
+  console.error('[crash-log]', JSON.stringify({
+    type: 'uncaughtException',
+    message: msg,
+    code: err.code,
+    errno: err.errno,
+    stack: err.stack?.split('\n').slice(0, 5).join('\n'), // First 5 lines of stack
+    timestamp: new Date().toISOString(),
+    expected: isExpected,
+  }));
+  
+  if (!isExpected) {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  const msg = reason?.message || String(reason);
+  // Skip known non-fatal rejections
+  if (msg.includes('Redis version') || msg.includes('maxRetriesPerRequest')) {
+    return; // Already handled by workflow-worker
+  }
+  
+  console.error('[crash-log]', JSON.stringify({
+    type: 'unhandledRejection',
+    message: msg,
+    reason: String(reason),
+    timestamp: new Date().toISOString(),
+  }));
+});
+
 // Debug: Log environment status
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET not loaded from .env');
@@ -112,21 +148,7 @@ const server = app.listen(PORT, () => {
   console.log(`Wingman server running on port ${PORT}`);
 });
 
-// Listen for unhandled errors after startup
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL] Uncaught exception:', err.message);
-  console.error(err.stack);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  const msg = reason?.message || String(reason);
-  // Ignore known BullMQ/Redis version issues
-  if (!msg.includes('Redis version') && !msg.includes('maxRetriesPerRequest')) {
-    console.error('[FATAL] Unhandled rejection:', msg);
-    console.error(reason);
-  }
-});
+// Note: uncaughtException and unhandledRejection handlers are registered at module init (top of file)
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
