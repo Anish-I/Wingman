@@ -1,5 +1,6 @@
 'use strict';
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const { verifyToken } = require('./auth');
 const { getUserById, updatePushToken } = require('../db/queries');
@@ -7,6 +8,29 @@ const { processMessage } = require('../services/orchestrator');
 const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
 const { updateUserPreferences } = require('../db/queries');
+
+// Per-user rate limiter for /api/chat (30 req / 15 min)
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => req.user.id,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Per-user rate limiter for workflow plan/run (20 req / 15 min)
+const workflowLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user.id,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Allowed keys for user preferences
+const ALLOWED_PREFERENCE_KEYS = ['timezone', 'theme', 'language', 'notifications', 'smsOptIn'];
 
 // Middleware: parse Bearer token → req.user
 async function requireAuth(req, res, next) {
@@ -25,7 +49,7 @@ async function requireAuth(req, res, next) {
 }
 
 // POST /api/chat — send a message, get AI reply
-router.post('/chat', requireAuth, async (req, res) => {
+router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const { message } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
@@ -124,7 +148,19 @@ router.patch('/workflows/:id', requireAuth, async (req, res) => {
 // PATCH /api/user/preferences — update preferences (timezone, etc.)
 router.patch('/user/preferences', requireAuth, async (req, res) => {
   try {
-    const updated = await updateUserPreferences(req.user.id, req.body);
+    const incomingKeys = Object.keys(req.body);
+    const unrecognized = incomingKeys.filter(k => !ALLOWED_PREFERENCE_KEYS.includes(k));
+    if (unrecognized.length > 0) {
+      return res.status(400).json({ error: `Unrecognized preference keys: ${unrecognized.join(', ')}` });
+    }
+    const filtered = {};
+    for (const key of ALLOWED_PREFERENCE_KEYS) {
+      if (key in req.body) filtered[key] = req.body[key];
+    }
+    if (Object.keys(filtered).length === 0) {
+      return res.status(400).json({ error: 'No valid preference keys provided' });
+    }
+    const updated = await updateUserPreferences(req.user.id, filtered);
     res.json({ user: updated });
   } catch (err) {
     console.error('[api] error:', err.message);
@@ -133,7 +169,7 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
 });
 
 // POST /api/workflows/plan — NL workflow creation
-router.post('/workflows/plan', requireAuth, async (req, res) => {
+router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) => {
   try {
     const { description } = req.body;
     if (!description || typeof description !== 'string') {
@@ -149,7 +185,7 @@ router.post('/workflows/plan', requireAuth, async (req, res) => {
 });
 
 // POST /api/workflows/:id/run — manually trigger a workflow
-router.post('/workflows/:id/run', requireAuth, async (req, res) => {
+router.post('/workflows/:id/run', requireAuth, workflowLimiter, async (req, res) => {
   try {
     const db = require('../db');
     const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
