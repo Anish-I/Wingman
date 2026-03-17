@@ -108,20 +108,11 @@ If a CSRF or open redirect exists in the Composio OAuth flow, an attacker could 
 **Impact:** Cache invalidation for arbitrary users; potential OAuth flow hijacking.
 **Remediation:** Use a signed, time-limited state token in the callback instead of a raw userId.
 
-### H5. Error Messages Leak Internal Details to Clients
+### H5. ~~Error Messages Leak Internal Details to Clients~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/api.js` (lines 48, 64, 74, 84, 98, 114, 124, 174, 184, 194)
+**File:** `server/routes/api.js`
 
-Many endpoints return `err.message` directly to the client:
-
-```js
-res.status(500).json({ error: err.message });
-```
-
-This can leak database errors, file paths, internal service names, and stack details.
-
-**Impact:** Information disclosure aiding further exploitation.
-**Remediation:** Return generic error messages to clients; log `err.message` server-side only. Use the pattern already established in `auth.js` and `sms.js`.
+**Fix:** All catch blocks now return a generic `{ error: 'Internal server error' }` to clients instead of `err.message`. The full error object is logged server-side via `console.error` with a descriptive endpoint label (e.g., `[api] chat error:`, `[api] workflow plan error:`) for debugging. `connect.js` and `sms.js` already followed this pattern and required no changes.
 
 ---
 
