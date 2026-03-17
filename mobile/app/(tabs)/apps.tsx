@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   TextInput,
+  Platform,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,18 +45,29 @@ export default function AppsScreen() {
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [authError, setAuthError] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
       const status = await api.apps();
       setConnected(status.connected ?? []);
-    } catch {}
+      setAuthError(false);
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) {
+        setAuthError(true);
+      }
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   async function handleConnect(slug: string) {
+    if (Platform.OS === 'web') {
+      window.location.href = `${BASE}/connect/${slug}`;
+      return;
+    }
     const result = await WebBrowser.openAuthSessionAsync(
       `${BASE}/connect/${slug}`,
       'wingman://connect/callback'
@@ -97,6 +109,14 @@ export default function AppsScreen() {
           onChangeText={setSearch}
         />
       </View>
+
+      {authError && (
+        <PipCard
+          expression="thinking"
+          message="Sign in to connect apps"
+          size="small"
+        />
+      )}
 
       <FlatList
         data={categories}
