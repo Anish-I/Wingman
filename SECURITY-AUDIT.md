@@ -79,17 +79,11 @@ const otp = Math.floor(100000 + Math.random() * 900000).toString();
 **Impact:** OTP prediction enabling account takeover.
 **Remediation:** Use `crypto.randomInt(100000, 999999)` (Node.js 14.10+).
 
-### H3. Custom JWT Implementation (No Library)
+### H3. ~~Custom JWT Implementation (No Library)~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/auth.js:32-48`
+**File:** `server/routes/auth.js`
 
-A hand-rolled JWT implementation is used instead of the `jsonwebtoken` package (which is listed in `package.json` but unused). Custom crypto implementations are error-prone. Specific issues:
-- **No `alg: none` rejection** — though the current HMAC comparison would fail, the code does not explicitly validate the algorithm header.
-- **String comparison for signature** — uses `===` on base64url strings, which is timing-safe in practice for Node.js strings but is not guaranteed across engines.
-- **No audience/issuer claims** — tokens could be replayed across different services.
-
-**Impact:** Potential authentication bypass through implementation bugs; no defense-in-depth.
-**Remediation:** Use the `jsonwebtoken` package already in `package.json`. Add `iss`, `aud` claims.
+**Fix (partial — Apple token verification):** The Apple Sign-In branch in `POST /auth/social` previously only base64-decoded the Apple identity token without cryptographic signature verification, allowing token forgery. Now uses `jwks-rsa` to fetch Apple's public keys from `https://appleid.apple.com/auth/keys` and `jsonwebtoken` to verify RS256 signatures, issuer (`https://appleid.apple.com`), and audience (`APPLE_CLIENT_ID`). The original H3 issue about the custom JWT implementation for session tokens was separately addressed when `jsonwebtoken` was adopted for `signToken`/`verifyToken`.
 
 ### H4. OAuth Callback IDOR — userId in Query String
 
