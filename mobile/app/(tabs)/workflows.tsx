@@ -36,6 +36,7 @@ export default function WorkflowsScreen() {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [nameError, setNameError] = useState('');
 
   async function fetchWorkflows() {
     try {
@@ -59,7 +60,11 @@ export default function WorkflowsScreen() {
   }
 
   async function createWorkflow() {
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      setNameError('Workflow name is required');
+      return;
+    }
+    setNameError('');
     setCreating(true);
     try {
       const { workflow } = await api.workflows.create({
@@ -168,8 +173,9 @@ export default function WorkflowsScreen() {
               placeholder="Name"
               placeholderTextColor={colors.textMuted}
               value={newName}
-              onChangeText={setNewName}
+              onChangeText={(t) => { setNewName(t); if (t.trim()) setNameError(''); }}
             />
+            {nameError ? <Text style={styles.nameError}>{nameError}</Text> : null}
             <TextInput
               style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
               placeholder="Description (optional)"
@@ -306,6 +312,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  nameError: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   modalBtn: {
     backgroundColor: colors.primary,

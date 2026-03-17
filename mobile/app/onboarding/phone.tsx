@@ -28,6 +28,7 @@ export default function PhoneScreen() {
   const [step, setStep] = useState<'phone' | 'verify' | 'success'>('phone');
   const [code, setCode] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const inputs = useRef<TextInput[]>([]);
   const successScale = useRef(new Animated.Value(0)).current;
@@ -144,6 +145,7 @@ export default function PhoneScreen() {
                 maxLength={14}
               />
             </View>
+            {phoneError ? <Text style={styles.phoneError}>{phoneError}</Text> : null}
           </>
         ) : step === 'verify' ? (
           <>
@@ -202,8 +204,16 @@ export default function PhoneScreen() {
         <View style={styles.footer}>
           <GradientButton
             title={loading ? (step === 'phone' ? 'Sending...' : 'Verifying...') : (step === 'phone' ? 'Text Me' : 'Verify')}
-            onPress={step === 'phone' ? handleSendCode : handleVerify}
-            disabled={loading}
+            onPress={step === 'phone' ? () => {
+              const digits = phone.replace(/\D/g, '');
+              if (digits.length < 10) {
+                setPhoneError('Please enter a valid 10-digit phone number');
+                return;
+              }
+              setPhoneError('');
+              handleSendCode();
+            } : handleVerify}
+            disabled={loading || (step === 'phone' && phone.replace(/\D/g, '').length < 10)}
           />
         </View>
       )}
@@ -273,6 +283,12 @@ const styles = StyleSheet.create({
   },
   codeBoxFilled: {
     borderColor: colors.primaryLight,
+  },
+  phoneError: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    marginTop: spacing.sm,
+    marginLeft: 4,
   },
   hint: { color: colors.textMuted, textAlign: 'center', fontSize: 13, marginTop: spacing.md },
   resend: { color: colors.accent, textAlign: 'center', fontSize: 14, marginTop: spacing.sm },
