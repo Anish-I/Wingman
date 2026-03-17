@@ -1,10 +1,9 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Image, Animated, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import GradientButton from '../../src/components/GradientButton';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, shadows } from '../../src/theme';
 
-export default function WelcomeScreen() {
+export default function OnboardingWelcome() {
   const router = useRouter();
   const glowAnim = useRef(new Animated.Value(0.3)).current;
 
@@ -33,19 +32,20 @@ export default function WelcomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.title}>Hey, I am Pip!</Text>
-        <Text style={styles.subtitle}>
-          Your AI-powered life assistant.{'\n'}I automate your world through simple texts.
-        </Text>
+        <Text style={styles.title}>Hey, I'm Pip!</Text>
+        <Text style={styles.subtitle}>Your AI-powered personal assistant</Text>
 
         <View style={styles.spacer} />
       </View>
 
       <View style={styles.footer}>
-        <GradientButton
-          title="Get Started"
+        <TouchableOpacity
+          style={styles.getStartedBtn}
           onPress={() => router.push('/onboarding/login')}
-        />
+          activeOpacity={0.85}
+        >
+          <Text style={styles.getStartedText}>Get Started</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -94,14 +94,14 @@ const styles = StyleSheet.create({
     height: 120,
   },
   title: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   subtitle: {
-    color: colors.textSecondary,
+    color: '#8888aa',
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
@@ -109,5 +109,17 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  getStartedBtn: {
+    backgroundColor: '#6c63ff',
+    borderRadius: 12,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  getStartedText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
