@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
-import { clearToken } from '../../src/auth';
+import { clearToken, getToken } from '../../src/auth';
 import { colors, spacing, radius } from '../../src/theme';
+import type { User } from '../../src/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -70,9 +72,40 @@ function SettingsRow({
   );
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+function formatPhone(phone: string): string {
+  if (phone.length === 12 && phone.startsWith('+1')) {
+    return `(${phone.slice(2, 5)}) ${phone.slice(5, 8)}-${phone.slice(8)}`;
+  }
+  return phone;
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<{ name: string; phone: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const token = await getToken();
+      if (!token) return;
+      const payload = decodeJwtPayload(token);
+      if (payload) {
+        setUser({
+          name: (payload.name as string) || 'User',
+          phone: (payload.phone as string) || '',
+        });
+      }
+    })();
+  }, []);
 
   async function handleLogout() {
     Alert.alert('Log out', 'Are you sure?', [
@@ -95,8 +128,14 @@ export default function SettingsScreen() {
         {/* Profile header */}
         <View style={styles.profileSection}>
           <PipCard expression="wave" size="small" style={styles.pip} />
-          <Text style={styles.username}>Pip User</Text>
-          <Text style={styles.phone}>Phone number</Text>
+          {user ? (
+            <>
+              <Text style={styles.username}>{user.name}</Text>
+              <Text style={styles.phone}>{user.phone ? formatPhone(user.phone) : ''}</Text>
+            </>
+          ) : (
+            <ActivityIndicator color={colors.textMuted} style={{ marginTop: spacing.xs }} />
+          )}
         </View>
 
         {/* Account */}

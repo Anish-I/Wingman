@@ -91,7 +91,7 @@ export default function WorkflowsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Automations</Text>
+          <Text style={styles.title}>Workflows</Text>
           <Text style={styles.subtitle}>Your smart workflows</Text>
         </View>
       </View>
