@@ -11,6 +11,7 @@ import { useThemeConfig } from '@/components/ui/use-theme-config';
 import { hydrateAuth } from '@/features/auth/use-auth-store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
+import { initStorage } from '@/lib/storage';
 import '../global.css';
 
 export { ErrorBoundary } from 'expo-router';
@@ -19,8 +20,6 @@ export const unstable_settings = {
   initialRouteName: '(app)',
 };
 
-hydrateAuth();
-loadSelectedTheme();
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({
   duration: 500,
@@ -28,12 +27,26 @@ SplashScreen.setOptions({
 });
 
 export default function RootLayout() {
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    async function bootstrap() {
+      await initStorage();
+      hydrateAuth();
+      loadSelectedTheme();
+      setReady(true);
+    }
+    bootstrap();
+  }, []);
+
   React.useEffect(() => {
     if (Platform.OS === 'web') {
       document.body.style.backgroundColor = '#0C0C0C';
       document.body.style.margin = '0';
     }
   }, []);
+
+  if (!ready) return null;
 
   const content = (
     <Stack>
