@@ -237,8 +237,8 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: spacing.xl,
     marginBottom: spacing.md,
