@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,40 +18,109 @@ import { api } from '../../src/api';
 import PipCard from '../../src/PipCard';
 import { colors, spacing, radius, shadows } from '../../src/theme';
 
-interface AppInfo {
-  slug: string;
+interface ComposioApp {
+  appId: string;
+  key: string;
   name: string;
-  emoji: string;
-  color: string;
-  category: string;
+  logo?: string;
+  categories?: string[];
+  description?: string;
 }
 
-const KNOWN_APPS: AppInfo[] = [
-  { slug: 'gmail', name: 'Gmail', emoji: '\u{1F4E7}', color: '#EA4335', category: 'Communication' },
-  { slug: 'googlecalendar', name: 'Calendar', emoji: '\u{1F4C5}', color: '#4285F4', category: 'Productivity' },
-  { slug: 'slack', name: 'Slack', emoji: '\u{1F4AC}', color: '#4A154B', category: 'Communication' },
-  { slug: 'github', name: 'GitHub', emoji: '\u{1F419}', color: '#333333', category: 'Development' },
-  { slug: 'notion', name: 'Notion', emoji: '\u{1F4DD}', color: '#000000', category: 'Productivity' },
-  { slug: 'discord', name: 'Discord', emoji: '\u{1F3AE}', color: '#5865F2', category: 'Communication' },
-  { slug: 'linear', name: 'Linear', emoji: '\u{1F4D0}', color: '#5E6AD2', category: 'Development' },
-  { slug: 'jira', name: 'Jira', emoji: '\u{1F3AF}', color: '#0052CC', category: 'Development' },
-  { slug: 'salesforce', name: 'Salesforce', emoji: '\u{2601}\u{FE0F}', color: '#00A1E0', category: 'Productivity' },
-  { slug: 'dropbox', name: 'Dropbox', emoji: '\u{1F4E6}', color: '#0061FF', category: 'Productivity' },
-  { slug: 'twitter', name: 'Twitter', emoji: '\u{1F426}', color: '#1DA1F2', category: 'Communication' },
-  { slug: 'spotify', name: 'Spotify', emoji: '\u{1F3B5}', color: '#1DB954', category: 'Entertainment' },
-];
+interface AppDisplay {
+  slug: string;
+  name: string;
+  logo?: string;
+  category: string;
+  description?: string;
+}
 
-const CATEGORIES = ['All', ...new Set(KNOWN_APPS.map(a => a.category))];
+/** Fallback emoji map for well-known apps when logo URL fails */
+const FALLBACK_EMOJI: Record<string, string> = {
+  gmail: '\u{1F4E7}',
+  slack: '\u{1F4AC}',
+  github: '\u{1F419}',
+  notion: '\u{1F4DD}',
+  discord: '\u{1F3AE}',
+  linear: '\u{1F4D0}',
+  jira: '\u{1F3AF}',
+  salesforce: '\u{2601}\u{FE0F}',
+  dropbox: '\u{1F4E6}',
+  twitter: '\u{1F426}',
+  spotify: '\u{1F3B5}',
+  googlecalendar: '\u{1F4C5}',
+};
+
+const CATEGORY_MAP: Record<string, string> = {
+  'communication': 'Communication',
+  'productivity': 'Productivity',
+  'developer tools': 'Development',
+  'development': 'Development',
+  'crm': 'Productivity',
+  'project management': 'Productivity',
+  'social media': 'Communication',
+  'entertainment': 'Entertainment',
+  'storage': 'Productivity',
+  'marketing': 'Marketing',
+  'analytics': 'Analytics',
+  'finance': 'Finance',
+  'hr': 'HR',
+  'security': 'Security',
+};
+
+function categorize(categories?: string[]): string {
+  if (!categories?.length) return 'Other';
+  for (const cat of categories) {
+    const mapped = CATEGORY_MAP[cat.toLowerCase()];
+    if (mapped) return mapped;
+  }
+  return categories[0] ?? 'Other';
+}
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
+const TOP_N = 20;
 
 export default function AppsScreen() {
+  const [apps, setApps] = useState<AppDisplay[]>([]);
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [authError, setAuthError] = useState(false);
+  const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
+
+  const fetchApps = useCallback(async () => {
+    try {
+      const data = await api.composio.listApps();
+      const items: ComposioApp[] = data.items ?? [];
+      // Take top 20 apps (Composio returns them ranked by popularity)
+      const topApps: AppDisplay[] = items.slice(0, TOP_N).map((item) => ({
+        slug: item.key,
+        name: item.name,
+        logo: item.logo,
+        category: categorize(item.categories),
+        description: item.description,
+      }));
+      setApps(topApps);
+    } catch {
+      // Fallback to a minimal hardcoded list if Composio API is unreachable
+      setApps([
+        { slug: 'gmail', name: 'Gmail', category: 'Communication' },
+        { slug: 'googlecalendar', name: 'Calendar', category: 'Productivity' },
+        { slug: 'slack', name: 'Slack', category: 'Communication' },
+        { slug: 'github', name: 'GitHub', category: 'Development' },
+        { slug: 'notion', name: 'Notion', category: 'Productivity' },
+        { slug: 'discord', name: 'Discord', category: 'Communication' },
+        { slug: 'linear', name: 'Linear', category: 'Development' },
+        { slug: 'jira', name: 'Jira', category: 'Development' },
+        { slug: 'salesforce', name: 'Salesforce', category: 'Productivity' },
+        { slug: 'dropbox', name: 'Dropbox', category: 'Productivity' },
+        { slug: 'twitter', name: 'Twitter', category: 'Communication' },
+        { slug: 'spotify', name: 'Spotify', category: 'Entertainment' },
+      ]);
+    }
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -63,10 +133,11 @@ export default function AppsScreen() {
         setAuthError(true);
       }
     }
-    setLoading(false);
   }, []);
 
-  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useEffect(() => {
+    Promise.all([fetchApps(), fetchStatus()]).finally(() => setLoading(false));
+  }, [fetchApps, fetchStatus]);
 
   async function handleConnect(slug: string) {
     if (Platform.OS === 'web') {
@@ -80,11 +151,36 @@ export default function AppsScreen() {
     if (result.type === 'success') await fetchStatus();
   }
 
-  const filtered = KNOWN_APPS.filter(a => {
+  const categories = ['All', ...Array.from(new Set(apps.map(a => a.category)))];
+
+  const filtered = apps.filter(a => {
     const matchesSearch = !search || a.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || a.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  function renderAppIcon(app: AppDisplay) {
+    const hasLogo = app.logo && !failedLogos.has(app.slug);
+    if (hasLogo) {
+      return (
+        <Image
+          source={{ uri: app.logo }}
+          style={styles.appLogo}
+          resizeMode="contain"
+          onError={() => setFailedLogos(prev => new Set(prev).add(app.slug))}
+        />
+      );
+    }
+    const emoji = FALLBACK_EMOJI[app.slug];
+    if (emoji) {
+      return <Text style={styles.appEmoji}>{emoji}</Text>;
+    }
+    return (
+      <Text style={styles.appInitial}>
+        {app.name.charAt(0).toUpperCase()}
+      </Text>
+    );
+  }
 
   if (loading) {
     return (
@@ -98,9 +194,12 @@ export default function AppsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Apps</Text>
-        <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.searchToggle}>
-          <Ionicons name="search-outline" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <Text style={styles.appCount}>{apps.length} apps</Text>
+          <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.searchToggle}>
+            <Ionicons name="search-outline" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showSearch && (
@@ -124,7 +223,7 @@ export default function AppsScreen() {
         contentContainerStyle={styles.pillRow}
         style={styles.pillScroll}
       >
-        {CATEGORIES.map(cat => {
+        {categories.map(cat => {
           const isActive = selectedCategory === cat;
           return (
             <TouchableOpacity
@@ -162,8 +261,8 @@ export default function AppsScreen() {
           const isConnected = connected.includes(app.slug);
           return (
             <View style={styles.appCard}>
-              <View style={[styles.appIconCircle, { backgroundColor: app.color + '20' }]}>
-                <Text style={styles.appEmoji}>{app.emoji}</Text>
+              <View style={styles.appIconCircle}>
+                {renderAppIcon(app)}
               </View>
               <View style={styles.appInfo}>
                 <Text style={styles.appName}>{app.name}</Text>
@@ -202,6 +301,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   title: { color: colors.text, fontSize: 20, fontWeight: '700' },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  appCount: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
   searchToggle: {
     width: 40,
     height: 40,
@@ -281,8 +390,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+  },
+  appLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
   },
   appEmoji: { fontSize: 24 },
+  appInitial: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
   appInfo: { flex: 1 },
   appName: {
     color: colors.text,
