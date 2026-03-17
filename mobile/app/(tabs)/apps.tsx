@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  title: { color: colors.text, fontSize: 20, fontWeight: '700' },
   searchToggle: {
     width: 40,
     height: 40,
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   pillText: {
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pillTextActive: {
-    color: colors.primaryLight,
+    color: '#FFFFFF',
   },
 
   // App list
@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   appIconCircle: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',

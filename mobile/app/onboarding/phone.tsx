@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import GradientButton from '../../src/components/GradientButton';
 import { api } from '../../src/api';
 import { colors, spacing, radius } from '../../src/theme';
 
@@ -78,11 +77,14 @@ export default function PhoneScreen() {
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        <GradientButton
-          title={loading ? 'Sending...' : 'Send Code'}
+        <TouchableOpacity
+          style={[styles.sendCodeBtn, (loading || phone.replace(/\D/g, '').length < 10) && styles.sendCodeBtnDisabled]}
           onPress={handleSendCode}
           disabled={loading || phone.replace(/\D/g, '').length < 10}
-        />
+          activeOpacity={0.85}
+        >
+          <Text style={styles.sendCodeBtnText}>{loading ? 'Sending...' : 'Send Code'}</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -103,8 +105,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
     marginBottom: spacing.sm,
   },
   subtitle: {
@@ -148,4 +150,19 @@ const styles = StyleSheet.create({
   },
   spacer: { flex: 1 },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  sendCodeBtn: {
+    backgroundColor: '#6c63ff',
+    borderRadius: 12,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendCodeBtnDisabled: {
+    opacity: 0.5,
+  },
+  sendCodeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

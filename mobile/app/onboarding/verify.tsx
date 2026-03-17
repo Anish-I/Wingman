@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import GradientButton from '../../src/components/GradientButton';
 import { api } from '../../src/api';
 import { saveToken } from '../../src/auth';
 import { registerForPushNotifications } from '../../src/notifications';
@@ -166,11 +165,14 @@ export default function VerifyScreen() {
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        <GradientButton
-          title={loading ? 'Verifying...' : 'Continue'}
+        <TouchableOpacity
+          style={[styles.verifyBtn, (loading || code.some(d => d === '')) && styles.verifyBtnDisabled]}
           onPress={handleVerify}
           disabled={loading || code.some(d => d === '')}
-        />
+          activeOpacity={0.85}
+        >
+          <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -233,12 +235,27 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   resendText: {
-    color: colors.teal,
+    color: '#8888aa',
     fontSize: 14,
     fontWeight: '500',
   },
   spacer: { flex: 1 },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  verifyBtn: {
+    backgroundColor: '#6c63ff',
+    borderRadius: 12,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyBtnDisabled: {
+    opacity: 0.5,
+  },
+  verifyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   successContainer: {
     flex: 1,
     alignItems: 'center',

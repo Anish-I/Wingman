@@ -49,8 +49,8 @@ function SettingsRow({
   onToggle,
   badge,
 }: SettingsRowProps) {
-  const labelColor = destructive ? colors.error : colors.text;
-  const resolvedIconColor = destructive ? colors.error : iconColor;
+  const labelColor = destructive ? '#ff4d6d' : colors.text;
+  const resolvedIconColor = destructive ? '#ff4d6d' : iconColor;
 
   return (
     <>
@@ -225,9 +225,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.card,
     borderWidth: 2,
     borderColor: colors.border,
