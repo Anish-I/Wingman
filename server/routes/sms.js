@@ -24,7 +24,9 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
 
     if (isTwilio) {
       // --- Twilio path ---
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
+        console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Twilio signature check skipped');
+      } else if (req.headers['x-twilio-signature']) {
         const isValid = provider.validateIncoming(req);
         if (!isValid) {
           console.warn('Invalid Twilio signature');
@@ -59,7 +61,9 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
       // --- Telnyx path ---
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
+        console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Telnyx signature check skipped');
+      } else if (req.headers['telnyx-signature-ed25519']) {
         const rawBody = JSON.stringify(req.body);
         const isValid = provider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
