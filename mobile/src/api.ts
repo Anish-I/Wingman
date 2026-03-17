@@ -26,6 +26,8 @@ export const api = {
       req<{ ok: boolean }>('POST', '/auth/set-pin', { pin }),
     google: (idToken: string) =>
       req<{ token: string }>('POST', '/auth/google', { idToken }),
+    social: (provider: 'google' | 'apple', token: string, name?: string) =>
+      req<{ token: string; user: { id: string; name: string } }>('POST', '/auth/social', { provider, token, name }),
   },
   chat: (message: string) =>
     req<{ reply: string }>('POST', '/api/chat', { message }),
