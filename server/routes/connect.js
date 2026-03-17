@@ -1,10 +1,27 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { verifyToken } = require('./auth');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
 
 const router = express.Router();
 
+const JWT_SECRET = process.env.JWT_SECRET;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+
+// Generate a signed, time-limited state token for OAuth callbacks
+function generateOAuthState(userId, app) {
+  return jwt.sign({ userId, app }, JWT_SECRET, { expiresIn: '10m' });
+}
+
+// Verify and decode an OAuth state token
+function verifyOAuthState(stateToken) {
+  try {
+    return jwt.verify(stateToken, JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+
 const WEB_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // Auth middleware — reuses verifyToken from auth.js
@@ -58,7 +75,8 @@ router.get('/initiate', async (req, res) => {
     if (!payload) {
       return res.status(401).json({ error: 'Invalid or expired token.' });
     }
-    const redirectUrl = `${BASE_URL}/connect/callback?userId=${payload.userId}&app=${app}`;
+    const state = generateOAuthState(payload.userId, app);
+    const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(payload.userId, app.toLowerCase(), redirectUrl);
     res.redirect(url);
   } catch (err) {
@@ -70,12 +88,19 @@ router.get('/initiate', async (req, res) => {
 // GET /connect/callback — Composio redirects here after OAuth
 router.get('/callback', async (req, res) => {
   try {
-    const userId = req.query.userId;
-    const appName = req.query.app || '';
+    const { state } = req.query;
+    if (!state) {
+      return res.status(400).send('Missing state parameter.');
+    }
+    const payload = verifyOAuthState(state);
+    if (!payload) {
+      return res.status(400).send('Invalid or expired OAuth state token.');
+    }
+    const { userId, app: appName } = payload;
     if (userId) {
       await invalidateToolsCache(userId);
     }
-    res.redirect(`${WEB_URL}/connect/success?app=${appName}`);
+    res.redirect(`${WEB_URL}/connect/success?app=${appName || ''}`);
   } catch (err) {
     console.error('OAuth callback error:', err);
     res.status(500).send('Something went wrong.');
@@ -123,7 +148,8 @@ router.post('/disconnect', async (req, res) => {
 router.get('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
-    const redirectUrl = `${BASE_URL}/connect/callback?userId=${req.user.userId}&app=${app}`;
+    const state = generateOAuthState(req.user.userId, app);
+    const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(req.user.userId, app, redirectUrl);
     res.redirect(url);
   } catch (err) {
