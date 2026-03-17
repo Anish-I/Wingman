@@ -104,7 +104,7 @@ export default function WorkflowsScreen() {
           <View style={styles.emptyContainer}>
             <PipCard
               expression="thinking"
-              message="No workflows yet. Create your first automation!"
+              message="No workflows yet. Create your first workflow!"
               size="small"
             />
             <TouchableOpacity
