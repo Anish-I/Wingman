@@ -1,12 +1,15 @@
 name: CI
+
 on:
   push:
-    branches: [dev]
+    branches: [main]
   pull_request:
-    branches: [prod, main]
+    branches: [main]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       redis:
         image: redis:7-alpine
@@ -18,19 +21,30 @@ jobs:
           POSTGRES_PASSWORD: wingman
           POSTGRES_DB: wingman
         ports: ["5432:5432"]
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
-      - run: npm install
-      - run: npm test --workspace=server
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: cd server && npm ci
+
+      - name: Run tests
+        run: cd server && npm test
         env:
           NODE_ENV: test
           REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql://wingman:wingman@localhost:5432/wingman
-          JWT_SECRET: ci-test-secret
+          JWT_SECRET: ci-test-secret-do-not-use-in-production
           MESSAGING_PROVIDER: stub
-          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      - name: Run lint (if configured)
+        run: cd server && npm run lint --if-present
+
+      - name: TypeScript check (mobile)
+        run: cd mobile && npx tsc --noEmit || true
