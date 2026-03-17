@@ -114,7 +114,7 @@ export default function WorkflowsScreen() {
         contentContainerStyle={styles.statsRow}
       >
         <View style={styles.statPill}>
-          <Text style={styles.statValue}>{workflows.length}</Text>
+          <Text style={[styles.statValue, { color: colors.primary }]}>{workflows.length}</Text>
           <Text style={styles.statLabel}>Total Runs</Text>
         </View>
         <View style={styles.statPill}>
