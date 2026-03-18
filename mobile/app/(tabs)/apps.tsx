@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  Pressable,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -16,7 +17,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import PipCard from '../../src/PipCard';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, radius, shadows, fonts } from '../../src/theme';
 
 interface ComposioApp {
   appId: string;
@@ -260,7 +261,12 @@ export default function AppsScreen() {
         renderItem={({ item: app }) => {
           const isConnected = connected.includes(app.slug);
           return (
-            <View style={styles.appCard}>
+            <Pressable
+              style={(state) => [
+                styles.appCard,
+                (state as any).hovered && styles.appCardHover,
+              ]}
+            >
               <View style={styles.appIconCircle}>
                 {renderAppIcon(app)}
               </View>
@@ -282,7 +288,7 @@ export default function AppsScreen() {
                   <Text style={styles.connectBtnText}>Connect</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </Pressable>
           );
         }}
       />
@@ -300,7 +306,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  title: { color: colors.text, fontSize: 20, fontWeight: '700' },
+  title: { color: colors.text, fontSize: 20, fontFamily: fonts.bold },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -383,6 +389,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
+    ...Platform.select({ web: { cursor: 'default' as any, transition: 'background-color 0.15s ease' as any } }),
+  },
+  appCardHover: {
+    backgroundColor: colors.cardHover,
   },
   appIconCircle: {
     width: 44,
@@ -408,7 +418,7 @@ const styles = StyleSheet.create({
   appName: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   appCategory: {
     color: colors.textMuted,
@@ -438,6 +448,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.button,
     backgroundColor: colors.primary,
+    ...Platform.select({ web: { cursor: 'pointer' as any } }),
   },
   connectBtnText: {
     color: '#FFFFFF',

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useFonts, NunitoSans_400Regular, NunitoSans_600SemiBold, NunitoSans_700Bold, NunitoSans_800ExtraBold } from '@expo-google-fonts/nunito-sans';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,20 +23,26 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+        animation: 'fade',
+      }}
+    >
       <Stack.Screen name="index" />
       <Stack.Screen name="onboarding/index" />
-      <Stack.Screen name="onboarding/login" />
-      <Stack.Screen name="onboarding/phone" />
-      <Stack.Screen name="onboarding/verify" />
-      <Stack.Screen name="onboarding/welcome" />
-      <Stack.Screen name="onboarding/features" />
-      <Stack.Screen name="onboarding/signup" />
-      <Stack.Screen name="onboarding/connect" />
-      <Stack.Screen name="onboarding/permissions" />
-      <Stack.Screen name="onboarding/done" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="connect/[app]" />
+      <Stack.Screen name="onboarding/login" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/phone" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/verify" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/welcome" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/features" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/signup" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/connect" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/permissions" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding/done" options={{ animation: 'fade' }} />
+      <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+      <Stack.Screen name="connect/[app]" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
     </Stack>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Pressable,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -10,11 +11,12 @@ import {
   ActivityIndicator,
   Switch,
   Image,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { clearToken, getToken } from '../../src/auth';
-import { colors, spacing, radius } from '../../src/theme';
+import { colors, spacing, radius, fonts } from '../../src/theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -54,14 +56,14 @@ function SettingsRow({
 
   return (
     <>
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={(state) => [
           styles.row,
           isFirst && { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
           isLast && { borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
+          (state as any).hovered && styles.rowHover,
         ]}
         onPress={onPress}
-        activeOpacity={onPress ? 0.6 : 1}
         disabled={!onPress && !toggle}
       >
         <View style={[styles.rowIconBox, destructive && { backgroundColor: colors.errorMuted }]}>
@@ -86,7 +88,7 @@ function SettingsRow({
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           ) : null}
         </View>
-      </TouchableOpacity>
+      </Pressable>
       {!isLast && <View style={styles.divider} />}
     </>
   );
@@ -243,7 +245,7 @@ const styles = StyleSheet.create({
   username: {
     color: colors.text,
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   phone: {
     color: colors.textSecondary,
@@ -269,6 +271,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: 12,
     backgroundColor: colors.card,
+    ...Platform.select({ web: { cursor: 'pointer' as any, transition: 'background-color 0.15s ease' as any } }),
+  },
+  rowHover: {
+    backgroundColor: colors.cardHover,
   },
   rowIconBox: {
     width: 32,
@@ -278,7 +284,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rowLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
+  rowLabel: { flex: 1, fontSize: 15, fontFamily: fonts.regular },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowValue: { color: colors.textMuted, fontSize: 14 },
   countBadge: {
