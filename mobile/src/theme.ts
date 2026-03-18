@@ -41,8 +41,8 @@ export const colors = {
   // Text
   text: '#FFFFFF',
   textPrimary: '#FFFFFF',
-  textSecondary: '#8888aa',
-  textMuted: '#5D6279',
+  textSecondary: '#c8c8e6',
+  textMuted: '#9aa0be',
   textInverse: '#0f0f1a',
 
   // Chat bubbles

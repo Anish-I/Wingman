@@ -1,23 +1,31 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Image, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Image, Animated, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, shadows, fonts } from '../../src/theme';
 
 export default function OnboardingWelcome() {
   const router = useRouter();
   const glowAnim = useRef(new Animated.Value(0.3)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
+    ]).start();
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, { toValue: 0.7, duration: 2000, useNativeDriver: true }),
         Animated.timing(glowAnim, { toValue: 0.3, duration: 2000, useNativeDriver: true }),
       ])
     ).start();
-  }, [glowAnim]);
+  }, [glowAnim, fadeAnim, slideAnim]);
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
       <View style={styles.content}>
         <View style={styles.spacer} />
 
@@ -39,14 +47,19 @@ export default function OnboardingWelcome() {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.getStartedBtn}
+        <Pressable
+          style={(state: any) => [
+            styles.getStartedBtn,
+            state.hovered && styles.getStartedHover,
+            state.focused && styles.getStartedFocus,
+            state.pressed && styles.getStartedPressed,
+          ]}
           onPress={() => router.push('/onboarding/login')}
-          activeOpacity={0.85}
         >
           <Text style={styles.getStartedText}>Get Started</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -94,14 +107,14 @@ const styles = StyleSheet.create({
     height: 120,
   },
   title: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 28,
     fontFamily: fonts.bold,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   subtitle: {
-    color: '#8888aa',
+    color: colors.textSecondary,
     fontSize: 16,
     fontFamily: fonts.regular,
     textAlign: 'center',
@@ -112,14 +125,25 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   getStartedBtn: {
-    backgroundColor: '#6c63ff',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     height: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  getStartedHover: {
+    opacity: 0.92,
+  },
+  getStartedFocus: {
+    borderWidth: 2,
+    borderColor: colors.teal,
+  },
+  getStartedPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+  },
   getStartedText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontFamily: fonts.bold,
   },

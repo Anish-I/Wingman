@@ -12,6 +12,7 @@ import {
   Switch,
   Image,
   Platform,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,9 +114,16 @@ function formatPhone(phone: string): string {
 export default function SettingsScreen() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; phone: string } | null>(null);
+  const screenOpacity = React.useRef(new Animated.Value(0)).current;
+  const screenTranslate = React.useRef(new Animated.Value(14)).current;
   const [notificationsOn, setNotificationsOn] = useState(true);
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(screenTranslate, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+
     (async () => {
       const token = await getToken();
       if (!token) return;
@@ -127,7 +135,7 @@ export default function SettingsScreen() {
         });
       }
     })();
-  }, []);
+  }, [screenOpacity, screenTranslate]);
 
   async function handleLogout() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -145,6 +153,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={{ flex: 1, opacity: screenOpacity, transform: [{ translateY: screenTranslate }] }}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Profile header */}
         <View style={styles.profileSection}>
@@ -212,6 +221,7 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }

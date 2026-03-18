@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Pressable,
   Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -27,7 +28,16 @@ export default function VerifyScreen() {
   const inputs = useRef<TextInput[]>([]);
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
+  const entryOpacity = useRef(new Animated.Value(0)).current;
+  const entryTranslate = useRef(new Animated.Value(18)).current;
   const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entryOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(entryTranslate, { toValue: 0, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, [entryOpacity, entryTranslate]);
 
   function handleCodeChange(text: string, idx: number) {
     const newCode = [...code];
@@ -124,6 +134,7 @@ export default function VerifyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={{ flex: 1, opacity: entryOpacity, transform: [{ translateY: entryTranslate }] }}>
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -166,15 +177,21 @@ export default function VerifyScreen() {
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.verifyBtn, (loading || code.some(d => d === '')) && styles.verifyBtnDisabled]}
+        <Pressable
+          style={(state: any) => [
+            styles.verifyBtn,
+            (loading || code.some(d => d === '')) && styles.verifyBtnDisabled,
+            state.hovered && styles.verifyBtnHover,
+            state.focused && styles.verifyBtnFocus,
+            state.pressed && styles.verifyBtnPressed,
+          ]}
           onPress={handleVerify}
           disabled={loading || code.some(d => d === '')}
-          activeOpacity={0.85}
         >
           <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -251,6 +268,17 @@ const styles = StyleSheet.create({
   },
   verifyBtnDisabled: {
     opacity: 0.5,
+  },
+  verifyBtnHover: {
+    opacity: 0.92,
+  },
+  verifyBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+  },
+  verifyBtnFocus: {
+    borderWidth: 2,
+    borderColor: colors.teal,
   },
   verifyBtnText: {
     color: '#FFFFFF',

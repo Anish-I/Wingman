@@ -12,6 +12,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Animated,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,6 +84,8 @@ const TOP_N = 20;
 
 export default function AppsScreen() {
   const [apps, setApps] = useState<AppDisplay[]>([]);
+  const screenOpacity = React.useRef(new Animated.Value(0)).current;
+  const screenTranslate = React.useRef(new Animated.Value(14)).current;
   const [connected, setConnected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -137,8 +140,12 @@ export default function AppsScreen() {
   }, []);
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(screenTranslate, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
     Promise.all([fetchApps(), fetchStatus()]).finally(() => setLoading(false));
-  }, [fetchApps, fetchStatus]);
+  }, [fetchApps, fetchStatus, screenOpacity, screenTranslate]);
 
   async function handleConnect(slug: string) {
     if (Platform.OS === 'web') {
@@ -193,6 +200,7 @@ export default function AppsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={{ flex: 1, opacity: screenOpacity, transform: [{ translateY: screenTranslate }] }}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Apps</Text>
         <View style={styles.headerRight}>
@@ -292,6 +300,7 @@ export default function AppsScreen() {
           );
         }}
       />
+      </Animated.View>
     </SafeAreaView>
   );
 }

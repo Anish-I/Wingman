@@ -1,18 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, Animated, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import PipCard from '../../src/PipCard';
 import ProgressBar from '../../src/components/ProgressBar';
-import GradientButton from '../../src/components/GradientButton';
 import { colors, spacing, radius, shadows } from '../../src/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   return (
     <SafeAreaView style={styles.container}>
       <ProgressBar step={1} />
-      <View style={styles.content}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.spacer} />
         <PipCard expression="wave" size="large" />
         <View style={styles.speechBubble}>
@@ -24,12 +32,19 @@ export default function WelcomeScreen() {
           </Text>
         </View>
         <View style={styles.spacer} />
-      </View>
+      </Animated.View>
       <View style={styles.footer}>
-        <GradientButton
-          title="Nice to meet you!"
+        <Pressable
           onPress={() => router.push('/onboarding/features')}
-        />
+          style={(state: any) => [
+            styles.ctaButton,
+            state.hovered && styles.ctaHover,
+            state.focused && styles.ctaFocus,
+            state.pressed && styles.ctaPressed,
+          ]}
+        >
+          <Text style={styles.ctaText}>Nice to meet you!</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -74,5 +89,28 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  ctaButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  ctaHover: {
+    opacity: 0.92,
+  },
+  ctaPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+  },
+  ctaFocus: {
+    borderWidth: 2,
+    borderColor: colors.teal,
   },
 });
