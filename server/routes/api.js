@@ -29,6 +29,20 @@ const workflowLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 });
 
+// Max chat message length (chars) — prevents LLM cost abuse
+const MAX_CHAT_MESSAGE_LENGTH = 4000;
+
+// UUID v4 format validation
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Middleware: validate :id param is a valid UUID
+function validateIdParam(req, res, next) {
+  if (!UUID_RE.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid ID format.' });
+  }
+  next();
+}
+
 // Allowed keys for user preferences
 const ALLOWED_PREFERENCE_KEYS = ['timezone', 'theme', 'language', 'notifications', 'smsOptIn'];
 
@@ -54,6 +68,9 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     const { message } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: 'message is required' });
+    }
+    if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
+      return res.status(400).json({ error: `Message exceeds maximum length of ${MAX_CHAT_MESSAGE_LENGTH} characters.` });
     }
     const reply = await processMessage(req.user, message.trim());
     res.json({ reply });
@@ -92,7 +109,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/workflows/:id/pause — pause/cancel a workflow
-router.patch('/workflows/:id/pause', requireAuth, async (req, res) => {
+router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, res) => {
   try {
     await stopWorkflow(req.params.id, req.user.id);
     res.json({ message: 'Workflow paused' });
@@ -129,7 +146,7 @@ router.post('/notify/register', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/workflows/:id — update workflow (pause/resume)
-router.patch('/workflows/:id', requireAuth, async (req, res) => {
+router.patch('/workflows/:id', validateIdParam, requireAuth, async (req, res) => {
   try {
     const { active } = req.body;
     const { query } = require('../db');
@@ -185,7 +202,7 @@ router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) =>
 });
 
 // POST /api/workflows/:id/run — manually trigger a workflow
-router.post('/workflows/:id/run', requireAuth, workflowLimiter, async (req, res) => {
+router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter, async (req, res) => {
   try {
     const db = require('../db');
     const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
@@ -231,7 +248,7 @@ router.post('/templates', requireAuth, async (req, res) => {
 });
 
 // POST /api/templates/:id/instantiate — create workflow from template
-router.post('/templates/:id/instantiate', requireAuth, async (req, res) => {
+router.post('/templates/:id/instantiate', validateIdParam, requireAuth, async (req, res) => {
   try {
     const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, req.body);
     res.status(201).json({ workflow });
