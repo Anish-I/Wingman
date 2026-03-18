@@ -111,7 +111,7 @@ export function Button({ ref, label: text, loading = false, variant = 'default',
           opacity: pressed ? 0.8 : 1,
           transform: [{ scale: pressed ? 0.98 : 1 }],
         },
-      ]
+      ]}
     >
       {props.children
         ? (

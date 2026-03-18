@@ -251,6 +251,77 @@ router.get('/google', (req, res) => {
   res.redirect(url);
 });
 
+// GET /auth/google/callback — handle Google OAuth redirect (mobile deep link flow)
+router.get('/google/callback', async (req, res) => {
+  try {
+    const { code, error } = req.query;
+
+    if (error) {
+      console.error('Google OAuth error:', error);
+      return res.redirect(`wingman://auth/callback?error=${encodeURIComponent(error)}`);
+    }
+
+    if (!code) {
+      return res.redirect('wingman://auth/callback?error=missing_code');
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      console.error('Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
+      return res.redirect('wingman://auth/callback?error=server_config');
+    }
+
+    // Must match the redirect_uri used in the GET /auth/google consent redirect
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
+
+    // Exchange auth code for tokens
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error('Google token exchange failed:', tokenData);
+      return res.redirect('wingman://auth/callback?error=token_exchange_failed');
+    }
+
+    // Fetch user info from Google
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const googleUser = await userInfoResponse.json();
+
+    if (!googleUser.id || !googleUser.email) {
+      console.error('Google user info missing id or email:', googleUser);
+      return res.redirect('wingman://auth/callback?error=missing_user_info');
+    }
+
+    // Find or create user using google:<id> as the synthetic phone key
+    const googlePhone = `google:${googleUser.id}`;
+    let user = await getUserByPhone(googlePhone);
+    if (!user) {
+      user = await createUser(googlePhone, googleUser.name || googleUser.email);
+    }
+
+    // Generate JWT and redirect to the mobile app via deep link
+    const token = signToken({ userId: user.id, phone: googlePhone });
+    const deepLink = `wingman://auth/callback?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(user.id)}&name=${encodeURIComponent(user.name || '')}`;
+    res.redirect(deepLink);
+  } catch (err) {
+    console.error('Google OAuth callback error:', err);
+    res.redirect('wingman://auth/callback?error=server_error');
+  }
+});
+
 // POST /auth/social — verify Google/Apple ID token, return JWT
 router.post('/social', async (req, res) => {
   try {
