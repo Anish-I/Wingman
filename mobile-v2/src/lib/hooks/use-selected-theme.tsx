@@ -15,7 +15,7 @@ export type ColorSchemeType = 'light' | 'dark' | 'system';
  */
 export function useSelectedTheme() {
   const { theme: _theme } = useUniwind();
-  const [theme, _setTheme] = useMMKVString(SELECTED_THEME, storage);
+  const [theme, _setTheme] = useMMKVString(SELECTED_THEME, storage ?? undefined);
 
   const setSelectedTheme = React.useCallback(
     (t: ColorSchemeType) => {
@@ -30,7 +30,7 @@ export function useSelectedTheme() {
 }
 // to be used in the root file to load the selected theme from MMKV
 export function loadSelectedTheme() {
-  const theme = storage.getString(SELECTED_THEME);
+  const theme = storage?.getString(SELECTED_THEME);
   if (theme !== undefined) {
     console.log('theme', theme);
     Uniwind.setTheme(theme as ColorSchemeType);
