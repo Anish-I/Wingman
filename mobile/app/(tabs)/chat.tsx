@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
-import { colors, spacing, radius, shadows } from '../../src/theme';
+import { colors, spacing, radius, shadows, fonts } from '../../src/theme';
 import type { Message } from '../../src/types';
 
 function TypingDots() {
@@ -77,6 +77,24 @@ function StatusRing({ size, children }: { size: number; children: React.ReactNod
       />
       {children}
     </View>
+  );
+}
+
+function AnimatedBubble({ children }: { children: React.ReactNode }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -157,31 +175,33 @@ export default function ChatScreen() {
   function renderItem({ item }: { item: Message }) {
     const isUser = item.role === 'user';
     return (
-      <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
-        {!isUser && (
-          <StatusRing size={28}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={require('../../assets/pip/pip-icon.png')}
-                style={styles.avatar}
-              />
+      <AnimatedBubble>
+        <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
+          {!isUser && (
+            <StatusRing size={28}>
+              <View style={styles.avatarContainer}>
+                <Image
+                  source={require('../../assets/pip/pip-icon.png')}
+                  style={styles.avatar}
+                />
+              </View>
+            </StatusRing>
+          )}
+          {isUser ? (
+            <View style={[styles.bubble, styles.bubbleUser]}>
+              <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
+                {item.content}
+              </Text>
             </View>
-          </StatusRing>
-        )}
-        {isUser ? (
-          <View style={[styles.bubble, styles.bubbleUser]}>
-            <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
-              {item.content}
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.bubble, styles.bubbleAssistant]}>
-            <Text style={styles.bubbleText}>
-              {item.content}
-            </Text>
-          </View>
-        )}
-      </View>
+          ) : (
+            <View style={[styles.bubble, styles.bubbleAssistant]}>
+              <Text style={styles.bubbleText}>
+                {item.content}
+              </Text>
+            </View>
+          )}
+        </View>
+      </AnimatedBubble>
     );
   }
 
@@ -349,7 +369,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   statusRow: {
     flexDirection: 'row',
@@ -360,12 +380,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.success,
   },
   statusText: {
     color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '500',
+    fontFamily: fonts.regular,
   },
 
   list: { padding: spacing.md, gap: 4 },
@@ -407,6 +427,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+    fontFamily: fonts.regular,
   },
   bubbleTextUser: {
     color: '#FFFFFF',
@@ -475,6 +496,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: 15,
+    fontFamily: fonts.regular,
     maxHeight: 120,
     paddingVertical: 4,
   },
@@ -513,12 +535,13 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     color: colors.text,
     fontSize: 24,
-    fontWeight: '800',
+    fontFamily: fonts.extraBold,
     marginBottom: spacing.xs,
   },
   welcomeSubtitle: {
     color: colors.textSecondary,
     fontSize: 15,
+    fontFamily: fonts.regular,
     textAlign: 'center',
     marginBottom: spacing.lg,
     lineHeight: 22,
