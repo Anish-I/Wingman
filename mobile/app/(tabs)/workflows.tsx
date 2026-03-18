@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,8 @@ function getTriggerIcon(type: string): { icon: IconName; color: string; label: s
 
 export default function WorkflowsScreen() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const screenOpacity = React.useRef(new Animated.Value(0)).current;
+  const screenTranslate = React.useRef(new Animated.Value(14)).current;
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState('');
@@ -53,7 +56,13 @@ export default function WorkflowsScreen() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchWorkflows(); }, []);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(screenTranslate, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+    fetchWorkflows();
+  }, [screenOpacity, screenTranslate]);
 
   async function toggleWorkflow(id: string, active: boolean) {
     try {
@@ -105,6 +114,7 @@ export default function WorkflowsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={{ flex: 1, opacity: screenOpacity, transform: [{ translateY: screenTranslate }] }}>
       <View style={styles.header}>
         <Text style={styles.title}>Workflows</Text>
       </View>
@@ -267,6 +277,7 @@ export default function WorkflowsScreen() {
           </View>
         </View>
       </Modal>
+      </Animated.View>
     </SafeAreaView>
   );
 }

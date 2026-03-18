@@ -100,6 +100,8 @@ function AnimatedBubble({ children }: { children: React.ReactNode }) {
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslate = useRef(new Animated.Value(14)).current;
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
@@ -136,6 +138,13 @@ export default function ChatScreen() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(screenTranslate, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, [screenOpacity, screenTranslate]);
 
   useEffect(() => {
     if (messages.length) listRef.current?.scrollToEnd({ animated: true });
@@ -235,6 +244,7 @@ export default function ChatScreen() {
         </View>
       </View>
 
+      <Animated.View style={{ flex: 1, opacity: screenOpacity, transform: [{ translateY: screenTranslate }] }}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -338,6 +348,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
