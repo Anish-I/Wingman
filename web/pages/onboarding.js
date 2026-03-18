@@ -47,32 +47,43 @@ export default function Onboarding() {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  const handleConnect = useCallback((slug) => {
+  const handleConnect = useCallback(async (slug) => {
     const token = getToken();
     if (!token) return;
     setConnectingSlug(slug);
-    const url = `${API_URL}/connect/initiate?app=${slug}&token=${token}`;
-    const popup = window.open(url, 'wingman-oauth', 'width=600,height=700');
-    if (!popup || popup.closed) {
-      window.location.href = url;
-      return;
-    }
-    const interval = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(interval);
-        setTimeout(() => {
-          fetch(`${API_URL}/connect/status`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then(r => r.json())
-            .then(data => {
-              setConnectedApps(data.connected || []);
-              setConnectingSlug(null);
-            })
-            .catch(() => setConnectingSlug(null));
-        }, 1500);
+    try {
+      const res = await fetch(`${API_URL}/connect/create-connect-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ app: slug }),
+      });
+      if (!res.ok) { setConnectingSlug(null); return; }
+      const { connectToken } = await res.json();
+      const url = `${API_URL}/connect/initiate?connectToken=${connectToken}`;
+      const popup = window.open(url, 'wingman-oauth', 'width=600,height=700');
+      if (!popup || popup.closed) {
+        window.location.href = url;
+        return;
       }
-    }, 500);
+      const interval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(interval);
+          setTimeout(() => {
+            fetch(`${API_URL}/connect/status`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(r => r.json())
+              .then(data => {
+                setConnectedApps(data.connected || []);
+                setConnectingSlug(null);
+              })
+              .catch(() => setConnectingSlug(null));
+          }, 1500);
+        }
+      }, 500);
+    } catch {
+      setConnectingSlug(null);
+    }
   }, []);
 
   async function handleChat(e) {

@@ -8,7 +8,6 @@ import Env from 'env';
 import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/utils';
 
 interface AppInfo {
   slug: string;
@@ -87,16 +86,15 @@ export default function AppsScreen() {
       return;
     }
 
-    // Connect via OAuth
+    // Connect via OAuth — use single-use connect token (avoids JWT in URL)
     setConnectingSlug(slug);
     try {
-      const token = getToken();
+      const { data } = await client.post<{ connectToken: string }>('/connect/create-connect-token', { app: slug });
       const result = await WebBrowser.openAuthSessionAsync(
-        `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?app=${slug}&token=${token}`,
+        `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}`,
         'wingman://connect/callback',
       );
       if (result.type === 'success') {
-        // Refetch connected status
         const res = await refetch();
         if (res.data?.connected) setConnected(res.data.connected);
       }

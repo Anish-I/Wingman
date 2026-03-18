@@ -91,14 +91,11 @@ The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder strin
 
 ## MEDIUM
 
-### M1. Token Passed in URL Query Parameters
+### M1. ~~Token Passed in URL Query Parameters~~ — FIXED (2026-03-18)
 
-**File:** `server/routes/connect.js:36-48, 51-68`
+**File:** `server/routes/connect.js`
 
-JWT tokens are passed as URL query parameters (`/connect/status/:token`, `/connect/initiate?token=...`). URLs are logged by web servers, proxies, CDNs, and browser history. Cloudflare Tunnel (in use) may log full URLs.
-
-**Impact:** Token exposure in logs, browser history, referer headers.
-**Remediation:** Use POST bodies or Authorization headers for all token transmission. If URL tokens are needed (e.g., SMS links), use short-lived, single-use tokens separate from session JWTs.
+**Fix:** Replaced session JWT in URL query parameters with short-lived (5 min), single-use connect tokens backed by Redis. New flow: (1) Client calls `POST /connect/create-connect-token` with Bearer auth to get an opaque connect token; (2) `GET /connect/initiate?connectToken=...` consumes the token (deleted from Redis after single use). Removed redundant `GET /connect/status/:token` endpoint. Updated `POST /connect/disconnect` to use Bearer auth instead of token in request body. All clients (web + mobile) updated.
 
 ### M2. CORS Defaults to localhost in Non-Production
 
@@ -212,7 +209,7 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 1 | 2 | Secrets in git history, placeholder JWT secret |
 | HIGH     | 5 | 5 | 0 | All fixed |
-| MEDIUM   | 6 | 4 | 2 | Token in URLs (M1), CORS defaults (M2) |
+| MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
 | LOW      | 6 | 3 | 3 | localStorage JWT (L1), unencrypted MMKV (L2), trust proxy (L6) |
 
 ## Priority Actions
