@@ -1,12 +1,15 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { verifyToken } = require('./auth');
+const { redis } = require('../services/redis');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
 
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
 // Generate a signed, time-limited state token for OAuth callbacks
 function generateOAuthState(userId, app) {
@@ -49,35 +52,43 @@ router.get('/status', requireAuth, async (req, res) => {
   }
 });
 
-// GET /connect/status/:token — list connected & missing apps (token in path)
-router.get('/status/:token', async (req, res) => {
+// POST /connect/create-connect-token — generate a short-lived, single-use token for OAuth initiation
+// This avoids exposing session JWTs in URL query parameters (fixes M1 in security audit)
+router.post('/create-connect-token', requireAuth, async (req, res) => {
   try {
-    const payload = verifyToken(req.params.token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
+    const { app } = req.body;
+    if (!app || typeof app !== 'string') {
+      return res.status(400).json({ error: 'Missing or invalid app parameter.' });
     }
-    const status = await getConnectionStatus(payload.userId, WINGMAN_APPS);
-    res.json(status);
+    const connectToken = crypto.randomBytes(32).toString('hex');
+    const key = `connect_token:${connectToken}`;
+    await redis.set(key, JSON.stringify({ userId: req.user.userId, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
+    res.json({ connectToken });
   } catch (err) {
-    console.error('Connection status error:', err);
-    res.status(500).json({ error: 'Failed to fetch connection status.' });
+    console.error('[connect] create-connect-token error:', err);
+    res.status(500).json({ error: 'Failed to create connect token.' });
   }
 });
 
-// GET /connect/initiate — initiate OAuth with token in query param
+// GET /connect/initiate — initiate OAuth with single-use connect token
 router.get('/initiate', async (req, res) => {
   try {
-    const { app, token } = req.query;
-    if (!app || !token) {
-      return res.status(400).json({ error: 'Missing app or token parameter.' });
+    const { connectToken } = req.query;
+    if (!connectToken) {
+      return res.status(400).json({ error: 'Missing connectToken parameter.' });
     }
-    const payload = verifyToken(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
+    // Look up and consume the single-use token from Redis
+    const key = `connect_token:${connectToken}`;
+    const stored = await redis.get(key);
+    if (!stored) {
+      return res.status(401).json({ error: 'Invalid or expired connect token.' });
     }
-    const state = generateOAuthState(payload.userId, app);
+    // Delete immediately — single use
+    await redis.del(key);
+    const { userId, app } = JSON.parse(stored);
+    const state = generateOAuthState(userId, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
-    const url = await getConnectionLink(payload.userId, app.toLowerCase(), redirectUrl);
+    const url = await getConnectionLink(userId, app, redirectUrl);
     res.redirect(url);
   } catch (err) {
     console.error('Connection initiate error:', err);
@@ -107,21 +118,15 @@ router.get('/callback', async (req, res) => {
   }
 });
 
-// POST /connect/disconnect — disconnect app (frontend expects POST)
-router.post('/disconnect', async (req, res) => {
+// POST /connect/disconnect — disconnect app (Bearer auth)
+router.post('/disconnect', requireAuth, async (req, res) => {
   try {
-    const { app, token } = req.body;
-    if (!app || !token) {
-      return res.status(400).json({ error: 'Missing app or token parameter.' });
+    const { app } = req.body;
+    if (!app || typeof app !== 'string') {
+      return res.status(400).json({ error: 'Missing or invalid app parameter.' });
     }
-    const payload = verifyToken(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
-    }
-    // Composio doesn't have a direct disconnect API via SDK,
-    // but we can call the REST API to delete the connected account
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
-    const entityId = String(payload.userId);
+    const entityId = String(req.user.userId);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const listRes = await fetch(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
     if (listRes.ok) {
@@ -136,7 +141,7 @@ router.post('/disconnect', async (req, res) => {
         });
       }
     }
-    await invalidateToolsCache(payload.userId);
+    await invalidateToolsCache(req.user.userId);
     res.json({ success: true });
   } catch (err) {
     console.error('Disconnect error:', err);
