@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Image, Animated, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, spacing, shadows } from '../../src/theme';
+import { colors, spacing, shadows, fonts } from '../../src/theme';
 
 export default function OnboardingWelcome() {
   const router = useRouter();
@@ -96,13 +96,14 @@ const styles = StyleSheet.create({
   title: {
     color: '#ffffff',
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   subtitle: {
     color: '#8888aa',
     fontSize: 16,
+    fontFamily: fonts.regular,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -120,6 +121,6 @@ const styles = StyleSheet.create({
   getStartedText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });

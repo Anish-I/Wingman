@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PipCard from '../../src/PipCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import GradientButton from '../../src/components/GradientButton';
-import { colors, spacing, radius } from '../../src/theme';
+import { colors, spacing, radius, fonts } from '../../src/theme';
 
 const FEATURES = [
   {
@@ -73,16 +73,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   headline: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: fonts.extraBold,
     textAlign: 'center',
     marginTop: spacing.md,
   },
   subheadline: {
-    color: '#6EC6B8',
+    color: colors.teal,
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -90,9 +90,11 @@ const styles = StyleSheet.create({
   featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#242540',
-    borderRadius: 16,
+    backgroundColor: colors.cardElevated,
+    borderRadius: radius.card,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   iconCircle: {
     width: 40,
@@ -102,6 +104,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  featureTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  featureTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.bold },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
 });

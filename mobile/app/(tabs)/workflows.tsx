@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  Pressable,
   TouchableOpacity,
   Switch,
   StyleSheet,
@@ -12,12 +13,13 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import PipCard from '../../src/PipCard';
-import { colors, spacing, radius, shadows, gradients } from '../../src/theme';
+import { colors, spacing, radius, shadows, gradients, fonts } from '../../src/theme';
 import type { Workflow } from '../../src/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -151,7 +153,12 @@ export default function WorkflowsScreen() {
         renderItem={({ item }) => {
           const trigger = getTriggerIcon(item.trigger_type);
           return (
-            <View style={styles.card}>
+            <Pressable
+              style={(state) => [
+                styles.card,
+                (state as any).hovered && styles.cardHover,
+              ]}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{item.name}</Text>
@@ -170,7 +177,7 @@ export default function WorkflowsScreen() {
               {item.description ? (
                 <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
               ) : null}
-            </View>
+            </Pressable>
           );
         }}
       />
@@ -274,7 +281,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  title: { color: colors.text, fontSize: 28, fontFamily: fonts.extraBold },
 
   // Stats pills
   statsRow: {
@@ -329,6 +336,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...Platform.select({ web: { transition: 'background-color 0.15s ease' as any } }),
+  },
+  cardHover: {
+    backgroundColor: colors.cardHover,
   },
   cardTop: {
     flexDirection: 'row',
@@ -337,7 +348,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardInfo: { flex: 1, gap: 6 },
-  cardName: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  cardName: { color: colors.text, fontSize: 16, fontFamily: fonts.semiBold },
   cardDesc: { color: colors.textSecondary, fontSize: 13, marginTop: 8 },
   triggerBadge: {
     flexDirection: 'row',
