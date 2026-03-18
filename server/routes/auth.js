@@ -158,12 +158,40 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   }
 });
 
+// Allowed redirect_uri origins for Google OAuth token exchange
+const ALLOWED_REDIRECT_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:8081',
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
+
+function isAllowedRedirectUri(uri) {
+  if (!uri || typeof uri !== 'string') return false;
+  try {
+    const parsed = new URL(uri);
+    const origin = parsed.origin;
+    return ALLOWED_REDIRECT_ORIGINS.includes(origin);
+  } catch {
+    return false;
+  }
+}
+
 // POST /auth/google
 router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
     if (!idToken) {
       return res.status(400).json({ error: 'Authorization code is required.' });
+    }
+
+    // Validate redirect_uri against allowed origins to prevent redirect injection
+    const redirectUri = req.body.redirect_uri;
+    const defaultRedirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
+    const finalRedirectUri = redirectUri || defaultRedirectUri;
+
+    if (!isAllowedRedirectUri(finalRedirectUri)) {
+      return res.status(400).json({ error: 'Invalid redirect_uri.' });
     }
 
     // Exchange the authorization code for tokens with Google
@@ -174,7 +202,7 @@ router.post('/google', async (req, res) => {
         code: idToken,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: req.body.redirect_uri || 'http://localhost:3000/auth/callback',
+        redirect_uri: finalRedirectUri,
         grant_type: 'authorization_code',
       }),
     });
@@ -216,7 +244,8 @@ router.get('/google', (req, res) => {
   if (!clientId) {
     return res.status(500).json({ error: 'Google OAuth not configured.' });
   }
-  const redirectUri = req.query.redirect_uri || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
+  // Use server-configured redirect URI only — never accept from query params (open redirect risk)
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
   const scope = encodeURIComponent('openid email profile');
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
   res.redirect(url);

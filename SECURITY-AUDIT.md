@@ -12,16 +12,16 @@
 
 **Files:** `.env`, `CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`
 
-The `.env` file is listed in `.gitignore` but is **not currently tracked**. However, multiple **committed markdown files** (`CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`) contain the Composio API key `***REDACTED-COMPOSIO-KEY***` in plaintext. These are tracked by git and will be pushed to the remote.
+The `.env` file is listed in `.gitignore` but is **not currently tracked**. Previously, multiple **committed markdown files** (`CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`) contained API keys in plaintext (now scrubbed from files, but still present in git history).
 
 Additionally, the `.env` file itself contains **every production secret in plaintext**:
-- Twilio auth token: `***REDACTED-TWILIO-TOKEN***`
-- Together AI API key: `df95ef8f3d39...`
-- Composio API key: `***REDACTED-COMPOSIO-KEY***`
-- Google OAuth client secret: `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`
-- Supabase database URL with credentials: `postgresql://postgres.ojkipnrzkayxooecniye:JTSRMlHnTIogobnO@...`
+- Twilio auth token: `[REDACTED — rotate immediately]`
+- Together AI API key: `[REDACTED — rotate immediately]`
+- Composio API key: `[REDACTED — rotate immediately]`
+- Google OAuth client secret: `[REDACTED — rotate immediately]`
+- Supabase database URL with credentials: `[REDACTED — rotate immediately]`
 - n8n JWT token
-- Gemini API key: `AIzaSyBP0QCcBnk9QJudNwxjIX-ESQh0_QdKWfU`
+- Gemini API key: `[REDACTED — rotate immediately]`
 
 **Impact:** Any contributor, fork, or git history leak exposes all API keys and database credentials.
 **Remediation:**
@@ -268,10 +268,11 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 
 ## Priority Actions
 
-1. **Immediately rotate all API keys** — Composio, Twilio, Together AI, Google OAuth, Supabase DB password, Gemini. The Composio key `***REDACTED-COMPOSIO-KEY***` is in committed files.
-2. **Set a real JWT_SECRET** — replace `your_jwt_secret_here` with a 64+ character random string.
-3. **Add rate limiting to `/auth/verify-otp`** — this is the most exploitable high-severity issue.
-4. **Switch OTP generation to `crypto.randomInt()`**.
-5. **Replace custom JWT with `jsonwebtoken` library** (already in package.json).
+1. **Immediately rotate all API keys** — Composio, Twilio, Together AI, Google OAuth, Supabase DB password, Gemini. Keys were previously committed in plaintext.
+2. ~~**Set a real JWT_SECRET**~~ — DONE (server now requires JWT_SECRET at startup).
+3. ~~**Add rate limiting to `/auth/verify-otp`**~~ — DONE (dual rate limiting: express-rate-limit + Redis per-phone).
+4. ~~**Switch OTP generation to `crypto.randomInt()`**~~ — DONE.
+5. ~~**Replace custom JWT with `jsonwebtoken` library**~~ — DONE.
 6. **Scrub secrets from git history** using BFG Repo-Cleaner.
-7. **Return generic errors in api.js** instead of `err.message`.
+7. ~~**Return generic errors in api.js**~~ — DONE.
+8. ~~**Validate Google OAuth redirect_uri against allowed origins**~~ — DONE (2026-03-17).
