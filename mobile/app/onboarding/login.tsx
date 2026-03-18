@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -27,6 +28,13 @@ WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 const redirectUri = AuthSession.makeRedirectUri({ preferLocalhost: true });
+
+function formatPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -211,20 +219,25 @@ export default function LoginScreen() {
                   placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(value) => setPhone(formatPhoneInput(value))}
                   maxLength={14}
                 />
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.continueBtn, phone.replace(/\D/g, '').length < 10 && styles.continueBtnDisabled]}
+            <Pressable
+              style={(state: any) => [
+                styles.continueBtn,
+                phone.replace(/\D/g, '').length < 10 && styles.continueBtnDisabled,
+                state.hovered && styles.continueBtnHover,
+                state.focused && styles.continueBtnFocus,
+                state.pressed && styles.continueBtnPressed,
+              ]}
               onPress={handlePhoneContinue}
               disabled={loading || phone.replace(/\D/g, '').length < 10}
-              activeOpacity={0.85}
             >
               <Text style={styles.continueBtnText}>Continue</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
 
           {/* Terms */}
@@ -393,6 +406,17 @@ const styles = StyleSheet.create({
   },
   continueBtnDisabled: {
     opacity: 0.5,
+  },
+  continueBtnHover: {
+    opacity: 0.92,
+  },
+  continueBtnPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
+  continueBtnFocus: {
+    borderWidth: 2,
+    borderColor: colors.teal,
   },
   continueBtnText: {
     color: '#FFFFFF',
