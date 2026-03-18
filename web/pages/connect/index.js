@@ -106,35 +106,44 @@ export default function ConnectPage() {
 
   const connectedCount = connectedSlugs.length;
 
-  const handleConnect = useCallback((slug) => {
+  const handleConnect = useCallback(async (slug) => {
     const token = getToken();
     if (!token) return;
     setConnectingSlug(slug);
-    const url = `${API_URL}/connect/initiate?app=${slug}&token=${token}`;
-    const popup = window.open(url, 'wingman-oauth', 'width=600,height=700,left=200,top=100');
-    if (!popup || popup.closed) {
-      // Popup blocked, fallback to redirect
-      window.location.href = url;
-      return;
-    }
-    // Poll for popup close
-    const interval = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(interval);
-        // Poll status to check if connected
-        setTimeout(() => {
-          fetch(`${API_URL}/connect/status`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then(r => r.json())
-            .then(data => {
-              setConnectedSlugs(data.connected || []);
-              setConnectingSlug(null);
-            })
-            .catch(() => setConnectingSlug(null));
-        }, 1500);
+    try {
+      // Create a short-lived, single-use connect token (avoids exposing JWT in URL)
+      const res = await fetch(`${API_URL}/connect/create-connect-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ app: slug }),
+      });
+      if (!res.ok) { setConnectingSlug(null); return; }
+      const { connectToken } = await res.json();
+      const url = `${API_URL}/connect/initiate?connectToken=${connectToken}`;
+      const popup = window.open(url, 'wingman-oauth', 'width=600,height=700,left=200,top=100');
+      if (!popup || popup.closed) {
+        window.location.href = url;
+        return;
       }
-    }, 500);
+      const interval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(interval);
+          setTimeout(() => {
+            fetch(`${API_URL}/connect/status`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(r => r.json())
+              .then(data => {
+                setConnectedSlugs(data.connected || []);
+                setConnectingSlug(null);
+              })
+              .catch(() => setConnectingSlug(null));
+          }, 1500);
+        }
+      }, 500);
+    } catch {
+      setConnectingSlug(null);
+    }
   }, []);
 
   const handleDisconnect = useCallback((slug) => {
@@ -142,8 +151,8 @@ export default function ConnectPage() {
     if (!token) return;
     fetch(`${API_URL}/connect/disconnect`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ app: slug, token }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ app: slug }),
     }).then((r) => {
       if (r.ok) setConnectedSlugs((prev) => prev.filter((s) => s !== slug));
     });
