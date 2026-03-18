@@ -63,18 +63,11 @@ The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder strin
 
 **Fix:** Added two layers of rate limiting to `POST /auth/verify-otp`: (1) `express-rate-limit` middleware (`otpVerifyLimiter`) keyed by phone number — 5 attempts per 15 minutes; (2) Redis-based per-phone attempt counter (`otp_attempts:<phone>`) — 5 failed attempts per 10-minute OTP TTL window, with TTL refreshed on each failure. On successful verification, both the OTP and attempt counter are cleared.
 
-### H2. OTP Generated with Math.random() (Not Cryptographically Secure)
+### H2. ~~OTP Generated with Math.random() (Not Cryptographically Secure)~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/auth.js:62`
+**File:** `server/routes/auth.js`
 
-```js
-const otp = Math.floor(100000 + Math.random() * 900000).toString();
-```
-
-`Math.random()` is not cryptographically secure. Its output can be predicted if an attacker observes enough values (e.g., via timing attacks or other OTP observations).
-
-**Impact:** OTP prediction enabling account takeover.
-**Remediation:** Use `crypto.randomInt(100000, 999999)` (Node.js 14.10+).
+**Fix:** Replaced `Math.random()` with `crypto.randomInt(100000, 1000000)` for cryptographically secure OTP generation.
 
 ### H3. ~~Custom JWT Implementation (No Library)~~ — FIXED (2026-03-17)
 
@@ -82,31 +75,11 @@ const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
 **Fix (partial — Apple token verification):** The Apple Sign-In branch in `POST /auth/social` previously only base64-decoded the Apple identity token without cryptographic signature verification, allowing token forgery. Now uses `jwks-rsa` to fetch Apple's public keys from `https://appleid.apple.com/auth/keys` and `jsonwebtoken` to verify RS256 signatures, issuer (`https://appleid.apple.com`), and audience (`APPLE_CLIENT_ID`). The original H3 issue about the custom JWT implementation for session tokens was separately addressed when `jsonwebtoken` was adopted for `signToken`/`verifyToken`.
 
-### H4. OAuth Callback IDOR — userId in Query String
+### H4. ~~OAuth Callback IDOR — userId in Query String~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/connect.js:71-83`
+**File:** `server/routes/connect.js`
 
-```js
-router.get('/callback', async (req, res) => {
-  const userId = req.query.userId;
-  ...
-  if (userId) {
-    await invalidateToolsCache(userId);
-  }
-  res.redirect(`${WEB_URL}/connect/success?app=${appName}`);
-});
-```
-
-The OAuth callback accepts `userId` directly from the query string with **no authentication**. An attacker can call `/connect/callback?userId=<victimId>&app=gmail` to invalidate any user's tool cache. More critically, the `redirectUrl` passed to Composio on line 61 embeds the userId:
-
-```js
-const redirectUrl = `${BASE_URL}/connect/callback?userId=${payload.userId}&app=${app}`;
-```
-
-If a CSRF or open redirect exists in the Composio OAuth flow, an attacker could potentially hijack app connections.
-
-**Impact:** Cache invalidation for arbitrary users; potential OAuth flow hijacking.
-**Remediation:** Use a signed, time-limited state token in the callback instead of a raw userId.
+**Fix:** Replaced raw `userId` in OAuth callback query string with signed, time-limited JWT state tokens (`generateOAuthState`/`verifyOAuthState`). The callback now verifies the signed `state` parameter and rejects requests with missing or invalid tokens.
 
 ### H5. ~~Error Messages Leak Internal Details to Clients~~ — FIXED (2026-03-17)
 
@@ -142,30 +115,17 @@ In staging or any non-production environment, CORS defaults to `http://localhost
 **Impact:** Cross-origin attacks on non-production but publicly exposed instances.
 **Remediation:** Always require explicit CORS_ORIGIN configuration when the server is publicly accessible.
 
-### M3. Webhook Signature Validation Skipped in Development
+### M3. ~~Webhook Signature Validation Skipped in Development~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/sms.js:27-33, 62-69`
+**File:** `server/routes/sms.js`
 
-```js
-if (process.env.NODE_ENV === 'production') {
-  const isValid = provider.validateIncoming(req);
-  if (!isValid) { return res.status(403).json({ error: 'Forbidden' }); }
-}
-```
+**Fix:** Replaced `NODE_ENV` check with explicit `SKIP_WEBHOOK_VALIDATION` feature flag. Signature validation is now always enforced by default for both Twilio and Telnyx, regardless of environment. The flag must be explicitly set to `'true'` to skip validation (local dev only), and a console warning is logged when active.
 
-Twilio/Telnyx webhook signature validation only runs in production. Any publicly accessible dev/staging instance accepts forged webhook requests, allowing an attacker to inject arbitrary SMS messages into the system as any phone number.
+### M4. ~~Global Rate Limit Too Generous for API Endpoints~~ — FIXED (2026-03-18)
 
-**Impact:** SMS spoofing, unauthorized message injection, potential account takeover.
-**Remediation:** Always validate webhook signatures when a public URL is exposed. Use a feature flag rather than `NODE_ENV`.
+**File:** `server/routes/api.js`
 
-### M4. Global Rate Limit Too Generous for API Endpoints
-
-**File:** `server/index.js:38-44`
-
-The global rate limit is 100 requests per 15 minutes per IP. For authenticated API endpoints like `/api/chat`, `/api/workflows`, etc., there are **no per-route rate limits**. An authenticated user (or attacker with a stolen token) can exhaust LLM credits by spamming `/api/chat`.
-
-**Impact:** Denial of service, LLM API cost abuse.
-**Remediation:** Add per-user rate limits to expensive endpoints (`/api/chat`, `/api/workflows/plan`, `/api/workflows/:id/run`).
+**Fix:** Added per-user rate limiters: `chatLimiter` (30 req/15 min) for `/api/chat`, `workflowLimiter` (20 req/15 min) for `/api/workflows/plan` and `/api/workflows/:id/run`. Also added max chat message length validation (4000 chars) and UUID format validation on all `:id` route params to prevent abuse and unnecessary DB errors.
 
 ### M5. No CSRF Protection
 
@@ -174,19 +134,11 @@ The server uses CORS with `credentials: true` but has no CSRF token mechanism. S
 **Impact:** Low currently, but high risk if cookie-based auth is added.
 **Remediation:** Add CSRF tokens or use the `SameSite` cookie attribute if switching to cookie-based auth.
 
-### M6. `updateUserPreferences` Accepts Arbitrary JSON
+### M6. ~~`updateUserPreferences` Accepts Arbitrary JSON~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/api.js:119-126`
+**File:** `server/routes/api.js`
 
-```js
-router.patch('/user/preferences', requireAuth, async (req, res) => {
-  const updated = await updateUserPreferences(req.user.id, req.body);
-```
-
-The entire `req.body` is merged into the user's JSONB `preferences` column with no schema validation. An attacker could inject arbitrary keys (e.g., `{"role":"admin"}`) that might be consumed by other parts of the system.
-
-**Impact:** Privilege escalation if any code reads preferences for authorization decisions.
-**Remediation:** Whitelist allowed preference keys (e.g., `timezone`, `theme`). Validate with a schema (Joi, Zod, etc.).
+**Fix:** Added `ALLOWED_PREFERENCE_KEYS` whitelist (`timezone`, `theme`, `language`, `notifications`, `smsOptIn`). Only whitelisted keys are accepted; unrecognized keys return a 400 error. Empty requests after filtering are also rejected.
 
 ---
 
@@ -233,14 +185,11 @@ The `composio-core` package has a transitive dependency chain (`external-editor`
 **Impact:** Low — the vulnerable code path (temp file creation) is unlikely to be exploited in this context.
 **Remediation:** Monitor and update when `composio-core` releases a fix.
 
-### L5. `jsonwebtoken` Package Installed but Unused
+### L5. ~~`jsonwebtoken` Package Installed but Unused~~ — FIXED (2026-03-17)
 
-**File:** `server/package.json:19`
+**File:** `server/routes/connect.js`, `server/routes/auth.js`
 
-The `jsonwebtoken` package (v9.0.2) is a dependency but is never imported. The server uses a custom JWT implementation instead. This is dead weight and confusing.
-
-**Impact:** Wasted dependency; confusing for auditors.
-**Remediation:** Either use `jsonwebtoken` (recommended, see H3) or remove it from `package.json`.
+**Fix:** `jsonwebtoken` is now actively used: `connect.js` uses it for OAuth state token signing/verification, and `auth.js` uses it for session JWT signing and Apple Sign-In token verification (with `jwks-rsa`).
 
 ### L6. `trust proxy` Set Without Specific Proxy Count
 
@@ -259,12 +208,12 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 
 ## Summary
 
-| Severity | Count | Key Issues |
-|----------|-------|------------|
-| CRITICAL | 3 | Secrets in git, placeholder JWT secret, weak PIN hashing |
-| HIGH     | 5 | No OTP verify rate limit, insecure OTP generation, custom JWT, OAuth callback IDOR, error message leaks |
-| MEDIUM   | 6 | Token in URLs, CORS defaults, webhook bypass in dev, rate limit gaps, no CSRF, unvalidated preferences |
-| LOW      | 6 | localStorage JWT, unencrypted MMKV, PIN validation, npm audit, unused package, trust proxy |
+| Severity | Total | Fixed | Remaining | Key Remaining Issues |
+|----------|-------|-------|-----------|---------------------|
+| CRITICAL | 3 | 1 | 2 | Secrets in git history, placeholder JWT secret |
+| HIGH     | 5 | 5 | 0 | All fixed |
+| MEDIUM   | 6 | 4 | 2 | Token in URLs (M1), CORS defaults (M2) |
+| LOW      | 6 | 3 | 3 | localStorage JWT (L1), unencrypted MMKV (L2), trust proxy (L6) |
 
 ## Priority Actions
 
