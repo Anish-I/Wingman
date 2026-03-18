@@ -6,26 +6,35 @@ import { Ionicons } from '@expo/vector-icons';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
+import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
+
+interface OnboardingApp {
+  slug: string;
+  name: string;
+  iconName: string;
+  iconFamily: IconFamily;
+  color: string;
+}
 
 const CONNECTED_DEFAULT = ['googlecalendar', 'gmail', 'slack'];
 
-const ALL_APPS = [
-  { slug: 'googlecalendar', name: 'Calendar', emoji: '\u{1F4C5}' },
-  { slug: 'gmail', name: 'Gmail', emoji: '\u2709\uFE0F' },
-  { slug: 'slack', name: 'Slack', emoji: '\u{1F4AC}' },
-  { slug: 'spotify', name: 'Spotify', emoji: '\u{1F3B5}' },
-  { slug: 'notion', name: 'Notion', emoji: '\u{1F4DD}' },
-  { slug: 'github', name: 'GitHub', emoji: '\u{1F419}' },
-  { slug: 'discord', name: 'Discord', emoji: '\u{1F3AE}' },
-  { slug: 'todoist', name: 'Todoist', emoji: '\u2705' },
-  { slug: 'uber', name: 'Uber', emoji: '\u{1F697}' },
-  { slug: 'venmo', name: 'Venmo', emoji: '\u{1F4B8}' },
-  { slug: 'maps', name: 'Maps', emoji: '\u{1F5FA}\uFE0F' },
-  { slug: 'twitter', name: 'X', emoji: '\u2716\uFE0F' },
-  { slug: 'whatsapp', name: 'WhatsApp', emoji: '\u{1F4F1}' },
-  { slug: 'trello', name: 'Trello', emoji: '\u{1F4CB}' },
-  { slug: 'zoom', name: 'Zoom', emoji: '\u{1F3A5}' },
-  { slug: 'figma', name: 'Figma', emoji: '\u{1F3A8}' },
+const ALL_APPS: OnboardingApp[] = [
+  { slug: 'googlecalendar', name: 'Calendar', iconName: 'calendar-month', iconFamily: 'MaterialCommunityIcons', color: '#4285F4' },
+  { slug: 'gmail', name: 'Gmail', iconName: 'gmail', iconFamily: 'MaterialCommunityIcons', color: '#EA4335' },
+  { slug: 'slack', name: 'Slack', iconName: 'slack', iconFamily: 'MaterialCommunityIcons', color: '#4A154B' },
+  { slug: 'spotify', name: 'Spotify', iconName: 'spotify', iconFamily: 'FontAwesome5', color: '#1DB954' },
+  { slug: 'notion', name: 'Notion', iconName: 'note-text', iconFamily: 'MaterialCommunityIcons', color: '#000000' },
+  { slug: 'github', name: 'GitHub', iconName: 'github', iconFamily: 'FontAwesome5', color: '#333333' },
+  { slug: 'discord', name: 'Discord', iconName: 'discord', iconFamily: 'MaterialCommunityIcons', color: '#5865F2' },
+  { slug: 'todoist', name: 'Todoist', iconName: 'checkbox-marked-circle-outline', iconFamily: 'MaterialCommunityIcons', color: '#E44332' },
+  { slug: 'uber', name: 'Uber', iconName: 'car', iconFamily: 'MaterialCommunityIcons', color: '#000000' },
+  { slug: 'venmo', name: 'Venmo', iconName: 'cash', iconFamily: 'MaterialCommunityIcons', color: '#3D95CE' },
+  { slug: 'maps', name: 'Maps', iconName: 'map-marker', iconFamily: 'MaterialCommunityIcons', color: '#4285F4' },
+  { slug: 'twitter', name: 'X', iconName: 'twitter', iconFamily: 'FontAwesome5', color: '#1DA1F2' },
+  { slug: 'whatsapp', name: 'WhatsApp', iconName: 'whatsapp', iconFamily: 'FontAwesome5', color: '#25D366' },
+  { slug: 'trello', name: 'Trello', iconName: 'trello', iconFamily: 'MaterialCommunityIcons', color: '#0052CC' },
+  { slug: 'zoom', name: 'Zoom', iconName: 'video', iconFamily: 'MaterialCommunityIcons', color: '#2D8CFF' },
+  { slug: 'figma', name: 'Figma', iconName: 'palette-swatch', iconFamily: 'MaterialCommunityIcons', color: '#F24E1E' },
 ];
 
 export default function ConnectScreen() {
@@ -126,7 +135,7 @@ export default function ConnectScreen() {
                     onPress={() => handleConnect(app.slug)}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 24 }}>{app.emoji}</Text>
+                    <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={24} color={app.color} />
                     <Text
                       style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
                       numberOfLines={1}
