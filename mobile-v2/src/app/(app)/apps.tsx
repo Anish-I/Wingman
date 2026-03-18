@@ -6,61 +6,63 @@ import { MotiView } from 'moti';
 import * as WebBrowser from 'expo-web-browser';
 import Env from 'env';
 import PipCard from '@/components/wingman/pip-card';
+import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 
 interface AppInfo {
   slug: string;
   name: string;
-  emoji: string;
+  iconName: string;
+  iconFamily: IconFamily;
   color: string;
   category: string;
 }
 
 const KNOWN_APPS: AppInfo[] = [
   // Communication
-  { slug: 'gmail', name: 'Gmail', emoji: '\u{1F4E7}', color: '#EA4335', category: 'Communication' },
-  { slug: 'slack', name: 'Slack', emoji: '\u{1F4AC}', color: '#4A154B', category: 'Communication' },
-  { slug: 'discord', name: 'Discord', emoji: '\u{1F3AE}', color: '#5865F2', category: 'Communication' },
-  { slug: 'whatsapp', name: 'WhatsApp', emoji: '\u{1F4F1}', color: '#25D366', category: 'Communication' },
-  { slug: 'telegram', name: 'Telegram', emoji: '\u{1F4E8}', color: '#0088CC', category: 'Communication' },
-  { slug: 'microsoft-teams', name: 'MS Teams', emoji: '\u{1F465}', color: '#6264A7', category: 'Communication' },
+  { slug: 'gmail', name: 'Gmail', iconName: 'gmail', iconFamily: 'MaterialCommunityIcons', color: '#EA4335', category: 'Communication' },
+  { slug: 'slack', name: 'Slack', iconName: 'slack', iconFamily: 'MaterialCommunityIcons', color: '#4A154B', category: 'Communication' },
+  { slug: 'discord', name: 'Discord', iconName: 'discord', iconFamily: 'MaterialCommunityIcons', color: '#5865F2', category: 'Communication' },
+  { slug: 'whatsapp', name: 'WhatsApp', iconName: 'whatsapp', iconFamily: 'FontAwesome5', color: '#25D366', category: 'Communication' },
+  { slug: 'telegram', name: 'Telegram', iconName: 'telegram', iconFamily: 'FontAwesome5', color: '#0088CC', category: 'Communication' },
+  { slug: 'microsoft-teams', name: 'MS Teams', iconName: 'microsoft-teams', iconFamily: 'MaterialCommunityIcons', color: '#6264A7', category: 'Communication' },
   // Productivity
-  { slug: 'googlecalendar', name: 'Calendar', emoji: '\u{1F4C5}', color: '#4285F4', category: 'Productivity' },
-  { slug: 'notion', name: 'Notion', emoji: '\u{1F4DD}', color: '#000000', category: 'Productivity' },
-  { slug: 'todoist', name: 'Todoist', emoji: '\u2705', color: '#E44332', category: 'Productivity' },
-  { slug: 'trello', name: 'Trello', emoji: '\u{1F4CA}', color: '#0052CC', category: 'Productivity' },
-  { slug: 'asana', name: 'Asana', emoji: '\u{1F4CB}', color: '#F06A6A', category: 'Productivity' },
-  { slug: 'airtable', name: 'Airtable', emoji: '\u{1F4CA}', color: '#18BFFF', category: 'Productivity' },
-  { slug: 'clickup', name: 'ClickUp', emoji: '\u{1F680}', color: '#7B68EE', category: 'Productivity' },
-  { slug: 'monday', name: 'Monday', emoji: '\u{1F4C6}', color: '#FF3D57', category: 'Productivity' },
+  { slug: 'googlecalendar', name: 'Calendar', iconName: 'calendar-month', iconFamily: 'MaterialCommunityIcons', color: '#4285F4', category: 'Productivity' },
+  { slug: 'notion', name: 'Notion', iconName: 'note-text', iconFamily: 'MaterialCommunityIcons', color: '#000000', category: 'Productivity' },
+  { slug: 'todoist', name: 'Todoist', iconName: 'checkbox-marked-circle-outline', iconFamily: 'MaterialCommunityIcons', color: '#E44332', category: 'Productivity' },
+  { slug: 'trello', name: 'Trello', iconName: 'trello', iconFamily: 'MaterialCommunityIcons', color: '#0052CC', category: 'Productivity' },
+  { slug: 'asana', name: 'Asana', iconName: 'clipboard-check-outline', iconFamily: 'MaterialCommunityIcons', color: '#F06A6A', category: 'Productivity' },
+  { slug: 'airtable', name: 'Airtable', iconName: 'table', iconFamily: 'MaterialCommunityIcons', color: '#18BFFF', category: 'Productivity' },
+  { slug: 'clickup', name: 'ClickUp', iconName: 'rocket-launch', iconFamily: 'MaterialCommunityIcons', color: '#7B68EE', category: 'Productivity' },
+  { slug: 'monday', name: 'Monday', iconName: 'view-dashboard', iconFamily: 'MaterialCommunityIcons', color: '#FF3D57', category: 'Productivity' },
   // Development
-  { slug: 'github', name: 'GitHub', emoji: '\u{1F419}', color: '#333333', category: 'Development' },
-  { slug: 'linear', name: 'Linear', emoji: '\u{1F4D0}', color: '#5E6AD2', category: 'Development' },
-  { slug: 'jira', name: 'Jira', emoji: '\u{1F3AF}', color: '#0052CC', category: 'Development' },
-  { slug: 'gitlab', name: 'GitLab', emoji: '\u{1F98A}', color: '#FC6D26', category: 'Development' },
-  { slug: 'vercel', name: 'Vercel', emoji: '\u25B2', color: '#000000', category: 'Development' },
-  { slug: 'sentry', name: 'Sentry', emoji: '\u{1F41B}', color: '#362D59', category: 'Development' },
+  { slug: 'github', name: 'GitHub', iconName: 'github', iconFamily: 'FontAwesome5', color: '#333333', category: 'Development' },
+  { slug: 'linear', name: 'Linear', iconName: 'hexagon-outline', iconFamily: 'MaterialCommunityIcons', color: '#5E6AD2', category: 'Development' },
+  { slug: 'jira', name: 'Jira', iconName: 'jira', iconFamily: 'MaterialCommunityIcons', color: '#0052CC', category: 'Development' },
+  { slug: 'gitlab', name: 'GitLab', iconName: 'gitlab', iconFamily: 'FontAwesome5', color: '#FC6D26', category: 'Development' },
+  { slug: 'vercel', name: 'Vercel', iconName: 'triangle', iconFamily: 'MaterialCommunityIcons', color: '#000000', category: 'Development' },
+  { slug: 'sentry', name: 'Sentry', iconName: 'bug-outline', iconFamily: 'MaterialCommunityIcons', color: '#362D59', category: 'Development' },
   // Cloud
-  { slug: 'googledrive', name: 'Google Drive', emoji: '\u{1F4C1}', color: '#4285F4', category: 'Cloud' },
-  { slug: 'dropbox', name: 'Dropbox', emoji: '\u{1F4E6}', color: '#0061FF', category: 'Cloud' },
-  { slug: 'onedrive', name: 'OneDrive', emoji: '\u2601\uFE0F', color: '#0078D4', category: 'Cloud' },
-  { slug: 'box', name: 'Box', emoji: '\u{1F4E6}', color: '#0061D5', category: 'Cloud' },
+  { slug: 'googledrive', name: 'Google Drive', iconName: 'google-drive', iconFamily: 'MaterialCommunityIcons', color: '#4285F4', category: 'Cloud' },
+  { slug: 'dropbox', name: 'Dropbox', iconName: 'dropbox', iconFamily: 'MaterialCommunityIcons', color: '#0061FF', category: 'Cloud' },
+  { slug: 'onedrive', name: 'OneDrive', iconName: 'microsoft-onedrive', iconFamily: 'MaterialCommunityIcons', color: '#0078D4', category: 'Cloud' },
+  { slug: 'box', name: 'Box', iconName: 'package-variant', iconFamily: 'MaterialCommunityIcons', color: '#0061D5', category: 'Cloud' },
   // Entertainment
-  { slug: 'spotify', name: 'Spotify', emoji: '\u{1F3B5}', color: '#1DB954', category: 'Entertainment' },
-  { slug: 'youtube', name: 'YouTube', emoji: '\u{1F3AC}', color: '#FF0000', category: 'Entertainment' },
+  { slug: 'spotify', name: 'Spotify', iconName: 'spotify', iconFamily: 'FontAwesome5', color: '#1DB954', category: 'Entertainment' },
+  { slug: 'youtube', name: 'YouTube', iconName: 'youtube', iconFamily: 'FontAwesome5', color: '#FF0000', category: 'Entertainment' },
   // Finance
-  { slug: 'stripe', name: 'Stripe', emoji: '\u{1F4B3}', color: '#635BFF', category: 'Finance' },
-  { slug: 'quickbooks', name: 'QuickBooks', emoji: '\u{1F4B0}', color: '#2CA01C', category: 'Finance' },
+  { slug: 'stripe', name: 'Stripe', iconName: 'stripe', iconFamily: 'FontAwesome5', color: '#635BFF', category: 'Finance' },
+  { slug: 'quickbooks', name: 'QuickBooks', iconName: 'cash-register', iconFamily: 'MaterialCommunityIcons', color: '#2CA01C', category: 'Finance' },
   // CRM
-  { slug: 'salesforce', name: 'Salesforce', emoji: '\u2601\uFE0F', color: '#00A1E0', category: 'CRM' },
-  { slug: 'hubspot', name: 'HubSpot', emoji: '\u{1F9F2}', color: '#FF7A59', category: 'CRM' },
-  { slug: 'pipedrive', name: 'Pipedrive', emoji: '\u{1F4C8}', color: '#017737', category: 'CRM' },
+  { slug: 'salesforce', name: 'Salesforce', iconName: 'salesforce', iconFamily: 'FontAwesome5', color: '#00A1E0', category: 'CRM' },
+  { slug: 'hubspot', name: 'HubSpot', iconName: 'hubspot', iconFamily: 'FontAwesome5', color: '#FF7A59', category: 'CRM' },
+  { slug: 'pipedrive', name: 'Pipedrive', iconName: 'chart-line', iconFamily: 'MaterialCommunityIcons', color: '#017737', category: 'CRM' },
   // Social
-  { slug: 'twitter', name: 'Twitter/X', emoji: '\u{1F426}', color: '#1DA1F2', category: 'Social' },
-  { slug: 'linkedin', name: 'LinkedIn', emoji: '\u{1F4BC}', color: '#0A66C2', category: 'Social' },
-  { slug: 'reddit', name: 'Reddit', emoji: '\u{1F4E2}', color: '#FF4500', category: 'Social' },
-  { slug: 'instagram', name: 'Instagram', emoji: '\u{1F4F7}', color: '#E1306C', category: 'Social' },
+  { slug: 'twitter', name: 'Twitter/X', iconName: 'twitter', iconFamily: 'FontAwesome5', color: '#1DA1F2', category: 'Social' },
+  { slug: 'linkedin', name: 'LinkedIn', iconName: 'linkedin', iconFamily: 'FontAwesome5', color: '#0A66C2', category: 'Social' },
+  { slug: 'reddit', name: 'Reddit', iconName: 'reddit', iconFamily: 'FontAwesome5', color: '#FF4500', category: 'Social' },
+  { slug: 'instagram', name: 'Instagram', iconName: 'instagram', iconFamily: 'FontAwesome5', color: '#E1306C', category: 'Social' },
 ];
 
 export default function AppsScreen() {
@@ -259,7 +261,7 @@ export default function AppsScreen() {
                           className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2"
                           style={{ backgroundColor: app.color + '18' }}
                         >
-                          <Text className="text-[26px]">{app.emoji}</Text>
+                          <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={26} color={app.color} />
                         </View>
                         <Text className="text-foreground text-[11px] font-semibold text-center" numberOfLines={1}>{app.name}</Text>
                       </TouchableOpacity>
