@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import * as WebBrowser from 'expo-web-browser';
+import Env from 'env';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -44,12 +46,37 @@ export default function SignupScreen() {
     router.push('/onboarding/permissions');
   }
 
-  function handleGoogleSignIn() {
-    Alert.alert('Demo Mode', 'OAuth is not available in demo mode. Use email sign-up instead.');
+  async function handleGoogleSignIn() {
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${Env.EXPO_PUBLIC_API_URL}/auth/google`,
+        'wingman://auth/callback'
+      );
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const token = url.searchParams.get('token');
+        if (token) {
+          signIn(token);
+          router.push('/onboarding/permissions');
+        } else {
+          Alert.alert('Sign-In Failed', 'No authentication token received from server.');
+        }
+      }
+      // If result.type is 'cancel' or 'dismiss', user closed the browser — do nothing
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      Alert.alert('Sign-In Error', 'Failed to start Google sign-in. Please try again.');
+    }
   }
 
-  function handleAppleSignIn() {
-    Alert.alert('Demo Mode', 'OAuth is not available in demo mode. Use email sign-up instead.');
+  async function handleAppleSignIn() {
+    // Apple Sign In requires native module (expo-apple-authentication) on iOS;
+    // show informative message on unsupported platforms.
+    if (Platform.OS !== 'ios') {
+      Alert.alert('Not Available', 'Apple Sign-In is only available on iOS devices.');
+      return;
+    }
+    Alert.alert('Coming Soon', 'Apple Sign-In will be available in a future update.');
   }
 
   return (
