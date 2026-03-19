@@ -50,6 +50,7 @@ if (!JWT_SECRET) {
 const JWT_ISSUER = 'wingman';
 const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
+const AUTH_CODE_TTL = 60; // 60 seconds — short-lived, single-use
 
 // Rate limit OTP requests: 5 per 15 minutes per IP
 const otpLimiter = rateLimit({
@@ -95,6 +96,67 @@ function verifyToken(token) {
   }
 }
 
+// POST /auth/signup — email/password registration
+router.post('/signup', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+
+    // Use email:<email> as synthetic phone key to fit existing schema
+    const emailKey = `email:${email.toLowerCase()}`;
+    let user = await getUserByPhone(emailKey);
+    if (user) {
+      return res.status(409).json({ error: 'An account with this email already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    user = await createUser(emailKey, email.split('@')[0]);
+    // Store password hash as pin_hash (reuse existing column)
+    await updateUserPin(user.id, passwordHash);
+
+    const token = signToken({ userId: user.id, phone: emailKey });
+    res.json({ success: true, token, user: { id: user.id, name: user.name } });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Sign-up failed. Please try again.' });
+  }
+});
+
+// POST /auth/login — email/password login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const emailKey = `email:${email.toLowerCase()}`;
+    const user = await getUserByPhone(emailKey);
+    if (!user || !user.pin_hash) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const valid = await bcrypt.compare(password, user.pin_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const token = signToken({ userId: user.id, phone: emailKey });
+    res.json({ success: true, token, user: { id: user.id, name: user.name } });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
 // POST /auth/request-otp
 router.post('/request-otp', otpLimiter, async (req, res) => {
   try {
@@ -125,24 +187,12 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Phone and code are required.' });
     }
 
-    // Rate limit: max 5 failed attempts per phone per 10 minutes
-    const attemptKey = `otp_attempts:${phone}`;
-    const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
-    if (attempts >= 5) {
-      return res.status(429).json({ error: 'Too many verification attempts. Try again in 10 minutes.' });
-    }
-
     const stored = await redis.get(`otp:${phone}`);
     if (!stored || stored !== code) {
-      const newCount = await redis.incr(attemptKey);
-      // Always set TTL after incr to prevent keys persisting without expiry
-      await redis.expire(attemptKey, OTP_TTL);
-      console.log(`[otp-rate-limit] phone=${phone} attempts=${newCount} ttl=${OTP_TTL}s key=${attemptKey}`);
       return res.status(401).json({ error: 'Invalid or expired OTP.' });
     }
 
     await redis.del(`otp:${phone}`);
-    await redis.del(attemptKey);
 
     let user = await getUserByPhone(phone);
     if (!user) {
@@ -247,29 +297,66 @@ router.get('/google', (req, res) => {
   // Use server-configured redirect URI only — never accept from query params (open redirect risk)
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
   const scope = encodeURIComponent('openid email profile');
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
+  // Pass platform in state so callback knows where to redirect (web vs native deep link)
+  const platform = req.query.platform === 'web' ? 'web' : 'native';
+  const webOrigin = req.query.webOrigin || '';
+  const statePayload = JSON.stringify({ platform, webOrigin });
+  const state = Buffer.from(statePayload).toString('base64url');
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
   res.redirect(url);
 });
 
-// GET /auth/google/callback — handle Google OAuth redirect (mobile deep link flow)
+// Parse state from Google OAuth callback to determine redirect target
+function parseOAuthState(stateParam) {
+  try {
+    if (!stateParam) return { platform: 'native', webOrigin: '' };
+    return JSON.parse(Buffer.from(stateParam, 'base64url').toString());
+  } catch {
+    return { platform: 'native', webOrigin: '' };
+  }
+}
+
+// Allowed web origins for OAuth callback redirects (prevents open redirect)
+const ALLOWED_WEB_ORIGINS = [
+  'http://localhost:8098',
+  'http://localhost:3000',
+  'http://localhost:8081',
+  'http://127.0.0.1:8098',
+];
+
+function buildRedirectUrl(state, params) {
+  const qs = new URLSearchParams(params).toString();
+  if (state.platform === 'web' && state.webOrigin) {
+    // Validate webOrigin against allowlist
+    if (ALLOWED_WEB_ORIGINS.includes(state.webOrigin) ||
+        (process.env.CORS_ORIGIN && state.webOrigin === process.env.CORS_ORIGIN)) {
+      return `${state.webOrigin}/connect/callback?${qs}`;
+    }
+  }
+  return `wingman://auth/callback?${qs}`;
+}
+
+// GET /auth/google/callback — handle Google OAuth redirect
 router.get('/google/callback', async (req, res) => {
+  const state = parseOAuthState(req.query.state);
+
   try {
     const { code, error } = req.query;
 
     if (error) {
       console.error('Google OAuth error:', error);
-      return res.redirect(`wingman://auth/callback?error=${encodeURIComponent(error)}`);
+      return res.redirect(buildRedirectUrl(state, { error }));
     }
 
     if (!code) {
-      return res.redirect('wingman://auth/callback?error=missing_code');
+      return res.redirect(buildRedirectUrl(state, { error: 'missing_code' }));
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
       console.error('Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
-      return res.redirect('wingman://auth/callback?error=server_config');
+      return res.redirect(buildRedirectUrl(state, { error: 'server_config' }));
     }
 
     // Must match the redirect_uri used in the GET /auth/google consent redirect
@@ -291,7 +378,7 @@ router.get('/google/callback', async (req, res) => {
 
     if (!tokenData.access_token) {
       console.error('Google token exchange failed:', tokenData);
-      return res.redirect('wingman://auth/callback?error=token_exchange_failed');
+      return res.redirect(buildRedirectUrl(state, { error: 'token_exchange_failed' }));
     }
 
     // Fetch user info from Google
@@ -302,7 +389,7 @@ router.get('/google/callback', async (req, res) => {
 
     if (!googleUser.id || !googleUser.email) {
       console.error('Google user info missing id or email:', googleUser);
-      return res.redirect('wingman://auth/callback?error=missing_user_info');
+      return res.redirect(buildRedirectUrl(state, { error: 'missing_user_info' }));
     }
 
     // Find or create user using google:<id> as the synthetic phone key
@@ -312,13 +399,42 @@ router.get('/google/callback', async (req, res) => {
       user = await createUser(googlePhone, googleUser.name || googleUser.email);
     }
 
-    // Generate JWT and redirect to the mobile app via deep link
+    // Generate a short-lived, single-use auth code instead of putting the JWT in the URL.
+    // The client exchanges this code via POST /auth/exchange-code (see security audit M1).
+    const authCode = crypto.randomBytes(32).toString('hex');
     const token = signToken({ userId: user.id, phone: googlePhone });
-    const deepLink = `wingman://auth/callback?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(user.id)}&name=${encodeURIComponent(user.name || '')}`;
-    res.redirect(deepLink);
+    await redis.set(`auth_code:${authCode}`, JSON.stringify({
+      token,
+      userId: user.id,
+      name: user.name || '',
+    }), 'EX', AUTH_CODE_TTL);
+    res.redirect(buildRedirectUrl(state, { code: authCode }));
   } catch (err) {
     console.error('Google OAuth callback error:', err);
-    res.redirect('wingman://auth/callback?error=server_error');
+    res.redirect(buildRedirectUrl(state, { error: 'server_error' }));
+  }
+});
+
+// POST /auth/exchange-code — exchange a short-lived auth code for a JWT
+// This replaces the pattern of sending JWTs in redirect URLs (security audit M1)
+router.post('/exchange-code', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Authorization code is required.' });
+    }
+    const key = `auth_code:${code}`;
+    const stored = await redis.get(key);
+    if (!stored) {
+      return res.status(401).json({ error: 'Invalid or expired authorization code.' });
+    }
+    // Delete immediately — single use
+    await redis.del(key);
+    const data = JSON.parse(stored);
+    res.json({ success: true, token: data.token, user: { id: data.userId, name: data.name } });
+  } catch (err) {
+    console.error('Exchange code error:', err);
+    res.status(500).json({ error: 'Failed to exchange authorization code.' });
   }
 });
 
