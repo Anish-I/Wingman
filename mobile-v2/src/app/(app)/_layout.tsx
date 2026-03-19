@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, SplashScreen, Tabs } from 'expo-router';
 import * as React from 'react';
 import { useCallback, useEffect } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { purple, surface, text as t } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 
@@ -27,27 +28,30 @@ export default function TabLayout() {
     }
   }, [hideSplash, status]);
 
-  if (isFirstTime) {
-    return <Redirect href="/onboarding/welcome" />;
+  if (status === 'idle') {
+    return null; // Don't render anything until auth state is determined
   }
   if (status === 'signOut') {
     return <Redirect href="/login" />;
+  }
+  if (isFirstTime) {
+    return <Redirect href="/onboarding/welcome" />;
   }
 
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#0C0C0C',
-          borderTopColor: '#2A2A2A',
+          backgroundColor: surface.bg,
+          borderTopColor: surface.border,
           borderTopWidth: 1,
           height: 64,
           paddingBottom: 8,
           paddingTop: 8,
           elevation: 0,
         },
-        tabBarActiveTintColor: '#4A7BD9',
-        tabBarInactiveTintColor: '#525252',
+        tabBarActiveTintColor: purple[500],
+        tabBarInactiveTintColor: t.muted,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',

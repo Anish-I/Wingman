@@ -31,17 +31,22 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     async function bootstrap() {
-      await initStorage();
-      hydrateAuth();
-      loadSelectedTheme();
-      setReady(true);
+      try {
+        await initStorage();
+        hydrateAuth();
+        loadSelectedTheme();
+      } catch (error) {
+        console.error('[bootstrap] Failed to initialize app storage:', error);
+      } finally {
+        setReady(true);
+      }
     }
     bootstrap();
   }, []);
 
   React.useEffect(() => {
     if (Platform.OS === 'web') {
-      document.body.style.backgroundColor = '#0C0C0C';
+      document.body.style.backgroundColor = '#0A0A0C';
       document.body.style.margin = '0';
     }
   }, []);
@@ -64,7 +69,7 @@ export default function RootLayout() {
         <View
           style={{
             flex: 1,
-            backgroundColor: '#0C0C0C',
+            backgroundColor: '#0A0A0C',
             alignItems: 'center',
             minHeight: '100vh' as any,
           }}

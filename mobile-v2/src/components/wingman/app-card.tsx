@@ -1,36 +1,98 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as React from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { radii, semantic, surface, teal } from '@/components/ui/tokens';
+import { chipPressStyle, webInteractive } from '@/lib/motion';
 
-interface AppCardProps {
+type AppCardProps = {
   emoji: string;
   name: string;
   connected: boolean;
   onPress: () => void;
   color?: string;
-}
+};
 
 export default function AppCard({ emoji, name, connected, onPress, color }: AppCardProps) {
   return (
-    <TouchableOpacity
-      className="w-[88px] bg-card rounded-[14px] p-3 items-center relative"
+    <Pressable
+      style={({ pressed, hovered }) => [
+        {
+          width: 88,
+          backgroundColor: connected ? surface.card : surface.cardAlt,
+          borderRadius: radii.lg,
+          borderWidth: 1.5,
+          borderColor: connected ? teal[300] : surface.border,
+          padding: 12,
+          alignItems: 'center',
+          // Connected state glow
+          ...(connected
+            ? {
+              shadowColor: teal[300],
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 2,
+            }
+            : {}),
+        },
+        ...chipPressStyle({ pressed }),
+        webInteractive(),
+        // Hover state on web
+        hovered && !pressed ? { opacity: 0.95 } : undefined,
+      ]}
       onPress={onPress}
-      activeOpacity={connected ? 1 : 0.7}
     >
       {connected && (
-        <View className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] items-center justify-center z-10">
-          <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+        <View
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            width: 18,
+            height: 18,
+            borderRadius: 9,
+            backgroundColor: semantic.success,
+            borderWidth: 1.5,
+            borderColor: surface.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            shadowColor: semantic.success,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <Ionicons name="checkmark" size={11} color="#FFFFFF" />
         </View>
       )}
       <View
-        className="w-14 h-14 rounded-full items-center justify-center mb-2"
-        style={{ backgroundColor: color ? `${color}20` : '#242540' }}
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 8,
+          backgroundColor: color ? `${color}18` : surface.section,
+          borderWidth: 1,
+          borderColor: color ? `${color}24` : surface.border,
+        }}
       >
-        <Text className="text-[28px]">{emoji}</Text>
+        <Text style={{ fontSize: 28 }}>{emoji}</Text>
       </View>
-      <Text className="text-foreground text-xs font-medium text-center" numberOfLines={1}>
+      <Text
+        className="text-center text-xs font-medium text-foreground"
+        numberOfLines={2}
+        style={{
+          fontSize: 12,
+          fontFamily: 'Inter_500Medium',
+          color: connected ? '#F0F0F5' : '#9999A8',
+        }}
+      >
         {name}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

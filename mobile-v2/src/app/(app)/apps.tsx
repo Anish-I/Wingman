@@ -3,21 +3,24 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   TextInput,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import * as WebBrowser from 'expo-web-browser';
+import { showMessage } from 'react-native-flash-message';
 import Env from 'env';
 import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
+import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
 // Category mapping
@@ -165,14 +168,14 @@ const CATEGORY_ORDER = [
 ];
 
 const CATEGORY_META: Record<string, { icon: string; color: string }> = {
-  Communication: { icon: '\u{1F4AC}', color: '#4A7BD9' },
+  Communication: { icon: '\u{1F4AC}', color: '#7C5CFC' },
   Productivity: { icon: '\u26A1', color: '#F5A623' },
-  Development: { icon: '\u{1F6E0}\uFE0F', color: '#9B7EC8' },
+  Development: { icon: '\u{1F6E0}\uFE0F', color: '#9171F5' },
   'Cloud & Storage': { icon: '\u2601\uFE0F', color: '#6EC6B8' },
-  Social: { icon: '\u{1F310}', color: '#9B7EC8' },
+  Social: { icon: '\u{1F310}', color: '#9171F5' },
   Entertainment: { icon: '\u{1F3B5}', color: '#32D74B' },
   Finance: { icon: '\u{1F4B0}', color: '#F5A623' },
-  'CRM & Support': { icon: '\u{1F91D}', color: '#4A7BD9' },
+  'CRM & Support': { icon: '\u{1F91D}', color: '#7C5CFC' },
   'E-commerce': { icon: '\u{1F6D2}', color: '#7AB55C' },
   Analytics: { icon: '\u{1F4CA}', color: '#7856FF' },
   HR: { icon: '\u{1F454}', color: '#4C6EF5' },
@@ -202,15 +205,30 @@ const AppCard = React.memo(function AppCard({
   onPress,
 }: AppCardProps) {
   return (
-    <TouchableOpacity
+    <Pressable
       className="w-[90px] rounded-2xl p-3 items-center relative mr-2.5"
-      style={{
-        backgroundColor: isConnected ? '#1A1A1A' : '#141416',
-        borderWidth: isConnected ? 2 : 1,
-        borderColor: isConnected ? '#32D74B50' : '#2A2A2A',
-      }}
+      style={({ pressed, hovered, focused }: any) => [
+        {
+          backgroundColor: isConnected ? '#141416' : '#111113',
+          borderWidth: isConnected ? 1.5 : 1,
+          borderColor: isConnected ? 'rgba(50, 215, 75, 0.35)' : '#262630',
+        },
+        ...chipPressStyle({ pressed }),
+        webInteractive(isConnecting),
+        // Web hover: subtle lift with glow
+        Platform.OS === 'web' && hovered && !pressed && !isConnecting
+          ? { 
+              borderColor: '#3A3A4A',
+              boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
+              transform: [{ scale: 1.03 }],
+            } as any
+          : undefined,
+        // Web focus ring
+        Platform.OS === 'web' && focused && !isConnecting
+          ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.4)' } as any
+          : undefined,
+      ]}
       onPress={() => onPress(app.slug)}
-      activeOpacity={0.7}
       disabled={isConnecting}
     >
       {isConnected && (
@@ -220,10 +238,10 @@ const AppCard = React.memo(function AppCard({
       )}
       {isConnecting && (
         <View className="absolute top-2 right-2 z-10">
-          <ActivityIndicator size="small" color="#4A7BD9" />
+          <ActivityIndicator size="small" color="#7C5CFC" />
         </View>
       )}
-      <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2 bg-[#1A1A1A]">
+      <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2 bg-[#141416]">
         <Image
           source={{ uri: app.logo }}
           style={{ width: 32, height: 32, borderRadius: 8 }}
@@ -236,7 +254,7 @@ const AppCard = React.memo(function AppCard({
       >
         {app.name}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -341,18 +359,33 @@ const CategoryTabs = React.memo(function CategoryTabs({
           ? Object.values(counts).reduce((s, n) => s + n, 0)
           : (counts[cat] ?? 0);
         return (
-          <TouchableOpacity
+          <Pressable
             onPress={() => onSelect(isAll ? null : cat)}
             className="rounded-full px-3 py-1.5 flex-row items-center"
-            style={{
-              backgroundColor: active ? '#4A7BD920' : '#1A1A1A',
-              borderWidth: 1,
-              borderColor: active ? '#4A7BD9' : '#2A2A2A',
-            }}
+            style={({ pressed, hovered, focused }: any) => [
+              {
+                backgroundColor: active ? 'rgba(124, 92, 252, 0.12)' : '#141416',
+                borderWidth: 1,
+                borderColor: active ? '#7C5CFC' : '#262630',
+              },
+              ...chipPressStyle({ pressed }),
+              webInteractive(),
+              // Web hover: enhance active state or add subtle background
+              Platform.OS === 'web' && hovered && !pressed && !active
+                ? { backgroundColor: '#1A1A1F', borderColor: '#3A3A4A' } as any
+                : undefined,
+              Platform.OS === 'web' && hovered && !pressed && active
+                ? { backgroundColor: 'rgba(124, 92, 252, 0.18)' } as any
+                : undefined,
+              // Web focus ring
+              Platform.OS === 'web' && focused
+                ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
+                : undefined,
+            ]}
           >
             <Text
               style={{
-                color: active ? '#4A7BD9' : '#8A8A8A',
+                color: active ? '#7C5CFC' : '#8E8E9A',
                 fontSize: 12,
                 fontWeight: '600',
               }}
@@ -361,7 +394,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             </Text>
             <Text
               style={{
-                color: active ? '#4A7BD9' : '#525252',
+                color: active ? '#7C5CFC' : '#55556A',
                 fontSize: 10,
                 fontWeight: '700',
                 marginLeft: 4,
@@ -369,7 +402,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             >
               {count}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       }}
     />
@@ -395,13 +428,21 @@ export default function AppsScreen() {
 
   const handleConnect = useCallback(
     async (slug: string) => {
+      const showErr = (title: string, msg: string) => {
+        if (Platform.OS === 'web') {
+          showMessage({ message: title, description: msg, type: 'danger', duration: 3000 });
+        } else {
+          Alert.alert(title, msg);
+        }
+      };
+
       if (connected.includes(slug)) {
         try {
           await client.post('/connect/disconnect', { app: slug });
           setConnected((prev) => prev.filter((s) => s !== slug));
           refetch();
         } catch {
-          Alert.alert('Error', 'Failed to disconnect app.');
+          showErr('Error', 'Failed to disconnect app.');
         }
         return;
       }
@@ -412,16 +453,19 @@ export default function AppsScreen() {
           '/connect/create-connect-token',
           { app: slug },
         );
+        const redirectUrl = Platform.OS === 'web'
+          ? `${window.location.origin}/connect/callback`
+          : 'wingman://connect/callback';
         const result = await WebBrowser.openAuthSessionAsync(
           `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}`,
-          'wingman://connect/callback',
+          redirectUrl,
         );
         if (result.type === 'success') {
           const res = await refetch();
           if (res.data?.connected) setConnected(res.data.connected);
         }
       } catch {
-        Alert.alert('Error', 'Failed to connect app.');
+        showErr('Error', 'Failed to connect app.');
       } finally {
         setConnectingSlug(null);
       }
@@ -486,9 +530,9 @@ export default function AppsScreen() {
           animate={{ rotate: '360deg' }}
           transition={{ type: 'timing', duration: 1000, loop: true }}
         >
-          <Ionicons name="sync" size={32} color="#4A7BD9" />
+          <Ionicons name="sync" size={32} color="#7C5CFC" />
         </MotiView>
-        <Text className="text-[#4A7BD9] text-sm font-semibold mt-3">
+        <Text className="text-[#7C5CFC] text-sm font-semibold mt-3">
           Loading your apps...
         </Text>
       </SafeAreaView>
@@ -501,8 +545,7 @@ export default function AppsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <MotiView
-        from={{ opacity: 0, translateY: -10 }}
-        animate={{ opacity: 1, translateY: 0 }}
+        {...headerEntrance}
         className="px-6 pt-6 pb-4"
       >
         <View className="flex-row items-center justify-between">
@@ -510,14 +553,14 @@ export default function AppsScreen() {
             <Text className="text-foreground text-[28px] font-extrabold">
               Your Apps
             </Text>
-            <Text className="text-[#8A8A8A] text-sm mt-1">
+            <Text className="text-[#8E8E9A] text-sm mt-1">
               {ALL_APPS.length} apps available
             </Text>
           </View>
           <MotiView
-            from={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', damping: 10, delay: 300 }}
+            from={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 10, stiffness: 100, delay: 300 }}
           >
             <View className="bg-[#32D74B]/15 rounded-2xl px-4 py-2 items-center">
               <Text className="text-[#32D74B] text-[20px] font-extrabold">
@@ -533,28 +576,26 @@ export default function AppsScreen() {
 
       {/* Search */}
       <MotiView
-        from={{ opacity: 0, translateY: 10 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ delay: 150 }}
-        className="flex-row items-center bg-[#1A1A1A] rounded-2xl mx-6 mb-3 px-4 border border-[#2A2A2A]"
+        {...entrance(0, 100)}
+        className="flex-row items-center bg-[#141416] rounded-2xl mx-6 mb-3 px-4 border border-[#262630]"
       >
         <Ionicons
           name="search-outline"
           size={18}
-          color="#525252"
+          color="#55556A"
           style={{ marginRight: 8 }}
         />
         <TextInput
           className="flex-1 py-3.5 text-foreground text-[15px]"
           placeholder={`Search ${ALL_APPS.length} apps...`}
-          placeholderTextColor="#525252"
+          placeholderTextColor="#55556A"
           value={search}
           onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color="#525252" />
-          </TouchableOpacity>
+          <Pressable onPress={() => setSearch('')} style={webInteractive()}>
+            <Ionicons name="close-circle" size={18} color="#55556A" />
+          </Pressable>
         )}
       </MotiView>
 

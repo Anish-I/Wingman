@@ -4,15 +4,19 @@
   "description": "Wingman — Your entire digital life, one text away. SMS-native AI agent powered by Claude, Twilio, and Zapier.",
   "private": true,
   "workspaces": [
-    "server",
-    "web"
+    "server"
   ],
   "scripts": {
     "dev:server": "npm run dev --workspace=server",
-    "dev:web": "npm run dev --workspace=web",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:mobile": "pnpm --dir mobile-v2 run web -- --port 8098",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:mobile\"",
     "start:prod": "NODE_ENV=production node server/index.js",
-    "install:all": "npm install --workspaces"
+    "install:all": "npm install --workspaces && pnpm --dir mobile-v2 install --frozen-lockfile",
+    "qa:expo:playwright": "node mobile-v2/test-qa.mjs",
+    "qa:expo:openclaw": "node scripts/run-openclaw-expo-ux.js",
+    "workers:claude:start": "node scripts/run-openclaw-claude-workers.js",
+    "workers:claude:status": "node scripts/monitor-openclaw-claude-workers.js",
+    "workers:claude:stop": "node scripts/stop-openclaw-claude-workers.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

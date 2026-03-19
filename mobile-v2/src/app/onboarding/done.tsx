@@ -9,7 +9,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
-import { signIn } from '@/features/auth/use-auth-store';
+import { popIn, entrance } from '@/lib/motion';
 
 const CONFETTI_COLORS = ['#4A7BD9', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
 
@@ -51,7 +51,6 @@ export default function DoneScreen() {
   const [_, setIsFirstTime] = useIsFirstTime();
 
   function handleStart() {
-    signIn('demo-mock-token');
     setIsFirstTime(false);
     router.replace('/(app)/chat');
   }
@@ -93,10 +92,12 @@ export default function DoneScreen() {
       {/* Content */}
       <View className="flex-1 items-center justify-center px-6" style={{ gap: 24 }}>
         {/* Pip */}
-        <PipCard expression="clap" size="large" className="" />
+        <MotiView {...popIn(0, 200)}>
+          <PipCard expression="clap" size="large" className="" />
+        </MotiView>
 
         {/* Header */}
-        <View className="items-center" style={{ gap: 12 }}>
+        <MotiView {...entrance(0, 400)} className="items-center" style={{ gap: 12 }}>
           {/* Section label with lines on both sides */}
           <View className="flex-row items-center" style={{ gap: 12 }}>
             <View style={{ width: 24, height: 2, backgroundColor: '#32D74B', borderRadius: 1 }} />
@@ -135,27 +136,28 @@ export default function DoneScreen() {
           >
             {'Just text me anytime.\nWelcome to the flock!'}
           </Text>
-        </View>
+        </MotiView>
 
         {/* Connected app pills */}
         <View className="flex-row justify-center" style={{ gap: 8 }}>
-          {CONNECTED_CHIPS.map((chip) => (
-            <View
-              key={chip.label}
-              className="flex-row items-center rounded-md px-3"
-              style={{
-                height: 34,
-                backgroundColor: '#1A1A1A',
-                borderWidth: 1,
-                borderColor: '#2A2A2A',
-                gap: 6,
-              }}
-            >
-              <Ionicons name={chip.icon} size={14} color="#4A7BD9" />
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFFFFF' }}>
-                {chip.label}
-              </Text>
-            </View>
+          {CONNECTED_CHIPS.map((chip, i) => (
+            <MotiView key={chip.label} {...popIn(i, 600)}>
+              <View
+                className="flex-row items-center rounded-md px-3"
+                style={{
+                  height: 34,
+                  backgroundColor: '#1A1A1A',
+                  borderWidth: 1,
+                  borderColor: '#2A2A2A',
+                  gap: 6,
+                }}
+              >
+                <Ionicons name={chip.icon} size={14} color="#4A7BD9" />
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFFFFF' }}>
+                  {chip.label}
+                </Text>
+              </View>
+            </MotiView>
           ))}
         </View>
       </View>

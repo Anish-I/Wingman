@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView, AnimatePresence } from 'moti';
+import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -11,6 +12,14 @@ import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function PhoneScreen() {
   const router = useRouter();
@@ -21,23 +30,26 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputs = useRef<TextInput[]>([]);
+  const verifyingRef = useRef(false);
 
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length < 10) {
-      Alert.alert('Invalid number', 'Please enter a valid phone number.');
+      showAlert('Invalid number', 'Please enter a valid phone number.');
       return;
     }
     const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
       await client.post('/auth/request-otp', { phone: formatted });
-    } catch {
-      // Demo mode: skip real OTP, proceed anyway
+      setE164Phone(formatted);
+      setStep('verify');
+    } catch (err: any) {
+      const message = err?.response?.data?.error || 'Could not send verification code. Please try again.';
+      showAlert('Error', message);
+    } finally {
+      setLoading(false);
     }
-    setE164Phone(formatted);
-    setStep('verify');
-    setLoading(false);
   }
 
   function handleCodeChange(text: string, idx: number) {
@@ -60,35 +72,48 @@ export default function PhoneScreen() {
   async function handleVerify() {
     const otp = code.join('');
     if (otp.length !== 6) {
-      Alert.alert('Incomplete', 'Please enter all 6 digits.');
+      showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
+      // Validate that a real token was returned (not a demo token or undefined)
+      if (!data.token || data.token === 'demo-mock-token') {
+        showAlert('Verification Failed', 'No valid authentication token received. Please try again.');
+        setLoading(false);
+        return;
+      }
       signIn(data.token);
-    } catch {
-      // Demo mode: sign in with mock token
-      signIn('demo-mock-token');
+      try {
+        await registerForPushNotifications();
+      } catch {
+        // Notifications may not be available on web
+      }
+      setStep('success');
+      setTimeout(() => {
+        router.push('/onboarding/connect');
+      }, 1500);
+    } catch (err: any) {
+      const message = err?.response?.data?.error || 'Invalid or expired code. Please try again.';
+      showAlert('Verification Failed', message);
+      // Stay on verify step, keep code visible but clear inputs for retry
+      setCode(['', '', '', '', '', '']);
+      setActiveIdx(0);
+      inputs.current[0]?.focus();
+    } finally {
+      setLoading(false);
     }
-    try {
-      await registerForPushNotifications();
-    } catch {
-      // Notifications may not be available in demo/web
-    }
-    setStep('success');
-    setTimeout(() => {
-      router.push('/onboarding/connect');
-    }, 1500);
-    setLoading(false);
   }
 
   useEffect(() => {
-    if (code.every((d) => d !== '') && step === 'verify') {
-      handleVerify();
+    // Auto-submit when all 6 digits are entered, but only if not already verifying
+    if (code.every((d) => d !== '') && step === 'verify' && !verifyingRef.current && !loading) {
+      verifyingRef.current = true;
+      handleVerify().finally(() => { verifyingRef.current = false; });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, step]);
 
   return (
     <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
@@ -225,22 +250,32 @@ export default function PhoneScreen() {
                 ))}
               </View>
 
+              {/* Verify button — explicit action in case auto-submit is unreliable */}
+              <View className="w-full">
+                <GradientButton
+                  title={loading ? 'Verifying...' : 'Verify Code'}
+                  onPress={handleVerify}
+                  disabled={loading || code.join('').length !== 6}
+                />
+              </View>
+
               {/* Resend row */}
               <View className="flex-row items-center" style={{ gap: 4 }}>
                 <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#525252' }}>
                   Didn't get it?
                 </Text>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => {
                     setCode(['', '', '', '', '', '']);
                     setActiveIdx(0);
                     handleSendCode();
                   }}
+                  style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
                 >
                   <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#4A7BD9' }}>
                     Resend
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </MotiView>
           )}

@@ -9,27 +9,28 @@ import { Text } from './text';
 
 const inputTv = tv({
   slots: {
-    container: 'mb-2',
-    label: 'text-grey-100 mb-1 text-lg dark:text-neutral-100',
+    container: 'mb-3',
+    label: 'text-grey-100 mb-2 text-sm font-medium dark:text-[#9999A8]',
     input:
-      'font-inter mt-0 rounded-xl border-[0.5px] border-neutral-300 bg-neutral-100 px-4 py-3 text-base/5 font-medium dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+      'font-inter mt-0 rounded-md border border-neutral-300 bg-neutral-100 px-4 py-3 text-base font-medium dark:border-[#232330] dark:bg-[#1F1F24] dark:text-[#F0F0F5] placeholder:dark:text-[#6B6B7A]',
   },
 
   variants: {
     focused: {
       true: {
-        input: 'border-neutral-400 dark:border-neutral-300',
+        input: 'border-[#7C5CFC] dark:border-[#7C5CFC] shadow-sm dark:shadow-sm',
       },
     },
     error: {
       true: {
-        input: 'border-danger-600',
-        label: 'text-danger-600 dark:text-danger-600',
+        input: 'border-danger-600 dark:border-danger-500',
+        label: 'text-danger-600 dark:text-danger-500',
       },
     },
     disabled: {
       true: {
-        input: 'bg-neutral-200',
+        input: 'bg-neutral-200 dark:bg-[#1A1A1E] opacity-50',
+        label: 'opacity-50',
       },
     },
   },

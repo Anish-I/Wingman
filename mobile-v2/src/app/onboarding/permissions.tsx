@@ -1,38 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
+import * as React from 'react';
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
+import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
-import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
+import { entrance, chipPressStyle, springs, webInteractive } from '@/lib/motion';
 
 const PERMISSIONS = [
   {
     icon: 'notifications-outline' as const,
     title: 'Notifications',
     subtitle: 'Get instant task updates',
-    bg: '#3B599820',
+    accent: purple[500],
   },
   {
     icon: 'people-outline' as const,
     title: 'Contacts',
     subtitle: 'Send messages to friends',
-    bg: '#9B7EC820',
+    accent: purple[400],
   },
   {
     icon: 'calendar-outline' as const,
     title: 'Calendar',
     subtitle: 'Schedule and manage events',
-    bg: '#3B599820',
+    accent: teal[300],
   },
   {
     icon: 'location-outline' as const,
     title: 'Location',
     subtitle: 'Find nearby places & navigate',
-    bg: '#6EC6B820',
+    accent: teal[400],
   },
 ];
 
@@ -41,20 +44,33 @@ export default function PermissionsScreen() {
   const [granted, setGranted] = useState<Record<number, boolean>>({});
 
   function handleAllow(index: number) {
-    setGranted((prev) => ({ ...prev, [index]: true }));
+    setGranted(prev => ({ ...prev, [index]: true }));
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0C0C0C]">
+    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       <ProgressBar step={4} />
       <View className="flex-1 px-6">
         {/* Pip speech bubble row */}
-        <View className="flex-row items-center gap-3 mt-4">
+        <View className="mt-4 flex-row items-center gap-3">
           <PipCard expression="question" size="mini" />
-          <View className="flex-1 bg-[#1A1A1A] rounded-xl border border-[#2A2A2A]" style={{ paddingVertical: 10, paddingHorizontal: 14 }}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: surface.cardAlt,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: surface.border,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+            }}
+          >
             <Text
-              className="text-white text-[13px]"
-              style={{ fontFamily: 'Inter_500Medium' }}
+              style={{
+                color: t.primary,
+                fontSize: 13,
+                fontFamily: 'Inter_500Medium',
+              }}
             >
               I need a few permissions to help you out!
             </Text>
@@ -66,64 +82,109 @@ export default function PermissionsScreen() {
         </View>
 
         {/* Permission cards */}
-        <View className="gap-2.5 mt-4">
+        <View style={{ gap: 10, marginTop: 16 }}>
           {PERMISSIONS.map((perm, i) => (
             <MotiView
               key={i}
-              from={{ opacity: 0, translateY: 15 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 350, delay: i * 80 }}
+              {...entrance(i, 100)}
             >
-              <View className="rounded-xl bg-[#1A1A1A] flex-row items-center gap-3" style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+              <View
+                style={{
+                  borderRadius: 14,
+                  backgroundColor: surface.card,
+                  borderWidth: 1,
+                  borderColor: granted[i] ? 'rgba(50, 215, 75, 0.2)' : surface.border,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                }}
+              >
                 <View
-                  className="w-[38px] h-[38px] rounded-[10px] items-center justify-center"
-                  style={{ backgroundColor: perm.bg }}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: `${perm.accent}14`,
+                  }}
                 >
-                  <Ionicons name={perm.icon} size={20} color="#FFFFFF" />
+                  <Ionicons name={perm.icon} size={20} color={perm.accent} />
                 </View>
-                <View className="flex-1" style={{ gap: 2 }}>
+                <View style={{ flex: 1, gap: 2 }}>
                   <Text
-                    className="text-white text-[14px]"
-                    style={{ fontFamily: 'Inter_600SemiBold' }}
+                    style={{
+                      color: t.primary,
+                      fontSize: 14,
+                      fontFamily: 'Inter_600SemiBold',
+                    }}
                   >
                     {perm.title}
                   </Text>
                   <Text
-                    className="text-[#8A8A8A] text-[12px]"
-                    style={{ fontFamily: 'Inter_400Regular' }}
+                    style={{
+                      color: t.secondary,
+                      fontSize: 12,
+                      fontFamily: 'Inter_400Regular',
+                    }}
                   >
                     {perm.subtitle}
                   </Text>
                 </View>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => handleAllow(i)}
-                  activeOpacity={0.7}
+                  style={({ pressed }) => [
+                    ...chipPressStyle({ pressed }),
+                    webInteractive(),
+                  ]}
                 >
-                  {granted[i] ? (
-                    <MotiView
-                      from={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring' }}
-                      className="bg-[#32D74B] rounded px-3 py-1.5"
-                    >
-                      <Text
-                        className="text-white text-[11px]"
-                        style={{ fontFamily: 'Inter_600SemiBold' }}
-                      >
-                        Done
-                      </Text>
-                    </MotiView>
-                  ) : (
-                    <View className="bg-[#3B5998] rounded px-3 py-1.5">
-                      <Text
-                        className="text-white text-[11px]"
-                        style={{ fontFamily: 'Inter_600SemiBold' }}
-                      >
-                        Allow
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  {granted[i]
+                    ? (
+                        <MotiView
+                          from={{ scale: 0.6 }}
+                          animate={{ scale: 1 }}
+                          transition={springs.bouncy}
+                          style={{
+                            backgroundColor: semantic.success,
+                            borderRadius: 8,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 11,
+                              fontFamily: 'Inter_600SemiBold',
+                            }}
+                          >
+                            Done
+                          </Text>
+                        </MotiView>
+                      )
+                    : (
+                        <View
+                          style={{
+                            backgroundColor: purple[500],
+                            borderRadius: 8,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#FFFFFF',
+                              fontSize: 11,
+                              fontFamily: 'Inter_600SemiBold',
+                            }}
+                          >
+                            Allow
+                          </Text>
+                        </View>
+                      )}
+                </Pressable>
               </View>
             </MotiView>
           ))}
