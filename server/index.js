@@ -21,13 +21,14 @@ process.on('uncaughtException', (err) => {
   }
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   const msg = reason?.message || String(reason);
-  // Skip known non-fatal rejections
+  // BullMQ emits Redis version check rejections in envs without Redis >=5.0
   if (msg.includes('Redis version') || msg.includes('maxRetriesPerRequest')) {
-    return; // Already handled by workflow-worker
+    console.warn('[workflow-worker] BullMQ skipped — Redis >=5.0 required (local dev fallback)');
+    return;
   }
-  
+
   console.error('[crash-log]', JSON.stringify({
     type: 'unhandledRejection',
     message: msg,
@@ -66,6 +67,10 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:8081',
   'http://localhost:8082',
+  'http://localhost:8098',
+  'http://127.0.0.1:8098',
+  'http://localhost:19006',
+  'http://127.0.0.1:19006',
   process.env.CORS_ORIGIN,
 ].filter(Boolean);
 
@@ -77,6 +82,9 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {
+      return callback(null, true);
+    }
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
@@ -116,16 +124,6 @@ app.get('/', (req, res) => {
 });
 
 // Start workflow worker (BullMQ consumer)
-// Catch unhandled rejections from BullMQ Redis version check gracefully
-process.on('unhandledRejection', (reason) => {
-  const msg = reason?.message || String(reason);
-  if (msg.includes('Redis version') || msg.includes('maxRetriesPerRequest')) {
-    console.warn('[workflow-worker] BullMQ skipped — Redis >=5.0 required (local dev fallback)');
-  } else {
-    console.error('[server] Unhandled rejection:', msg);
-  }
-});
-
 try {
   require('./workers/workflow-worker');
   console.log('[server] Workflow worker started');
@@ -148,7 +146,7 @@ const server = app.listen(PORT, () => {
   console.log(`Wingman server running on port ${PORT}`);
 });
 
-// Note: uncaughtException and unhandledRejection handlers are registered at module init (top of file)
+// uncaughtException and unhandledRejection handlers are registered at module init (top of file)
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
