@@ -81,7 +81,13 @@ The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder strin
 
 **Fix:** Replaced raw `userId` in OAuth callback query string with signed, time-limited JWT state tokens (`generateOAuthState`/`verifyOAuthState`). The callback now verifies the signed `state` parameter and rejects requests with missing or invalid tokens.
 
-### H5. ~~Error Messages Leak Internal Details to Clients~~ — FIXED (2026-03-17)
+### H5. ~~Login/Signup Endpoints Missing Rate Limiting~~ — FIXED (2026-03-19)
+
+**File:** `server/routes/auth.js`
+
+**Fix:** Added dual-layer rate limiting to `/auth/login` and `/auth/signup`: (1) `express-rate-limit` middleware — `loginLimiter` (10 req/15 min per IP) and `signupLimiter` (5 req/15 min per IP); (2) Redis-based per-email attempt counter (`login_attempts:<email>`) — 5 failed attempts per 15-minute window with sliding TTL refresh. Counter increments on both invalid credentials and non-existent accounts (prevents user enumeration via timing). On successful login, the counter is cleared.
+
+### H6. ~~Error Messages Leak Internal Details to Clients~~ — FIXED (2026-03-17)
 
 **File:** `server/routes/api.js`
 
@@ -210,7 +216,7 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 1 | 2 | Secrets in git history, placeholder JWT secret (mitigated at runtime) |
-| HIGH     | 5 | 5 | 0 | All fixed |
+| HIGH     | 6 | 6 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
 | LOW      | 6 | 3 | 3 | localStorage JWT (L1), unencrypted MMKV (L2), trust proxy (L6) |
 

@@ -52,6 +52,24 @@ const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
 const AUTH_CODE_TTL = 60; // 60 seconds — short-lived, single-use
 
+// Rate limit login attempts: 10 per 15 minutes per IP (brute-force protection)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later.' },
+});
+
+// Rate limit signup attempts: 5 per 15 minutes per IP (abuse protection)
+const signupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many sign-up attempts, please try again later.' },
+});
+
 // Rate limit OTP requests: 5 per 15 minutes per IP
 const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -97,7 +115,7 @@ function verifyToken(token) {
 }
 
 // POST /auth/signup — email/password registration
-router.post('/signup', async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -131,24 +149,40 @@ router.post('/signup', async (req, res) => {
 });
 
 // POST /auth/login — email/password login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const emailKey = `email:${email.toLowerCase()}`;
+    const normalizedEmail = email.toLowerCase();
+    const emailKey = `email:${normalizedEmail}`;
+
+    // Redis-based per-email rate limiting (prevents distributed brute-force)
+    const attemptKey = `login_attempts:${normalizedEmail}`;
+    const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
+    if (attempts >= 5) {
+      return res.status(429).json({ error: 'Too many failed login attempts for this account. Try again in 15 minutes.' });
+    }
+
     const user = await getUserByPhone(emailKey);
     if (!user || !user.pin_hash) {
+      // Increment counter even for non-existent accounts to prevent user enumeration timing
+      await redis.incr(attemptKey);
+      await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const valid = await bcrypt.compare(password, user.pin_hash);
     if (!valid) {
+      await redis.incr(attemptKey);
+      await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
+    // Clear attempt counter on success
+    await redis.del(attemptKey);
     const token = signToken({ userId: user.id, phone: emailKey });
     res.json({ success: true, token, user: { id: user.id, name: user.name } });
   } catch (err) {
