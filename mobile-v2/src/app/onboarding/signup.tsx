@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
-import * as WebBrowser from 'expo-web-browser';
 import Env from 'env';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { MotiView } from 'moti';
+import * as React from 'react';
+import { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { showMessage } from 'react-native-flash-message';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
+import { purple, surface, text as t } from '@/components/ui/tokens';
+import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
-import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
+import { client } from '@/lib/api/client';
+import { entrance, pressStyle, webInteractive } from '@/lib/motion';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
+  }
+  else {
+    Alert.alert(title, message);
+  }
+}
 
 function GoogleIcon() {
   return (
@@ -36,51 +51,101 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handleSignUp() {
+  async function handleSignUp() {
     if (!email || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      showAlert('Missing fields', 'Please enter your email and password.');
       return;
     }
-    signIn('demo-mock-token');
-    router.push('/onboarding/permissions');
+    setLoading(true);
+    try {
+      const { data } = await client.post('/auth/signup', { email, password });
+      // Validate that a real token was returned (not a demo token or undefined)
+      if (!data.token || data.token === 'demo-mock-token') {
+        showAlert('Sign-Up Failed', 'Authentication token was not generated. Please try again.');
+        return;
+      }
+      signIn(data.token);
+      setTimeout(() => router.push('/onboarding/permissions'), 0);
+    } catch (err: any) {
+      const message = err?.response?.data?.error || 'Sign-up failed. Please try again.';
+      showAlert('Sign-Up Error', message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Exchange a short-lived auth code for a JWT via the server
+  async function exchangeAuthCode(code: string): Promise<boolean> {
+    try {
+      const res = await client.post('/auth/exchange-code', { code });
+      const { token } = res.data;
+      if (token) {
+        signIn(token);
+        setTimeout(() => router.push('/onboarding/permissions'), 0);
+        return true;
+      }
+    } catch (err) {
+      console.error('Auth code exchange failed:', err);
+    }
+    return false;
   }
 
   async function handleGoogleSignIn() {
+    if (Platform.OS === 'web') {
+      // On web, use popup-based flow with web-safe redirect
+      try {
+        const webOrigin = encodeURIComponent(window.location.origin);
+        const result = await WebBrowser.openAuthSessionAsync(
+          `${Env.EXPO_PUBLIC_API_URL}/auth/google?platform=web&webOrigin=${webOrigin}`,
+          `${window.location.origin}/connect/callback`,
+        );
+        if (result.type === 'success' && result.url) {
+          const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          if (code && await exchangeAuthCode(code)) return;
+        }
+        showAlert('Sign-In Cancelled', 'Google sign-in was cancelled or failed. Please try again.');
+      }
+      catch (err) {
+        console.error('Google sign-in error:', err);
+        showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
+      }
+      return;
+    }
+
+    // Native: use deep link redirect
     try {
       const result = await WebBrowser.openAuthSessionAsync(
         `${Env.EXPO_PUBLIC_API_URL}/auth/google`,
-        'wingman://auth/callback'
+        'wingman://auth/callback',
       );
       if (result.type === 'success' && result.url) {
         const url = new URL(result.url);
-        const token = url.searchParams.get('token');
-        if (token) {
-          signIn(token);
-          router.push('/onboarding/permissions');
-        } else {
-          Alert.alert('Sign-In Failed', 'No authentication token received from server.');
-        }
+        const code = url.searchParams.get('code');
+        if (code && await exchangeAuthCode(code)) return;
+        showAlert('Sign-In Failed', 'No valid authentication received from server.');
+      } else {
+        showAlert('Sign-In Cancelled', 'Google sign-in was cancelled.');
       }
-      // If result.type is 'cancel' or 'dismiss', user closed the browser — do nothing
-    } catch (err) {
+    }
+    catch (err) {
       console.error('Google sign-in error:', err);
-      Alert.alert('Sign-In Error', 'Failed to start Google sign-in. Please try again.');
+      showAlert('Sign-In Error', 'Failed to start Google sign-in. Please try again.');
     }
   }
 
   async function handleAppleSignIn() {
-    // Apple Sign In requires native module (expo-apple-authentication) on iOS;
-    // show informative message on unsupported platforms.
     if (Platform.OS !== 'ios') {
-      Alert.alert('Not Available', 'Apple Sign-In is only available on iOS devices.');
+      showAlert('Not Available', 'Apple Sign-In is only available on iOS devices.');
       return;
     }
-    Alert.alert('Coming Soon', 'Apple Sign-In will be available in a future update.');
+    showAlert('Coming Soon', 'Apple Sign-In will be available in a future update.');
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0C0C0C]">
+    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       <ProgressBar step={3} />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerClassName="px-6 pb-8 items-center" keyboardShouldPersistTaps="handled">
@@ -91,21 +156,40 @@ export default function SignupScreen() {
           </View>
 
           <Text
-            className="text-white text-[28px] font-bold text-center mb-5"
-            style={{ fontFamily: 'Sora_700Bold', letterSpacing: -1 }}
+            style={{
+              color: t.primary,
+              fontSize: 28,
+              fontFamily: 'Sora_700Bold',
+              letterSpacing: -1,
+              textAlign: 'center',
+              marginBottom: 20,
+            }}
           >
-            {"Create Your\nAccount"}
+            {'Create Your\nAccount'}
           </Text>
 
           {/* Form */}
-          <View className="gap-3 w-full">
+          <View style={{ gap: 14, width: '100%' }}>
             {/* Email input */}
-            <View className="h-[52px] rounded-lg bg-[#1A1A1A] border border-[#3A3A3A] px-4 flex-row items-center">
-              <Ionicons name="mail-outline" size={18} color="#525252" />
+            <View
+              style={{
+                height: 52,
+                borderRadius: 12,
+                backgroundColor: surface.elevated,
+                borderWidth: 1,
+                borderColor: surface.border,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <Ionicons name="mail-outline" size={18} color={t.secondary} />
               <TextInput
-                className="flex-1 ml-3 text-white text-[14px]"
+                className="flex-1 text-[14px]"
+                style={{ color: t.primary }}
                 placeholder="Email address"
-                placeholderTextColor="#525252"
+                placeholderTextColor={t.disabled}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -115,86 +199,188 @@ export default function SignupScreen() {
             </View>
 
             {/* Password input */}
-            <View className="h-[52px] rounded-lg bg-[#1A1A1A] border border-[#3A3A3A] px-4 flex-row items-center">
-              <Ionicons name="lock-closed-outline" size={18} color="#525252" />
+            <View
+              style={{
+                height: 52,
+                borderRadius: 12,
+                backgroundColor: surface.elevated,
+                borderWidth: 1,
+                borderColor: surface.border,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <Ionicons name="lock-closed-outline" size={18} color={t.secondary} />
               <TextInput
-                className="flex-1 ml-3 text-white text-[14px]"
-                placeholder="Password"
-                placeholderTextColor="#525252"
+                className="flex-1 text-[14px]"
+                style={{ color: t.primary }}
+                placeholder="Password (min 8 chars)"
+                placeholderTextColor={t.disabled}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color="#525252" />
-              </TouchableOpacity>
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
+              >
+                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color={t.secondary} />
+              </Pressable>
             </View>
           </View>
 
           <View className="mt-4 w-full">
-            <GradientButton title="Sign Up" onPress={handleSignUp} />
+            <GradientButton title={loading ? "Signing Up..." : "Sign Up"} onPress={handleSignUp} disabled={loading} />
           </View>
 
           {/* Divider */}
-          <View className="flex-row items-center my-5 w-full">
-            <View className="flex-1 h-px bg-[#2A2A2A]" />
+          <View className="my-5 w-full flex-row items-center">
+            <View style={{ flex: 1, height: 1, backgroundColor: surface.border }} />
             <Text
-              className="text-[#525252] text-[13px] mx-4"
-              style={{ fontFamily: 'Inter_500Medium' }}
+              style={{
+                color: t.muted,
+                fontSize: 13,
+                fontFamily: 'Inter_500Medium',
+                marginHorizontal: 16,
+              }}
             >
               or continue with
             </Text>
-            <View className="flex-1 h-px bg-[#2A2A2A]" />
+            <View style={{ flex: 1, height: 1, backgroundColor: surface.border }} />
           </View>
 
           {/* Social buttons */}
-          <View className="gap-2.5 w-full">
-            <TouchableOpacity
-              className="h-[52px] rounded-lg border-[1.5px] border-[#3A3A3A] flex-row items-center justify-center"
+          <MotiView {...entrance(0, 280)} style={{ gap: 12, width: '100%' }}>
+            <Pressable
+              style={({ pressed, hovered }) => [
+                {
+                  height: 52,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: surface.borderStrong,
+                  backgroundColor: surface.card,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                },
+                ...pressStyle({ pressed }),
+                webInteractive(),
+                Platform.OS === 'web' && hovered && !pressed
+                  ? { backgroundColor: surface.cardAlt, borderColor: surface.border }
+                  : undefined,
+              ]}
               onPress={handleGoogleSignIn}
-              activeOpacity={0.8}
             >
               <GoogleIcon />
               <Text
-                className="text-white text-[14px] ml-2.5"
-                style={{ fontFamily: 'Inter_500Medium' }}
+                style={{
+                  color: t.primary,
+                  fontSize: 15,
+                  fontFamily: 'Inter_500Medium',
+                }}
               >
-                Continue with Google
+                Google
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              className="h-[52px] rounded-lg bg-white flex-row items-center justify-center"
+            <Pressable
+              style={({ pressed, hovered }) => [
+                {
+                  height: 52,
+                  borderRadius: 12,
+                  backgroundColor: '#FFFFFF',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                },
+                ...pressStyle({ pressed }),
+                webInteractive(),
+                Platform.OS === 'web' && hovered && !pressed
+                  ? { backgroundColor: '#F5F5F5' }
+                  : undefined,
+              ]}
               onPress={handleAppleSignIn}
-              activeOpacity={0.8}
             >
               <AppleIcon />
               <Text
-                className="text-black text-[14px] ml-2.5"
-                style={{ fontFamily: 'Inter_500Medium' }}
+                style={{
+                  color: '#000000',
+                  fontSize: 15,
+                  fontFamily: 'Inter_500Medium',
+                }}
               >
-                Continue with Apple
+                Apple
               </Text>
-            </TouchableOpacity>
+            </Pressable>
+          </MotiView>
+
+          {/* Trust / security note — elevated badge style */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 24,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              backgroundColor: surface.section,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: surface.border,
+              gap: 8,
+              width: '100%',
+            }}
+          >
+            <Ionicons name="shield-checkmark-outline" size={16} color={purple[500]} />
+            <Text
+              style={{
+                color: t.secondary,
+                fontSize: 13,
+                fontFamily: 'Inter_500Medium',
+                flex: 1,
+                textAlign: 'center',
+              }}
+            >
+              Your data is encrypted and secure
+            </Text>
           </View>
 
-          {/* Footer */}
-          <View className="flex-row justify-center items-center mt-5 mb-4">
+          {/* Footer — link to login */}
+          <View className="mt-4 mb-4 flex-row items-center justify-center">
             <Text
-              className="text-[#525252] text-[13px]"
-              style={{ fontFamily: 'Inter_400Regular' }}
+              style={{
+                color: t.secondary,
+                fontSize: 14,
+                fontFamily: 'Inter_400Regular',
+              }}
             >
-              Already have an account?{' '}
+              Already have an account?
+              {' '}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/login')}>
+            <Pressable
+              onPress={() => router.push('/login')}
+              style={({ pressed, hovered }) => [
+                ...pressStyle({ pressed }),
+                webInteractive(),
+                Platform.OS === 'web' && hovered && !pressed ? { opacity: 0.8 } : undefined,
+              ]}
+            >
               <Text
-                className="text-[#525252] text-[13px] font-semibold"
-                style={{ fontFamily: 'Inter_400Regular' }}
+                style={{
+                  color: purple[400],
+                  fontSize: 14,
+                  fontFamily: 'Inter_600SemiBold',
+                  textDecorationLine: 'underline',
+                }}
               >
                 Sign In
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
