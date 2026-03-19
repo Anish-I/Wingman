@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
+import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -22,15 +23,26 @@ interface SettingsRowProps {
 function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showChevron = true, isFirst, isLast }: SettingsRowProps) {
   return (
     <>
-      <TouchableOpacity
+      <Pressable
         className="flex-row items-center py-4 px-4 gap-3"
-        style={[
-          { backgroundColor: '#1A1A1A' },
+        style={({ pressed, hovered, focused }: any) => [
+          {
+            backgroundColor: '#1A1A1A',
+          },
           isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
           isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+          ...cardPressStyle({ pressed }),
+          webInteractive(!onPress),
+          // Web hover: subtle lift and background change
+          Platform.OS === 'web' && hovered && !pressed && onPress
+            ? { backgroundColor: '#232329', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' } as any
+            : undefined,
+          // Web focus ring
+          Platform.OS === 'web' && focused && onPress
+            ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
+            : undefined,
         ]}
         onPress={onPress}
-        activeOpacity={onPress ? 0.6 : 1}
         disabled={!onPress}
       >
         <View
@@ -48,7 +60,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
           ) : null}
           {showChevron && <Ionicons name="chevron-forward" size={16} color="#3A3A3A" />}
         </View>
-      </TouchableOpacity>
+      </Pressable>
       {!isLast && <View className="h-px bg-[#242424] ml-14" />}
     </>
   );
@@ -166,14 +178,24 @@ export default function SettingsScreen() {
           animate={{ opacity: 1 }}
           transition={{ delay: 700 }}
         >
-          <TouchableOpacity
+          <Pressable
             className="flex-row items-center justify-center gap-2 py-4 mt-8 mx-4 bg-[#FF3B30]/10 rounded-2xl"
             onPress={handleLogout}
-            activeOpacity={0.6}
+            style={({ pressed, hovered, focused }: any) => [
+              ...cardPressStyle({ pressed }),
+              webInteractive(),
+              // Web hover: enhance background
+              Platform.OS === 'web' && hovered && !pressed
+                ? { backgroundColor: '#FF3B30/20', boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)' } as any
+                : undefined,
+              Platform.OS === 'web' && focused
+                ? { boxShadow: '0 0 0 2px rgba(255, 59, 48, 0.3)' } as any
+                : undefined,
+            ]}
           >
             <Ionicons name="log-out-outline" size={18} color="#FF3B30" />
             <Text className="text-[#FF3B30] text-base font-bold">Log Out</Text>
-          </TouchableOpacity>
+          </Pressable>
         </MotiView>
       </ScrollView>
     </SafeAreaView>

@@ -1,7 +1,16 @@
 import { createQuery, createMutation } from 'react-query-kit';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import { showMessage } from 'react-native-flash-message';
 import { client } from '@/lib/api/client';
 import type { Workflow } from '@/types';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    showMessage({ message: title, description: message, type: 'info', duration: 3000 });
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 type WorkflowsResponse = { workflows: Workflow[] };
 type WorkflowResponse = { workflow: Workflow };
@@ -25,7 +34,7 @@ export const useCreateWorkflow = createMutation<WorkflowResponse, { name: string
       const { data } = await client.post<WorkflowResponse>('/api/workflows', variables);
       return data;
     } catch {
-      Alert.alert('Demo Mode', 'Workflow creation is not available without a backend.');
+      showAlert('Demo Mode', 'Workflow creation is not available without a backend.');
       throw new Error('Demo mode: backend unavailable');
     }
   },
@@ -44,7 +53,7 @@ export const useUpdateWorkflow = createMutation<WorkflowResponse, { id: string; 
       const { data } = await client.patch<WorkflowResponse>(`/api/workflows/${id}`, patch);
       return data;
     } catch {
-      Alert.alert('Demo Mode', 'Workflow updates are not available without a backend.');
+      showAlert('Demo Mode', 'Workflow updates are not available without a backend.');
       throw new Error('Demo mode: backend unavailable');
     }
   },

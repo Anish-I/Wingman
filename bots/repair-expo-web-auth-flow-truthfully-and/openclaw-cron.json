@@ -1,0 +1,10 @@
+{
+  "name": "bot-repair-expo-web-auth-flow-truthfully-and",
+  "description": "repair Expo web auth flow truthfully and verify real OTP login in mobile-v2",
+  "schedule": "every 4 hours",
+  "command": "Use the coding-agent skill to spawn Claude Code. Have it follow the instructions in C:/Users/ivatu/Wingman/bots/repair-expo-web-auth-flow-truthfully-and/prompt.md",
+  "delivery": {
+    "channel": "telegram",
+    "to": "5006911570"
+  }
+}

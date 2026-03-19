@@ -1,0 +1,10 @@
+{
+  "name": "bot-polish-motion-and-interactions-in-the-ex",
+  "description": "polish motion and interactions in the Expo app and keep web affordances tactile",
+  "schedule": "every 4 hours",
+  "command": "Use the coding-agent skill to spawn Claude Code. Have it follow the instructions in C:/Users/ivatu/Wingman/bots/polish-motion-and-interactions-in-the-ex/prompt.md",
+  "delivery": {
+    "channel": "telegram",
+    "to": "5006911570"
+  }
+}

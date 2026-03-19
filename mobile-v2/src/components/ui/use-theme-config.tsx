@@ -7,15 +7,21 @@ import { useUniwind } from 'uniwind';
 
 import colors from '@/components/ui/colors';
 
+/**
+ * Dark theme for "Premium Assistant OS"
+ * - Primary: Purple (brand, trust, action)
+ * - Secondary: Teal (assistant status, confidence)
+ * - Surfaces: Intentional depth hierarchy (bg → card → section → elevated)
+ */
 const DarkTheme: Theme = {
   ..._DarkTheme,
   colors: {
     ..._DarkTheme.colors,
-    primary: colors.primary[400],
-    background: colors.charcoal[950],
-    text: colors.charcoal[100],
-    border: colors.charcoal[850],
-    card: colors.charcoal[900],
+    primary: colors.primary[500], // Purple — primary action
+    background: colors.charcoal[950], // #0A0A0C
+    text: '#F0F0F5', // Primary text
+    border: '#232330', // Standard border
+    card: '#131315', // Card surface
   },
 };
 

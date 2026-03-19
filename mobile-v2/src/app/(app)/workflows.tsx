@@ -1,27 +1,37 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Switch, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
+import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
+import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function getTriggerIcon(type: string): { icon: IconName; color: string; label: string } {
   switch (type) {
     case 'schedule': return { icon: 'time', color: '#F5A623', label: 'Scheduled' };
-    case 'event': return { icon: 'flash', color: '#9B7EC8', label: 'Event' };
-    default: return { icon: 'hand-left', color: '#4A7BD9', label: 'Manual' };
+    case 'event': return { icon: 'flash', color: '#7C5CFC', label: 'Event' };
+    default: return { icon: 'hand-left', color: '#7C5CFC', label: 'Manual' };
   }
 }
 
 const TEMPLATES = [
-  { icon: '📧', title: 'Morning email digest', color: '#4A7BD9' },
+  { icon: '📧', title: 'Morning email digest', color: '#7C5CFC' },
   { icon: '📅', title: 'Daily calendar summary', color: '#F5A623' },
-  { icon: '💬', title: 'Slack standup reminder', color: '#9B7EC8' },
+  { icon: '💬', title: 'Slack standup reminder', color: '#7C5CFC' },
   { icon: '🐙', title: 'GitHub PR notifications', color: '#6EC6B8' },
 ];
 
@@ -41,7 +51,7 @@ export default function WorkflowsScreen() {
       await updateMutation.mutateAsync({ id, patch: { active } });
       refetch();
     } catch {
-      Alert.alert('Error', 'Could not update workflow.');
+      showAlert('Error', 'Could not update workflow.');
     }
   }
 
@@ -65,7 +75,7 @@ export default function WorkflowsScreen() {
         setNlInput('');
         refetch();
       } catch (err: unknown) {
-        Alert.alert('Error', err instanceof Error ? err.message : 'Could not create workflow.');
+        showAlert('Error', err instanceof Error ? err.message : 'Could not create workflow.');
       }
     }
   }
@@ -78,9 +88,9 @@ export default function WorkflowsScreen() {
           animate={{ rotate: '360deg' }}
           transition={{ type: 'timing', duration: 1000, loop: true }}
         >
-          <Ionicons name="sync" size={32} color="#9B7EC8" />
+          <Ionicons name="sync" size={32} color="#7C5CFC" />
         </MotiView>
-        <Text className="text-[#9B7EC8] text-sm font-semibold mt-3">Loading workflows...</Text>
+        <Text className="text-[#7C5CFC] text-sm font-semibold mt-3">Loading workflows...</Text>
       </SafeAreaView>
     );
   }
@@ -89,23 +99,20 @@ export default function WorkflowsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <MotiView
-        from={{ opacity: 0, translateY: -10 }}
-        animate={{ opacity: 1, translateY: 0 }}
+        {...headerEntrance}
         className="px-6 pt-6 pb-2"
       >
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text className="text-[#8A8A8A] text-sm mt-0.5">Let Pip handle the boring stuff</Text>
+            <Text className="text-[#8E8E9A] text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
-            from={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', damping: 10, delay: 200 }}
+            {...popIn(0, 200)}
           >
-            <View className="bg-[#9B7EC8]/15 rounded-2xl px-4 py-2 items-center">
-              <Text className="text-[#9B7EC8] text-[20px] font-extrabold">{workflows.length}</Text>
-              <Text className="text-[#9B7EC8] text-[10px] font-bold uppercase">Active</Text>
+            <View className="bg-[#7C5CFC]/15 rounded-2xl px-4 py-2 items-center">
+              <Text className="text-[#7C5CFC] text-[20px] font-extrabold">{workflows.length}</Text>
+              <Text className="text-[#7C5CFC] text-[10px] font-bold uppercase">Active</Text>
             </View>
           </MotiView>
         </View>
@@ -120,14 +127,12 @@ export default function WorkflowsScreen() {
             <View className="mt-4 mb-2">
               {/* Empty state with templates */}
               <MotiView
-                from={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', damping: 12, delay: 200 }}
+                {...popIn(0, 200)}
                 className="items-center mb-6"
               >
                 <PipCard expression="thinking" size="small" />
                 <Text className="text-foreground text-lg font-bold mt-2">No automations yet</Text>
-                <Text className="text-[#8A8A8A] text-sm text-center mt-1">
+                <Text className="text-[#8E8E9A] text-sm text-center mt-1">
                   Tell me what to automate, or try a template:
                 </Text>
               </MotiView>
@@ -137,14 +142,18 @@ export default function WorkflowsScreen() {
                 {TEMPLATES.map((t, i) => (
                   <MotiView
                     key={t.title}
-                    from={{ opacity: 0, translateX: -20 }}
-                    animate={{ opacity: 1, translateX: 0 }}
-                    transition={{ type: 'spring', damping: 15, delay: 400 + i * 80 }}
+                    {...slideIn(i, 350)}
                   >
-                    <TouchableOpacity
-                      className="flex-row items-center bg-[#1A1A1A] rounded-2xl p-4 gap-3 border border-[#2A2A2A]"
+                    <Pressable
+                      className="flex-row items-center bg-[#141416] rounded-2xl p-4 gap-3 border border-[#262630]"
                       onPress={() => createWorkflow(t.title)}
-                      activeOpacity={0.7}
+                      style={({ pressed, hovered }: any) => [
+                        ...pressStyle({ pressed }),
+                        webInteractive(),
+                        Platform.OS === 'web' && hovered && !pressed
+                          ? { borderColor: `${t.color}40`, boxShadow: `0 2px 10px ${t.color}18` } as any
+                          : undefined,
+                      ]}
                     >
                       <View
                         className="w-10 h-10 rounded-xl items-center justify-center"
@@ -154,7 +163,7 @@ export default function WorkflowsScreen() {
                       </View>
                       <Text className="text-foreground text-[14px] font-semibold flex-1">{t.title}</Text>
                       <Ionicons name="add-circle" size={22} color={t.color} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </MotiView>
                 ))}
               </View>
@@ -165,11 +174,9 @@ export default function WorkflowsScreen() {
           const trigger = getTriggerIcon(item.trigger_type);
           return (
             <MotiView
-              from={{ opacity: 0, translateY: 15 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', damping: 15, delay: index * 60 }}
+              {...entrance(index, 100)}
             >
-              <View className="bg-[#1A1A1A] rounded-2xl p-4 gap-3 border border-[#2A2A2A]">
+              <View className="bg-[#141416] rounded-2xl p-4 gap-3 border border-[#262630]">
                 <View className="flex-row items-center gap-3">
                   <View
                     className="w-[42px] h-[42px] rounded-xl items-center justify-center"
@@ -180,13 +187,13 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text className="text-[#8A8A8A] text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
+                      <Text className="text-[#8E8E9A] text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
                   <Switch
                     value={item.active}
                     onValueChange={(v) => toggleWorkflow(item.id, v)}
-                    trackColor={{ false: '#242424', true: '#32D74B' }}
+                    trackColor={{ false: '#1C1C20', true: '#32D74B' }}
                     thumbColor="#fff"
                   />
                 </View>
@@ -214,58 +221,65 @@ export default function WorkflowsScreen() {
 
       {/* FAB */}
       <MotiView
-        from={{ scale: 0, rotate: '45deg' }}
-        animate={{ scale: 1, rotate: '0deg' }}
-        transition={{ type: 'spring', damping: 10, delay: 500 }}
+        from={{ opacity: 0, scale: 0, rotate: '45deg' }}
+        animate={{ opacity: 1, scale: 1, rotate: '0deg' }}
+        transition={{ ...springs.bouncy, delay: 500 }}
         className="absolute bottom-6 right-6"
       >
-        <TouchableOpacity
+        <Pressable
           className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden"
           onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
+          style={({ pressed }) => [
+            ...pressStyle({ pressed }),
+            webInteractive(),
+          ]}
         >
           <LinearGradient
-            colors={['#9B7EC8', '#7B5EA8', '#5E4488']}
+            colors={['#7C5CFC', '#6545DB', '#4F32B3']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
           >
             <Ionicons name="sparkles" size={24} color="#FFFFFF" />
           </LinearGradient>
-        </TouchableOpacity>
+        </Pressable>
       </MotiView>
 
       {/* NL Input Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/70 justify-end">
-          <View className="bg-[#141416] rounded-t-[24px] p-6 pb-12 border-t border-[#2A2A2A]">
+          <View className="bg-[#141416] rounded-t-[24px] p-6 pb-12 border-t border-[#262630]">
             <View className="flex-row items-center gap-3 mb-5">
-              <View className="w-10 h-10 rounded-xl bg-[#9B7EC8]/20 items-center justify-center">
-                <Ionicons name="sparkles" size={20} color="#9B7EC8" />
+              <View className="w-10 h-10 rounded-xl bg-[#7C5CFC]/20 items-center justify-center">
+                <Ionicons name="sparkles" size={20} color="#7C5CFC" />
               </View>
               <View>
                 <Text className="text-foreground text-lg font-bold">New Automation</Text>
-                <Text className="text-[#8A8A8A] text-xs">Describe it in plain English</Text>
+                <Text className="text-[#8E8E9A] text-xs">Describe it in plain English</Text>
               </View>
             </View>
             <TextInput
-              className="bg-[#1A1A1A] rounded-2xl p-4 text-foreground text-[15px] mb-4 border border-[#2A2A2A]"
+              className="bg-[#141416] rounded-2xl p-4 text-foreground text-[15px] mb-4 border border-[#262630]"
               style={{ textAlignVertical: 'top', minHeight: 100 }}
               placeholder="e.g., Every morning, summarize my calendar in Slack..."
-              placeholderTextColor="#525252"
+              placeholderTextColor="#55556A"
               value={nlInput}
               onChangeText={setNlInput}
               multiline
               autoFocus
             />
-            <TouchableOpacity
+            <Pressable
               className="rounded-2xl py-4 items-center mb-2 overflow-hidden"
               onPress={() => createWorkflow()}
               disabled={isPending || !nlInput.trim()}
-              style={{ opacity: isPending || !nlInput.trim() ? 0.5 : 1 }}
+              style={({ pressed }) => [
+                { opacity: isPending || !nlInput.trim() ? 0.5 : 1 },
+                ...pressStyle({ pressed }),
+                webInteractive(isPending || !nlInput.trim()),
+              ]}
             >
               <LinearGradient
-                colors={['#9B7EC8', '#7B5EA8']}
+                colors={['#7C5CFC', '#6545DB']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -273,10 +287,17 @@ export default function WorkflowsScreen() {
               <Text className="text-white text-base font-bold">
                 {isPending ? 'Creating magic...' : 'Create Automation'}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="py-3 items-center" onPress={() => setModalVisible(false)}>
-              <Text className="text-[#8A8A8A] text-[15px] font-medium">Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
+            <Pressable
+              className="py-3 items-center"
+              onPress={() => setModalVisible(false)}
+              style={({ pressed }) => [
+                ...chipPressStyle({ pressed }),
+                webInteractive(),
+              ]}
+            >
+              <Text className="text-[#8E8E9A] text-[15px] font-medium">Cancel</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>

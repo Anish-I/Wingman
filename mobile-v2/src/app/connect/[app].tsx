@@ -1,37 +1,77 @@
-import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Platform, Text, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { showMessage } from 'react-native-flash-message';
 import * as WebBrowser from 'expo-web-browser';
+import { AxiosError } from 'axios';
 import Env from 'env';
 import { client } from '@/lib/api/client';
+import { getToken } from '@/lib/auth/utils';
 
 export default function ConnectAppScreen() {
   const { app } = useLocalSearchParams<{ app: string }>();
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!app) { router.back(); return; }
+
+    // Skip API call for demo tokens — they will always 401
+    const token = getToken();
+    if (token === 'demo-mock-token') {
+      if (Platform.OS === 'web') {
+        showMessage({ message: 'Demo Mode', description: `Connect ${app} requires a real account. Sign in with OTP first.`, type: 'info', duration: 3000 });
+      }
+      router.back();
+      return;
+    }
+
     (async () => {
       try {
-        // Create a short-lived, single-use connect token (avoids JWT in URL)
         const { data } = await client.post<{ connectToken: string }>('/connect/create-connect-token', { app });
+        const redirectUrl = Platform.OS === 'web'
+          ? `${window.location.origin}/connect/callback`
+          : 'wingman://connect/callback';
         const result = await WebBrowser.openAuthSessionAsync(
           `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}`,
-          'wingman://connect/callback'
+          redirectUrl
         );
         if (result.type === 'success') {
           router.replace('/(app)/apps');
         } else {
           router.back();
         }
-      } catch {
-        router.back();
+      } catch (err) {
+        if (err instanceof AxiosError && err.response?.status === 401) {
+          setError('Session expired. Please sign in again.');
+        } else {
+          setError('Could not connect app. Please try again.');
+        }
       }
     })();
   }, [app]);
 
+  if (error) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0C', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: '#FF6B6B', fontSize: 16, fontFamily: 'Inter_600SemiBold', textAlign: 'center', marginBottom: 16 }}>
+          {error}
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, backgroundColor: '#1A1A1A' },
+            Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined,
+          ]}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'Inter_500Medium' }}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View className="flex-1 bg-background items-center justify-center">
+    <View style={{ flex: 1, backgroundColor: '#0A0A0C', alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator color="#4A7BD9" size="large" />
     </View>
   );

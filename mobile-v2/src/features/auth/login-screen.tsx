@@ -10,10 +10,10 @@ export function LoginScreen() {
   const router = useRouter();
   const signIn = useAuthStore.use.signIn();
 
-  const onSubmit: LoginFormProps['onSubmit'] = (data) => {
-    console.log(data);
-    signIn('demo-mock-token');
-    router.replace('/(app)/chat');
+  const onSubmit: LoginFormProps['onSubmit'] = (_data) => {
+    // This legacy login form is not connected to a real auth flow.
+    // Users should use the /login route (OTP-based) or /onboarding/signup instead.
+    router.replace('/login');
   };
 
   return (

@@ -1,25 +1,40 @@
 import { createMutation } from 'react-query-kit';
 import { AxiosError } from 'axios';
 import { client } from '@/lib/api/client';
+import { getToken } from '@/lib/auth/utils';
 
 type ChatResponse = { reply: string };
 type ChatVariables = { message: string };
 
-const MOCK_REPLY =
-  'Hey! I\u2019m Pip, your AI pigeon. The server is not connected right now, but I\u2019m here in demo mode!';
+const DEMO_TOKEN = 'demo-mock-token';
 
 export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
   mutationFn: async (variables) => {
+    // Do NOT mask auth failures with demo replies.
+    // If user has a real token, always hit the real API.
+    // If auth fails, the error should surface immediately so the user can log back in.
+    const token = getToken();
+    
+    // Reject demo token usage — it should not be used in real authenticated routes
+    if (token === DEMO_TOKEN) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
     try {
       const { data } = await client.post<ChatResponse>('/api/chat', variables);
       return data;
     } catch (err) {
-      // Only fall back to demo mode for network errors (no response from server)
-      if (err instanceof AxiosError && !err.response) {
-        await new Promise((r) => setTimeout(r, 800));
-        return { reply: MOCK_REPLY };
+      if (err instanceof AxiosError) {
+        if (err.response?.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.');
+        }
+        if (!err.response) {
+          throw new Error('Unable to reach the server. Check your connection.');
+        }
+        if (err.response?.status === 500) {
+          throw new Error('The server encountered an error. The AI service may not be configured yet.');
+        }
       }
-      // For actual server errors (401, 500, etc.), re-throw so the user sees the error
       throw err;
     }
   },
