@@ -1,16 +1,18 @@
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
+import * as React from 'react';
+import { Platform, Pressable, Text } from 'react-native';
+import { purple, radii, semantic, shadows } from '@/components/ui/tokens';
+import { actionPressStyle, springs, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
-interface GradientButtonProps {
+type GradientButtonProps = {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'success';
   icon?: string;
   showArrow?: boolean;
-}
+};
 
 export default function GradientButton({
   title,
@@ -21,43 +23,64 @@ export default function GradientButton({
   showArrow,
 }: GradientButtonProps) {
   const isPrimary = variant === 'primary';
-  const bgColor = isPrimary ? '#3B5998' : '#32D74B';
+  const bgColor = isPrimary ? purple[500] : semantic.success;
+  const glowColor = isPrimary ? purple[500] : semantic.success;
 
   return (
-    <MotiView className="w-full">
-      <TouchableOpacity
+    <MotiView
+      className="w-full"
+      from={{ opacity: 0, translateY: 12 }}
+      animate={{ opacity: disabled ? 0.5 : 1, translateY: 0 }}
+      transition={{ ...springs.snappy, delay: 80 }}
+    >
+      <Pressable
         onPress={onPress}
         disabled={disabled}
-        activeOpacity={0.85}
-        style={[
+        style={({ pressed, hovered, focused }: any) => [
           {
             height: 56,
-            borderRadius: 12,
+            borderRadius: radii.md,
             backgroundColor: bgColor,
             flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
           },
-          disabled ? { opacity: 0.5 } : undefined,
+          !disabled && isPrimary ? shadows.purpleGlow : undefined,
+          ...actionPressStyle({ pressed }),
+          disabled ? { opacity: 0.4, backgroundColor: isPrimary ? purple[700] : '#1B6B2A' } : undefined,
+          webInteractive(disabled),
+          // Web hover: amplify glow with smooth transition
+          Platform.OS === 'web' && hovered && !pressed && !disabled
+            ? webHoverStyle(true, glowColor, 'strong')
+            : undefined,
+          // Web focus ring (keyboard navigation)
+          Platform.OS === 'web' && focused && !disabled
+            ? webFocusRing(true, glowColor)
+            : undefined,
         ]}
       >
-        {icon ? (
-          <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" />
-        ) : null}
+        {icon
+          ? (
+              <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" />
+            )
+          : null}
         <Text
-          style={
-            isPrimary
-              ? { color: '#FFFFFF', fontFamily: 'Inter_600SemiBold', fontSize: 16 }
-              : { color: '#FFFFFF', fontFamily: 'Sora_700Bold', fontSize: 17 }
-          }
+          style={{
+            color: '#FFFFFF',
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 16,
+            letterSpacing: -0.2,
+          }}
         >
           {title}
         </Text>
-        {showArrow ? (
-          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
-        ) : null}
-      </TouchableOpacity>
+        {showArrow
+          ? (
+              <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={{ marginLeft: 2 }} />
+            )
+          : null}
+      </Pressable>
     </MotiView>
   );
 }

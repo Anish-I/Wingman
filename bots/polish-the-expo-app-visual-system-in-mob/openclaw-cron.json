@@ -1,0 +1,10 @@
+{
+  "name": "bot-polish-the-expo-app-visual-system-in-mob",
+  "description": "polish the Expo app visual system in mobile-v2 and keep the theme cohesive",
+  "schedule": "every 4 hours",
+  "command": "Use the coding-agent skill to spawn Claude Code. Have it follow the instructions in C:/Users/ivatu/Wingman/bots/polish-the-expo-app-visual-system-in-mob/prompt.md",
+  "delivery": {
+    "channel": "telegram",
+    "to": "5006911570"
+  }
+}

@@ -1,12 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Alert, TouchableOpacity } from 'react-native';
+import * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { FocusAwareStatusBar } from '@/components/ui';
+import { purple, surface, text as t } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
-import { FocusAwareStatusBar } from '@/components/ui';
+
+/** Show a toast on web (FlashMessage) or native Alert */
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
+  }
+  else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
   const [step, setStep] = useState<'phone' | 'verify'>('phone');
@@ -18,15 +32,16 @@ export default function LoginScreen() {
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length < 10) {
-      Alert.alert('Invalid number', 'Please enter a valid phone number.');
+      showAlert('Invalid number', 'Please enter a valid phone number.');
       return;
     }
     const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
       await client.post('/auth/request-otp', { phone: formatted });
-    } catch {
-      Alert.alert('Error', 'Could not send verification code. Please try again.');
+    }
+    catch {
+      showAlert('Error', 'Could not send verification code. Please try again.');
       setLoading(false);
       return;
     }
@@ -52,18 +67,29 @@ export default function LoginScreen() {
     }
   }
 
+  const verifyingRef = useRef(false);
+
   async function handleVerify() {
     const otp = code.join('');
     if (otp.length !== 6) {
-      Alert.alert('Incomplete', 'Please enter all 6 digits.');
+      showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
+      // Validate that a real token was returned (not a demo token or undefined)
+      if (!data.token || data.token === 'demo-mock-token') {
+        showAlert('Sign-In Failed', 'No valid authentication token received. Please try again.');
+        setLoading(false);
+        return;
+      }
       signIn(data.token);
-    } catch {
-      Alert.alert('Invalid Code', 'The code you entered is incorrect. Please try again.');
+      setTimeout(() => router.replace('/(app)/chat'), 0);
+    }
+    catch (err: any) {
+      const message = err?.response?.data?.error || 'The code you entered is incorrect. Please try again.';
+      showAlert('Invalid Code', message);
       setCode(['', '', '', '', '', '']);
       setActiveIdx(0);
       inputs.current[0]?.focus();
@@ -72,14 +98,16 @@ export default function LoginScreen() {
   }
 
   useEffect(() => {
-    if (code.every((d) => d !== '') && step === 'verify') {
-      handleVerify();
+    // Auto-submit when all 6 digits are entered, but only if not already verifying
+    if (code.every(d => d !== '') && step === 'verify' && !verifyingRef.current && !loading) {
+      verifyingRef.current = true;
+      handleVerify().finally(() => { verifyingRef.current = false; });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, step]);
 
   return (
-    <SafeAreaView className="flex-1 justify-center" style={{ backgroundColor: '#0C0C0C' }}>
+    <SafeAreaView className="flex-1 justify-center" style={{ backgroundColor: surface.bg }}>
       <FocusAwareStatusBar />
       <View className="px-8" style={{ gap: 24 }}>
         {/* Header */}
@@ -88,7 +116,7 @@ export default function LoginScreen() {
             style={{
               fontFamily: 'Sora_700Bold',
               fontSize: 28,
-              color: '#FFFFFF',
+              color: t.primary,
               letterSpacing: -1,
             }}
           >
@@ -98,7 +126,7 @@ export default function LoginScreen() {
             style={{
               fontFamily: 'Inter_400Regular',
               fontSize: 15,
-              color: '#8A8A8A',
+              color: t.secondary,
             }}
           >
             {step === 'phone'
@@ -114,22 +142,22 @@ export default function LoginScreen() {
               className="flex-row items-center rounded-lg px-4"
               style={{
                 height: 56,
-                backgroundColor: '#1A1A1A',
+                backgroundColor: surface.card,
                 borderWidth: 1,
-                borderColor: '#3A3A3A',
+                borderColor: surface.borderStrong,
               }}
             >
-              <Text style={{ fontFamily: 'Sora_700Bold', fontSize: 16, color: '#FFFFFF' }}>+1</Text>
-              <View style={{ width: 1, height: 32, backgroundColor: '#2A2A2A', marginHorizontal: 12 }} />
+              <Text style={{ fontFamily: 'Sora_700Bold', fontSize: 16, color: t.primary }}>+1</Text>
+              <View style={{ width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 }} />
               <TextInput
                 className="flex-1"
                 style={{
                   fontFamily: 'Inter_400Regular',
                   fontSize: 16,
-                  color: '#FFFFFF',
+                  color: t.primary,
                 }}
                 placeholder="(555) 123-4567"
-                placeholderTextColor="#525252"
+                placeholderTextColor={t.muted}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -139,20 +167,24 @@ export default function LoginScreen() {
             </View>
 
             {/* Send button */}
-            <TouchableOpacity
-              className="rounded-lg items-center justify-center"
-              style={{
-                height: 52,
-                backgroundColor: loading ? '#2A3F6E' : '#4A7BD9',
-              }}
+            <Pressable
+              style={[
+                {
+                  height: 52,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: loading ? purple[700] : purple[500],
+                },
+                Platform.OS === 'web' ? { cursor: loading ? 'default' : 'pointer' } as any : undefined,
+              ]}
               onPress={handleSendCode}
               disabled={loading}
-              activeOpacity={0.8}
             >
               <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
                 {loading ? 'Sending...' : 'Send Code'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </>
         ) : (
           <>
@@ -162,24 +194,25 @@ export default function LoginScreen() {
                 <TextInput
                   key={i}
                   ref={(r) => {
-                    if (r) inputs.current[i] = r;
+                    if (r)
+                      inputs.current[i] = r;
                   }}
                   style={{
                     width: 48,
                     height: 56,
-                    borderRadius: 8,
-                    backgroundColor: '#1A1A1A',
+                    borderRadius: 10,
+                    backgroundColor: surface.card,
                     borderWidth: activeIdx === i ? 2 : 1,
-                    borderColor: activeIdx === i ? '#4A7BD9' : '#3A3A3A',
+                    borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
                     textAlign: 'center',
                     fontFamily: 'Sora_700Bold',
                     fontSize: 24,
-                    color: '#FFFFFF',
+                    color: t.primary,
                   }}
                   value={digit}
-                  onChangeText={(t) => handleCodeChange(t, i)}
+                  onChangeText={txt => handleCodeChange(txt, i)}
                   onFocus={() => setActiveIdx(i)}
-                  onKeyPress={(e) => handleKeyPress(e, i)}
+                  onKeyPress={e => handleKeyPress(e, i)}
                   keyboardType="number-pad"
                   maxLength={1}
                   selectTextOnFocus
@@ -188,41 +221,70 @@ export default function LoginScreen() {
               ))}
             </View>
 
+            {/* Verify button */}
+            <Pressable
+              style={[
+                {
+                  height: 52,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: loading ? purple[700] : purple[500],
+                  opacity: code.join('').length < 6 && !loading ? 0.5 : 1,
+                },
+                Platform.OS === 'web' ? { cursor: loading ? 'default' : 'pointer' } as any : undefined,
+              ]}
+              onPress={handleVerify}
+              disabled={loading}
+            >
+              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
+                {loading ? 'Verifying...' : 'Verify Code'}
+              </Text>
+            </Pressable>
+
             {/* Resend / Back */}
             <View className="flex-row items-center justify-between">
-              <TouchableOpacity
+              <Pressable
                 onPress={() => {
                   setStep('phone');
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);
                 }}
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
               >
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#525252' }}>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
                   Change number
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Pressable>
+              <Pressable
                 onPress={() => {
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);
                   handleSendCode();
                 }}
+                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
               >
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#4A7BD9' }}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: purple[400] }}>
                   Resend Code
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
-
-            {loading && (
-              <View className="items-center">
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#8A8A8A' }}>
-                  Verifying...
-                </Text>
-              </View>
-            )}
           </>
         )}
+        {/* Sign up link */}
+        <View className="mt-4 flex-row items-center justify-center">
+          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: t.muted }}>
+            Don't have an account?{' '}
+          </Text>
+          <Pressable
+            onPress={() => router.push('/onboarding/signup')}
+            style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
+          >
+            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: purple[400] }}>
+              Sign Up
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );

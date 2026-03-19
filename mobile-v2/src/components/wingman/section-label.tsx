@@ -1,21 +1,30 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import * as React from 'react';
+import { Text, View } from 'react-native';
+import { purple, text as t } from '@/components/ui/tokens';
 
-interface SectionLabelProps {
+type SectionLabelProps = {
   text: string;
   color?: string;
-}
+};
 
-export default function SectionLabel({ text, color = '#4A7BD9' }: SectionLabelProps) {
+export default function SectionLabel({ text, color = purple[500] }: SectionLabelProps) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ width: 24, height: 2, backgroundColor: color, borderRadius: 1 }} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <View
+        style={{
+          width: 24,
+          height: 2.5,
+          backgroundColor: color,
+          borderRadius: 2,
+          opacity: 0.85,
+        }}
+      />
       <Text
         style={{
-          fontFamily: 'Inter_700Bold',
+          fontFamily: 'Inter_600SemiBold',
           fontSize: 11,
-          letterSpacing: 2,
-          color,
+          letterSpacing: 1.6,
+          color: t.muted,
           textTransform: 'uppercase',
         }}
       >

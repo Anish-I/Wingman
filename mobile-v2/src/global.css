@@ -2,7 +2,7 @@
 @import 'tailwindcss';
 @import 'uniwind';
 
-/* Define Wingman Pencil theme — true-black design tokens */
+/* Define Wingman Premium theme — dark-first design tokens */
 @theme {
   /* Font families */
   --font-family-sans: 'NunitoSans', ui-sans-serif, system-ui, sans-serif;
@@ -11,25 +11,44 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  /* Pip palette — Pencil true-black */
-  --color-pip-bg: #0C0C0C;
-  --color-pip-card: #1A1A1A;
-  --color-pip-elevated: #242424;
-  --color-pip-border: #2A2A2A;
-  --color-pip-border-strong: #3A3A3A;
-  --color-pip-primary: #3B5998;
-  --color-pip-primary-light: #4A7BD9;
-  --color-pip-primary-dark: #2D4474;
+  /* ── Brand purple (primary action) ────────────────────────── */
+  --color-pip-purple: #7C5CFC;
+  --color-pip-purple-light: #9171F5;
+  --color-pip-purple-dark: #6545DB;
+  --color-pip-purple-muted: #7C5CFC1F;
+
+  /* ── Teal (secondary / assistant status) ──────────────────── */
   --color-pip-accent: #6EC6B8;
   --color-pip-accent-dark: #5AAE9F;
-  --color-pip-purple: #9B7EC8;
-  --color-pip-orange: #F5A623;
-  --color-pip-text: #FFFFFF;
-  --color-pip-text-secondary: #8A8A8A;
-  --color-pip-text-muted: #525252;
+  --color-pip-accent-muted: #6EC6B81F;
+
+  /* ── Blue (info / links — demoted) ────────────────────────── */
+  --color-pip-blue: #4A7BD9;
+  --color-pip-blue-dark: #3B5998;
+
+  /* ── Surfaces — dark theme depth ──────────────────────────── */
+  --color-pip-bg: #0A0A0C;
+  --color-pip-card: #131315;
+  --color-pip-card-alt: #161619;
+  --color-pip-elevated: #1C1C20;
+  --color-pip-border: #232330;
+  --color-pip-border-strong: #35354A;
+
+  /* ── Text ──────────────────────────────────────────────────── */
+  --color-pip-text: #F0F0F5;
+  --color-pip-text-secondary: #8E8E9A;
+  --color-pip-text-muted: #55556A;
+
+  /* ── Semantic ─────────────────────────────────────────────── */
   --color-pip-success: #32D74B;
-  --color-pip-error: #FF3B30;
-  --color-pip-warning: #FBBF24;
+  --color-pip-error: #FF453A;
+  --color-pip-warning: #FFD60A;
+  --color-pip-orange: #F5A623;
+
+  /* Legacy aliases (compat) */
+  --color-pip-primary: #7C5CFC;
+  --color-pip-primary-light: #9171F5;
+  --color-pip-primary-dark: #6545DB;
   --color-pip-accent-blue: #4A7BD9;
   --color-pip-accent-blue-soft: #4A7BD920;
 
@@ -45,7 +64,7 @@
   --color-charcoal-800: #383838;
   --color-charcoal-850: #2E2E2E;
   --color-charcoal-900: #1E1E1E;
-  --color-charcoal-950: #121212;
+  --color-charcoal-950: #0A0A0C;
 
   /* Neutral palette */
   --color-neutral-50: #FAFAFA;
@@ -59,17 +78,17 @@
   --color-neutral-800: #262626;
   --color-neutral-900: #171717;
 
-  /* Primary palette (Pip blue) */
-  --color-primary-50: #E8EDF5;
-  --color-primary-100: #D1DBEB;
-  --color-primary-200: #A3B7D7;
-  --color-primary-300: #7593C3;
-  --color-primary-400: #4A7BD9;
-  --color-primary-500: #3B5998;
-  --color-primary-600: #2D4474;
-  --color-primary-700: #1F2F50;
-  --color-primary-800: #111A2C;
-  --color-primary-900: #030508;
+  /* Primary palette (purple) */
+  --color-primary-50: #F3EEFF;
+  --color-primary-100: #E4D9FF;
+  --color-primary-200: #C9B3FF;
+  --color-primary-300: #AA8AFF;
+  --color-primary-400: #9171F5;
+  --color-primary-500: #7C5CFC;
+  --color-primary-600: #6545DB;
+  --color-primary-700: #4F32B3;
+  --color-primary-800: #3A228A;
+  --color-primary-900: #261562;
 
   /* Success palette */
   --color-success-50: #F0FDF4;
@@ -107,21 +126,21 @@
   --color-danger-800: #991B1B;
   --color-danger-900: #7F1D1D;
 
-  /* Semantic colors — Pencil dark theme */
-  --color-background: #0C0C0C;
-  --color-foreground: #FFFFFF;
+  /* Semantic colors — Premium dark theme */
+  --color-background: #0A0A0C;
+  --color-foreground: #F0F0F5;
 
-  --color-card: #1A1A1A;
-  --color-card-foreground: #FFFFFF;
+  --color-card: #131315;
+  --color-card-foreground: #F0F0F5;
 
-  --color-muted: #242424;
-  --color-muted-foreground: #8A8A8A;
+  --color-muted: #1C1C20;
+  --color-muted-foreground: #8E8E9A;
 
-  --color-border: #2A2A2A;
-  --color-input: #1A1A1A;
-  --color-ring: #4A7BD9;
+  --color-border: #232330;
+  --color-input: #131315;
+  --color-ring: #7C5CFC;
 
-  --color-destructive: #FF3B30;
+  --color-destructive: #FF453A;
   --color-destructive-foreground: #ffffff;
 }
 

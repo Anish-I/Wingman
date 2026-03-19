@@ -1,12 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { MotiView, AnimatePresence } from 'moti';
-import Env from 'env';
-import { useChatStore } from '@/features/chat/store';
-import { useSendMessage } from '@/features/chat/api';
 import type { Message } from '@/types';
+import { Ionicons } from '@expo/vector-icons';
+import Env from 'env';
+import { MotiView } from 'moti';
+import * as React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { blue, purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
+import { useSendMessage } from '@/features/chat/api';
+import { useChatStore } from '@/features/chat/store';
+import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
 
@@ -19,14 +22,15 @@ const PIP_GREETINGS = [
 
 function TypingDots() {
   return (
-    <View className="flex-row gap-1.5 items-center px-4 pb-3">
+    <View className="flex-row items-center gap-1.5 px-4 pb-3">
       <MotiView
         from={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', damping: 12 }}
-        className="flex-row items-center gap-2 bg-[#1A1A1A] rounded-2xl rounded-bl-[4px] px-4 py-3"
+        className="flex-row items-center gap-2 rounded-2xl rounded-bl-[4px] px-4 py-3"
+        style={{ backgroundColor: surface.card }}
       >
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2].map(i => (
           <MotiView
             key={i}
             from={{ translateY: 0, scale: 1 }}
@@ -38,11 +42,13 @@ function TypingDots() {
               repeatReverse: true,
               delay: i * 120,
             }}
-            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#6EC6B8' }}
+            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teal[300] }}
           />
         ))}
       </MotiView>
-      <Text className="text-[#6EC6B8] text-[13px] font-semibold ml-1">Pip is thinking...</Text>
+      <Text style={{ color: teal[300], fontSize: 13, fontFamily: 'Inter_600SemiBold', marginLeft: 4 }}>
+        Pip is thinking...
+      </Text>
     </View>
   );
 }
@@ -59,7 +65,8 @@ export default function ChatScreen() {
 
   async function send(text?: string) {
     const msg = text ?? input.trim();
-    if (!msg || loading) return;
+    if (!msg || loading)
+      return;
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -77,31 +84,56 @@ export default function ChatScreen() {
         content: result.reply,
         timestamp: Date.now(),
       });
-    } catch (err: unknown) {
+    }
+    catch (err: unknown) {
       addMessage({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: err instanceof Error ? err.message : 'Something went wrong.',
         timestamp: Date.now(),
       });
-    } finally {
+    }
+    finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (messages.length) listRef.current?.scrollToEnd({ animated: true });
+    if (messages.length)
+      listRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
   const examplePrompts = [
     { text: 'Schedule a meeting', icon: 'calendar-outline' as const, color: '#F5A623' },
-    { text: 'Send an email', icon: 'mail-outline' as const, color: '#4A7BD9' },
-    { text: 'Play music', icon: 'musical-notes-outline' as const, color: '#9B7EC8' },
-    { text: 'Check my tasks', icon: 'checkmark-circle-outline' as const, color: '#6EC6B8' },
-    { text: 'What can you do?', icon: 'sparkles-outline' as const, color: '#F5A623' },
+    { text: 'Send an email', icon: 'mail-outline' as const, color: blue[400] },
+    { text: 'Play music', icon: 'musical-notes-outline' as const, color: purple[400] },
+    { text: 'Check my tasks', icon: 'checkmark-circle-outline' as const, color: teal[300] },
+    { text: 'What can you do?', icon: 'sparkles-outline' as const, color: purple[500] },
   ];
 
   const canSend = input.trim().length > 0 && !loading;
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Keep a ref to the latest send function to avoid stale closures in the
+  // web-only keypress handler.
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
+  // On web, multiline TextInput's onSubmitEditing doesn't fire.
+  // Handle Enter key (without Shift) to send.
+  const handleKeyPress = useCallback(
+    (e: any) => {
+      if (Platform.OS !== 'web')
+        return;
+      if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+        e.preventDefault();
+        // Also prevent on the native DOM event in case the RN wrapper doesn't propagate
+        e.nativeEvent.preventDefault?.();
+        sendRef.current();
+      }
+    },
+    [],
+  );
 
   function renderItem({ item, index }: { item: Message; index: number }) {
     const isUser = item.role === 'user';
@@ -109,25 +141,32 @@ export default function ChatScreen() {
       <MotiView
         from={{ opacity: 0, translateY: 12, scale: 0.95 }}
         animate={{ opacity: 1, translateY: 0, scale: 1 }}
-        transition={{ type: 'spring', damping: 15, stiffness: 150, delay: 50 }}
+        transition={{ ...springs.snappy, delay: 50 }}
       >
-        <View className={`flex-row items-end gap-2 my-0.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+        <View className={`my-0.5 flex-row items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {!isUser && (
             <MotiView
-              from={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', damping: 10, delay: 100 }}
-              className="w-7 h-7 rounded-full bg-[#1A1A1A] overflow-hidden items-center justify-center"
+              {...popIn(0, 50)}
+              className="size-7 items-center justify-center overflow-hidden rounded-full"
+              style={{ backgroundColor: surface.card }}
             >
               <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 32, height: 32, resizeMode: 'cover' }} />
             </MotiView>
           )}
           <View
-            className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
-              isUser ? 'bg-[#3B5998] rounded-br-[4px]' : 'bg-[#1A1A1A] rounded-bl-[4px] border border-[#2A2A2A]'
-            }`}
+            style={[
+              {
+                maxWidth: '78%',
+                borderRadius: 18,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+              },
+              isUser
+                ? { backgroundColor: purple[500], borderBottomRightRadius: 4 }
+                : { backgroundColor: surface.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: surface.border },
+            ]}
           >
-            <Text className={`text-[15px] leading-[22px] ${isUser ? 'text-white' : 'text-[#E0E0E0]'}`}>
+            <Text style={{ fontSize: 15, lineHeight: 22, color: isUser ? '#FFFFFF' : t.primary }}>
               {item.content}
             </Text>
           </View>
@@ -137,133 +176,227 @@ export default function ChatScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       {/* Header */}
-      <View className="flex-row items-center px-4 py-3 bg-[#0C0C0C] border-b border-[#1A1A1A] gap-3">
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={springs.gentle}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: surface.bg,
+          borderBottomWidth: 1,
+          borderBottomColor: surface.border,
+          gap: 12,
+        }}
+      >
         <MotiView
           from={{ rotate: '0deg' }}
           animate={{ rotate: '0deg' }}
-          className="w-11 h-11 rounded-full bg-[#1A1A1A] overflow-hidden items-center justify-center border-2 border-[#6EC6B8]/20"
+          className="size-11 items-center justify-center overflow-hidden rounded-full"
+          style={{
+            backgroundColor: surface.card,
+            borderWidth: 1.5,
+            borderColor: purple.muted,
+          }}
         >
           <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 48, height: 48, resizeMode: 'cover' }} />
         </MotiView>
-        <View className="flex-1">
-          <View className="flex-row items-center gap-1.5">
-            <Text className="text-foreground text-lg font-bold">Pip</Text>
-            <View className="w-2 h-2 rounded-full bg-[#32D74B]" />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ color: t.primary, fontSize: 18, fontFamily: 'Sora_700Bold' }}>Pip</Text>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: semantic.success }} />
           </View>
-          <Text className="text-[#6EC6B8] text-xs font-medium">Online • Your AI pigeon</Text>
+          <Text style={{ color: teal[300], fontSize: 12, fontFamily: 'Inter_500Medium' }}>
+            Online
+          </Text>
         </View>
         {IS_STUB && (
-          <View className="bg-[#F5A62318] rounded-full px-2.5 py-1">
-            <Text className="text-[#F5A623] text-[10px] font-bold">DEMO</Text>
+          <View style={{ backgroundColor: '#F5A62318', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ color: '#F5A623', fontSize: 10, fontFamily: 'Inter_700Bold' }}>DEMO</Text>
           </View>
         )}
-      </View>
+      </MotiView>
 
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={(m) => m.id}
+          keyExtractor={m => m.id}
           renderItem={renderItem}
           contentContainerClassName="p-4 gap-1"
           contentContainerStyle={messages.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : undefined}
-          ListEmptyComponent={
+          ListEmptyComponent={(
             <View className="items-center px-6">
-              {/* Pip avatar with glow */}
+              {/* Pip avatar — floats gently to feel alive */}
               <MotiView
-                from={{ scale: 0, rotate: '-10deg' }}
-                animate={{ scale: 1, rotate: '0deg' }}
-                transition={{ type: 'spring', damping: 8, stiffness: 80, delay: 200 }}
+                {...popIn(0, 200)}
               >
-                <View className="w-[100px] h-[100px] rounded-full bg-[#1A1A1A] border-[3px] border-[#6EC6B8]/25 justify-center items-center overflow-hidden mb-3">
-                  <Image source={require('../../../assets/pip/pip-wave.png')} style={{ width: 110, height: 110, resizeMode: 'cover' }} />
-                </View>
+                <MotiView {...gentleFloat(800)}>
+                  <View
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: 50,
+                      backgroundColor: surface.card,
+                      borderWidth: 2,
+                      borderColor: purple.muted,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      overflow: 'hidden',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Image source={require('../../../assets/pip/pip-wave.png')} style={{ width: 110, height: 110, resizeMode: 'cover' }} />
+                  </View>
+                </MotiView>
               </MotiView>
 
               <MotiView
-                from={{ opacity: 0, translateY: 10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ delay: 400 }}
+                {...entrance(0, 400)}
               >
-                <Text className="text-foreground text-[24px] font-extrabold mb-1 text-center">Hey! I'm Pip 🕊️</Text>
-                <Text className="text-[#8A8A8A] text-[15px] text-center mb-2 leading-[22px]">
+                <Text style={{ color: t.primary, fontSize: 24, fontFamily: 'Sora_700Bold', textAlign: 'center', marginBottom: 4 }}>
+                  Hey! I'm Pip
+                </Text>
+                <Text style={{ color: t.secondary, fontSize: 15, textAlign: 'center', marginBottom: 8, lineHeight: 22 }}>
                   {greeting}
                 </Text>
               </MotiView>
 
               {/* Prompt suggestions */}
               <MotiView
-                from={{ opacity: 0, translateY: 20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ delay: 600 }}
-                className="w-full mt-4"
+                {...entrance(0, 550)}
+                className="mt-4 w-full"
                 style={{ gap: 8 }}
               >
-                <Text className="text-[#525252] text-xs font-bold uppercase tracking-widest text-center mb-1">Try asking</Text>
+                <Text style={{ color: t.muted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 }}>
+                  TRY ASKING
+                </Text>
                 <View className="flex-row flex-wrap justify-center gap-2">
                   {examplePrompts.map((prompt, i) => (
                     <MotiView
                       key={prompt.text}
-                      from={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', damping: 12, delay: 700 + i * 80 }}
+                      {...popIn(i, 650)}
                     >
-                      <TouchableOpacity
-                        className="flex-row items-center gap-2 bg-[#1A1A1A] rounded-2xl px-4 py-3 border border-[#2A2A2A]"
+                      <Pressable
+                        style={({ pressed, hovered, focused }: any) => [
+                          {
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                            backgroundColor: surface.card,
+                            borderRadius: 16,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            borderWidth: 1,
+                            borderColor: surface.border,
+                          },
+                          ...cardPressStyle({ pressed }),
+                          webInteractive(),
+                          Platform.OS === 'web' && hovered && !pressed
+                            ? { borderColor: `${prompt.color}60`, boxShadow: `0 4px 16px ${prompt.color}28`, transform: [{ scale: 1.02 }] } as any
+                            : undefined,
+                          Platform.OS === 'web' && focused
+                            ? { boxShadow: `0 0 0 2px ${prompt.color}40` } as any
+                            : undefined,
+                        ]}
                         onPress={() => send(prompt.text)}
-                        activeOpacity={0.7}
                       >
                         <View
-                          className="w-7 h-7 rounded-lg items-center justify-center"
-                          style={{ backgroundColor: prompt.color + '20' }}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: `${prompt.color}18`,
+                          }}
                         >
                           <Ionicons name={prompt.icon} size={15} color={prompt.color} />
                         </View>
-                        <Text className="text-foreground text-[13px] font-semibold">{prompt.text}</Text>
-                      </TouchableOpacity>
+                        <Text style={{ color: t.primary, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>
+                          {prompt.text}
+                        </Text>
+                      </Pressable>
                     </MotiView>
                   ))}
                 </View>
               </MotiView>
             </View>
-          }
+          )}
         />
 
         {loading && <TypingDots />}
 
         {/* Input bar */}
         <MotiView
-          from={{ translateY: 20, opacity: 0 }}
-          animate={{ translateY: 0, opacity: 1 }}
-          transition={{ delay: 300 }}
-          className="flex-row items-end bg-[#1A1A1A] m-3 mb-4 rounded-2xl px-3.5 py-2 gap-2 border border-[#2A2A2A]"
+          {...entrance(0, 200)}
         >
-          <TextInput
-            className="flex-1 text-foreground text-[15px] py-1.5"
-            style={{ maxHeight: 120 }}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Text Pip..."
-            placeholderTextColor="#525252"
-            multiline
-            onSubmitEditing={() => send()}
-            returnKeyType="send"
-          />
           <MotiView
-            animate={{ scale: canSend ? 1 : 0.85, opacity: canSend ? 1 : 0.4 }}
-            transition={{ type: 'spring', damping: 12 }}
+            animate={{
+              borderColor: inputFocused ? purple[500] : surface.border,
+              backgroundColor: inputFocused ? `${purple[500]}08` : surface.card,
+            }}
+            transition={{ type: 'timing', duration: 160 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              backgroundColor: surface.card,
+              margin: 12,
+              marginBottom: 16,
+              borderRadius: 18,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              gap: 8,
+              borderWidth: 1.5,
+              borderColor: surface.border,
+            }}
           >
-            <TouchableOpacity
-              className="w-[36px] h-[36px] rounded-xl items-center justify-center"
-              style={{ backgroundColor: canSend ? '#3B5998' : '#242424' }}
-              onPress={() => send()}
-              disabled={!canSend}
-              activeOpacity={0.7}
+            <TextInput
+              className="flex-1 py-1.5 text-[15px]"
+              style={{ maxHeight: 120, color: t.primary }}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Text Pip..."
+              placeholderTextColor={t.muted}
+              multiline
+              onSubmitEditing={() => send()}
+              onKeyPress={handleKeyPress}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              returnKeyType="send"
+            />
+            <MotiView
+              {...sendButtonAnimate(canSend)}
             >
-              <Ionicons name="arrow-up" size={20} color={canSend ? '#FFFFFF' : '#525252'} />
-            </TouchableOpacity>
+              <Pressable
+                style={({ pressed, hovered, focused }: any) => [
+                  {
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: canSend ? purple[500] : surface.elevated,
+                  },
+                  canSend && pressed ? { opacity: 0.75, transform: [{ scale: 0.85 }] } : undefined,
+                  canSend && hovered && !pressed
+                    ? { boxShadow: `0 4px 12px ${purple[500]}40`, transform: [{ scale: 1.05 }] } as any
+                    : undefined,
+                  canSend && focused
+                    ? { boxShadow: `0 0 0 2px ${purple[500]}60` } as any
+                    : undefined,
+                  webInteractive(!canSend),
+                ]}
+                onPress={() => send()}
+                disabled={!canSend}
+              >
+                <Ionicons name="arrow-up" size={20} color={canSend ? '#FFFFFF' : t.muted} />
+              </Pressable>
+            </MotiView>
           </MotiView>
         </MotiView>
       </KeyboardAvoidingView>

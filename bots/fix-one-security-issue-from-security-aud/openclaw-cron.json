@@ -1,0 +1,10 @@
+{
+  "name": "bot-fix-one-security-issue-from-security-aud",
+  "description": "fix one security issue from SECURITY-AUDIT.md each run",
+  "schedule": "every 4 hours",
+  "command": "Use the coding-agent skill to spawn Claude Code. Have it follow the instructions in C:/Users/ivatu/Wingman/bots/fix-one-security-issue-from-security-aud/prompt.md",
+  "delivery": {
+    "channel": "telegram",
+    "to": "5006911570"
+  }
+}
