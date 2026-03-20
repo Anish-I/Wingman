@@ -61,7 +61,7 @@ The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder strin
 
 **File:** `server/routes/auth.js`
 
-**Fix:** Added two layers of rate limiting to `POST /auth/verify-otp`: (1) `express-rate-limit` middleware (`otpVerifyLimiter`) keyed by phone number — 5 attempts per 15 minutes; (2) Redis-based per-phone attempt counter (`otp_attempts:<phone>`) — 5 failed attempts per 10-minute OTP TTL window, with TTL refreshed on each failure. On successful verification, both the OTP and attempt counter are cleared.
+**Fix:** Added two layers of rate limiting to `POST /auth/verify-otp`: (1) `express-rate-limit` middleware (`otpVerifyLimiter`) keyed by phone number — 5 attempts per 15 minutes; (2) Redis-based per-phone attempt counter (`otp_attempts:<phone>`) — 5 failed attempts per 10-minute OTP TTL window, with sliding TTL refreshed on each failure. On successful verification, both the OTP and attempt counter are cleared. OTP comparison uses `crypto.timingSafeEqual()` to prevent timing side-channel attacks.
 
 ### H2. ~~OTP Generated with Math.random() (Not Cryptographically Secure)~~ — FIXED (2026-03-17)
 
