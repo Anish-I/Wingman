@@ -41,6 +41,12 @@ async function verifyAppleToken(token) {
 }
 
 const router = express.Router();
+// Lazy require to avoid circular dependency (requireAuth imports verifyToken from this file)
+let _requireAuth;
+function requireAuth(req, res, next) {
+  if (!_requireAuth) _requireAuth = require('../middleware/requireAuth');
+  return _requireAuth(req, res, next);
+}
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -543,25 +549,13 @@ router.post('/social', async (req, res) => {
 });
 
 // GET /auth/me — current user info
-router.get('/me', async (req, res) => {
+router.get('/me', requireAuth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization token required.' });
-    }
-    const payload = verifyToken(authHeader.slice(7));
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
-    }
-    const user = await getUserById(payload.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
     res.json({
-      id: user.id,
-      phone: user.phone,
-      name: user.name,
-      preferences: user.preferences || {},
+      id: req.user.id,
+      phone: req.user.phone,
+      name: req.user.name,
+      preferences: req.user.preferences || {},
     });
   } catch (err) {
     console.error('Auth me error:', err);
@@ -570,18 +564,8 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /auth/set-pin
-router.post('/set-pin', async (req, res) => {
+router.post('/set-pin', requireAuth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization token required.' });
-    }
-
-    const payload = verifyToken(authHeader.slice(7));
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
-    }
-
     const { pin } = req.body;
     if (!pin || !/^\d{4,8}$/.test(pin)) {
       return res.status(400).json({ error: 'PIN must be 4-8 numeric digits.' });
@@ -589,7 +573,7 @@ router.post('/set-pin', async (req, res) => {
 
     // bcrypt with cost 12 - replaces SHA-256+pepper (see SECURITY-AUDIT C3)
     const pinHash = await bcrypt.hash(pin, 12);
-    await updateUserPin(payload.userId, pinHash);
+    await updateUserPin(req.user.id, pinHash);
 
     res.json({ success: true, message: 'PIN set successfully.' });
   } catch (err) {
@@ -599,39 +583,25 @@ router.post('/set-pin', async (req, res) => {
 });
 
 // POST /auth/verify-pin
-router.post('/verify-pin', async (req, res) => {
+router.post('/verify-pin', requireAuth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization token required.' });
-    }
-
-    const payload = verifyToken(authHeader.slice(7));
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token.' });
-    }
-
     const { pin } = req.body;
     if (!pin || !/^\d{4,8}$/.test(pin)) {
       return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
     }
 
     // Rate limit: max 5 attempts per userId per 15 minutes
-    const attemptKey = `pin_verify_attempts:${payload.userId}`;
+    const attemptKey = `pin_verify_attempts:${req.user.id}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
       return res.status(429).json({ error: 'Too many PIN verification attempts. Try again later.' });
     }
 
-    const user = await getUserById(payload.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-    if (!user.pin_hash) {
+    if (!req.user.pin_hash) {
       return res.status(400).json({ error: 'No PIN set for this account.' });
     }
 
-    const valid = await bcrypt.compare(pin, user.pin_hash);
+    const valid = await bcrypt.compare(pin, req.user.pin_hash);
 
     if (!valid) {
       await redis.incr(attemptKey);

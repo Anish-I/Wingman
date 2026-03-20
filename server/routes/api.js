@@ -2,8 +2,8 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
-const { verifyToken } = require('./auth');
-const { getUserById, updatePushToken } = require('../db/queries');
+const requireAuth = require('../middleware/requireAuth');
+const { updatePushToken } = require('../db/queries');
 const { processMessage } = require('../services/orchestrator');
 const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
@@ -45,22 +45,6 @@ function validateIdParam(req, res, next) {
 
 // Allowed keys for user preferences
 const ALLOWED_PREFERENCE_KEYS = ['timezone', 'theme', 'language', 'notifications', 'smsOptIn'];
-
-// Middleware: parse Bearer token → req.user
-async function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required.' });
-  }
-  const payload = verifyToken(authHeader.slice(7));
-  if (!payload) {
-    return res.status(401).json({ error: 'Invalid or expired token.' });
-  }
-  const user = await getUserById(payload.userId).catch(() => null);
-  if (!user) return res.status(401).json({ error: 'User not found.' });
-  req.user = user;
-  next();
-}
 
 // POST /api/chat — send a message, get AI reply
 router.post('/chat', requireAuth, chatLimiter, async (req, res) => {

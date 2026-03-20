@@ -1,0 +1,31 @@
+'use strict';
+const { verifyToken } = require('../routes/auth');
+const { getUserById } = require('../db/queries');
+
+/**
+ * Express middleware: validates Bearer JWT and loads the full user from DB.
+ * Attaches `req.user` (DB row) and `req.tokenPayload` (JWT claims).
+ * Rejects with 401 if token is missing, invalid, expired, or user no longer exists.
+ */
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization token required.' });
+  }
+
+  const payload = verifyToken(authHeader.slice(7));
+  if (!payload) {
+    return res.status(401).json({ error: 'Invalid or expired token.' });
+  }
+
+  const user = await getUserById(payload.userId).catch(() => null);
+  if (!user) {
+    return res.status(401).json({ error: 'User not found.' });
+  }
+
+  req.user = user;
+  req.tokenPayload = payload;
+  next();
+}
+
+module.exports = requireAuth;

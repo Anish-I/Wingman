@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { verifyToken } = require('./auth');
+const requireAuth = require('../middleware/requireAuth');
 const { redis } = require('../services/redis');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
 
@@ -27,24 +27,10 @@ function verifyOAuthState(stateToken) {
 
 const WEB_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-// Auth middleware — reuses verifyToken from auth.js
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required.' });
-  }
-  const payload = verifyToken(authHeader.slice(7));
-  if (!payload) {
-    return res.status(401).json({ error: 'Invalid or expired token.' });
-  }
-  req.user = payload;
-  next();
-}
-
 // GET /connect/status — list connected & missing apps (Bearer auth)
 router.get('/status', requireAuth, async (req, res) => {
   try {
-    const status = await getConnectionStatus(req.user.userId, WINGMAN_APPS);
+    const status = await getConnectionStatus(req.user.id, WINGMAN_APPS);
     res.json(status);
   } catch (err) {
     console.error('Connection status error:', err);
@@ -62,7 +48,7 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
     }
     const connectToken = crypto.randomBytes(32).toString('hex');
     const key = `connect_token:${connectToken}`;
-    await redis.set(key, JSON.stringify({ userId: req.user.userId, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
+    await redis.set(key, JSON.stringify({ userId: req.user.id, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
     res.json({ connectToken });
   } catch (err) {
     console.error('[connect] create-connect-token error:', err);
@@ -126,7 +112,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid app parameter.' });
     }
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
-    const entityId = String(req.user.userId);
+    const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const listRes = await fetch(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
     if (listRes.ok) {
@@ -141,7 +127,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
         });
       }
     }
-    await invalidateToolsCache(req.user.userId);
+    await invalidateToolsCache(req.user.id);
     res.json({ success: true });
   } catch (err) {
     console.error('Disconnect error:', err);
@@ -153,9 +139,9 @@ router.post('/disconnect', requireAuth, async (req, res) => {
 router.get('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
-    const state = generateOAuthState(req.user.userId, app);
+    const state = generateOAuthState(req.user.id, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
-    const url = await getConnectionLink(req.user.userId, app, redirectUrl);
+    const url = await getConnectionLink(req.user.id, app, redirectUrl);
     res.redirect(url);
   } catch (err) {
     console.error('Connection link error:', err);
@@ -168,7 +154,7 @@ router.delete('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
-    const entityId = String(req.user.userId);
+    const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const listRes = await fetch(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
     if (listRes.ok) {
@@ -183,7 +169,7 @@ router.delete('/:app', requireAuth, async (req, res) => {
         });
       }
     }
-    await invalidateToolsCache(req.user.userId);
+    await invalidateToolsCache(req.user.id);
     res.json({ success: true });
   } catch (err) {
     console.error('Disconnect error:', err);
