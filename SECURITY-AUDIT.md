@@ -162,18 +162,11 @@ localStorage is accessible to any JavaScript running on the same origin. If an X
 **Impact:** Token theft if XSS is present.
 **Remediation:** Consider httpOnly cookies for web sessions. The mobile app using MMKV is fine.
 
-### L2. Mobile MMKV Storage Not Encrypted
+### L2. ~~Mobile MMKV Storage Not Encrypted~~ — FIXED (2026-03-18)
 
-**File:** `mobile-v2/src/lib/storage.tsx:3`
+**File:** `mobile-v2/src/lib/storage.tsx`
 
-```ts
-export const storage = createMMKV();
-```
-
-MMKV is created without encryption options. On rooted/jailbroken devices, the JWT can be read from the filesystem.
-
-**Impact:** Token extraction on compromised devices.
-**Remediation:** Use `createMMKV({ encryptionKey: '...' })` with a device-derived key.
+**Fix:** MMKV is now initialized with a 256-bit encryption key generated via `crypto.getRandomValues()` and stored securely in `expo-secure-store` (Keychain on iOS, Keystore on Android). On web, MMKV remains unencrypted (browser storage model). Falls back to unencrypted MMKV if SecureStore is unavailable.
 
 ### L3. ~~PIN Validation Allows Non-Numeric Input~~ — FIXED (2026-03-17)
 
@@ -218,7 +211,7 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 | CRITICAL | 3 | 1 | 2 | Secrets in git history, placeholder JWT secret (mitigated at runtime) |
 | HIGH     | 6 | 6 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
-| LOW      | 6 | 3 | 3 | localStorage JWT (L1), unencrypted MMKV (L2), trust proxy (L6) |
+| LOW      | 6 | 4 | 2 | localStorage JWT (L1), trust proxy (L6) |
 
 ## Priority Actions
 
