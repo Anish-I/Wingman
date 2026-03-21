@@ -32,7 +32,14 @@ async function sendSMS(to, body) {
  */
 function validateWebhook(rawBody, headers) {
   const publicKey = process.env.TELNYX_PUBLIC_KEY;
-  if (!publicKey) return true;
+  if (!publicKey) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[security] TELNYX_PUBLIC_KEY is not set — rejecting webhook in production');
+      return false;
+    }
+    console.warn('[security] WARNING: TELNYX_PUBLIC_KEY not set — skipping signature validation in development');
+    return true;
+  }
 
   const signature = headers['telnyx-signature-ed25519-signature'];
   const timestamp = headers['telnyx-signature-ed25519-timestamp'];
