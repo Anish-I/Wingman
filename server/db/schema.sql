@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS workflow_templates (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Cascade chain: users -> workflows -> workflow_runs -> workflow_pending_replies
+-- Deleting a user cascades through workflows and workflow_runs, cleaning up all
+-- related pending replies. All three FKs below use ON DELETE CASCADE.
 CREATE TABLE IF NOT EXISTS workflow_pending_replies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id UUID NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
