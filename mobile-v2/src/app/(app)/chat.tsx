@@ -1,10 +1,11 @@
 import type { Message } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
+import * as Crypto from 'expo-crypto';
 import Env from 'env';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { blue, purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
@@ -72,31 +73,43 @@ export default function ChatScreen() {
     const msg = text ?? input.trim();
     if (!msg || loading)
       return;
+    const userMsgId = Crypto.randomUUID();
+    const assistantMsgId = Crypto.randomUUID();
+
+    // Deduplicate: skip if a message with this ID already exists (e.g. retry)
+    if (messages.some(m => m.id === userMsgId))
+      return;
+
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: userMsgId,
       role: 'user',
       content: msg,
       timestamp: Date.now(),
     };
     addMessage(userMsg);
     setInput('');
+    Keyboard.dismiss();
     setLoading(true);
     try {
       const result = await sendMutation.mutateAsync({ message: msg });
-      addMessage({
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: result.reply,
-        timestamp: Date.now(),
-      });
+      if (!messages.some(m => m.id === assistantMsgId)) {
+        addMessage({
+          id: assistantMsgId,
+          role: 'assistant',
+          content: result.reply,
+          timestamp: Date.now(),
+        });
+      }
     }
     catch (err: unknown) {
-      addMessage({
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: err instanceof Error ? err.message : 'Something went wrong.',
-        timestamp: Date.now(),
-      });
+      if (!messages.some(m => m.id === assistantMsgId)) {
+        addMessage({
+          id: assistantMsgId,
+          role: 'assistant',
+          content: err instanceof Error ? err.message : 'Something went wrong.',
+          timestamp: Date.now(),
+        });
+      }
     }
     finally {
       setLoading(false);
