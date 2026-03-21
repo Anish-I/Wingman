@@ -18,7 +18,7 @@ const MAX_MESSAGES = 10;
 async function getConversationHistory(userId) {
   const key = `conv:${userId}`;
   const messages = await redis.lrange(key, 0, MAX_MESSAGES - 1);
-  return messages.map((m) => JSON.parse(m));
+  return messages.map((m) => JSON.parse(m)).reverse();
 }
 
 async function appendMessage(userId, role, content) {

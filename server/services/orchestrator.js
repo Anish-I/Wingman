@@ -120,6 +120,7 @@ async function processMessage(user, messageText) {
   }
 
   const finalText = response?.text || 'Done! Let me know if you need anything else.';
+  await appendMessage(user.id, 'user', messageText);
   await appendMessage(user.id, 'assistant', finalText);
 
   // Cache the response if eligible
