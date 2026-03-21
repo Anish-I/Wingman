@@ -45,7 +45,7 @@ export default function TabLayout() {
           backgroundColor: surface.bg,
           borderTopColor: surface.border,
           borderTopWidth: 1,
-          height: 64,
+          height: 72,
           paddingBottom: 8,
           paddingTop: 8,
           elevation: 0,
@@ -53,7 +53,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: purple[500],
         tabBarInactiveTintColor: t.muted,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: '600',
           letterSpacing: 0.3,
         },
