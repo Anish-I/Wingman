@@ -9,6 +9,16 @@ const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
 const { updateUserPreferences } = require('../db/queries');
 
+// Parse pagination query params with sane defaults and bounds
+function parsePagination(query) {
+  let limit = parseInt(query.limit, 10);
+  let offset = parseInt(query.offset, 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = 50;
+  if (limit > 200) limit = 200;
+  if (!Number.isFinite(offset) || offset < 0) offset = 0;
+  return { limit, offset };
+}
+
 // Per-user rate limiter for /api/chat (30 req / 15 min)
 const chatLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -70,8 +80,10 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
 // GET /api/workflows — list user's active workflows
 router.get('/workflows', requireAuth, async (req, res) => {
   try {
-    const workflows = await listWorkflows(req.user.id);
-    res.json({ workflows });
+    const { limit, offset } = parsePagination(req.query);
+    const allWorkflows = await listWorkflows(req.user.id);
+    const paginated = allWorkflows.slice(offset, offset + limit);
+    res.json({ workflows: paginated, total: allWorkflows.length, limit, offset });
   } catch (err) {
     console.error('[api] list workflows error:', err);
     res.status(500).json({ error: { code: 'WORKFLOWS_FETCH_ERROR', message: 'Failed to list workflows.' } });
@@ -109,8 +121,11 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
 // GET /api/apps — connection status for all apps
 router.get('/apps', requireAuth, async (req, res) => {
   try {
+    const { limit, offset } = parsePagination(req.query);
     const status = await getConnectionStatus(String(req.user.id));
-    res.json(status);
+    const allConnected = status.connected || [];
+    const paginated = allConnected.slice(offset, offset + limit);
+    res.json({ connected: paginated, missing: status.missing || [], total: allConnected.length, limit, offset });
   } catch (err) {
     console.error('[api] apps status error:', err);
     res.status(500).json({ error: { code: 'APPS_STATUS_ERROR', message: 'Failed to fetch app connection status.' } });
@@ -215,8 +230,10 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
 router.get('/templates', requireAuth, async (req, res) => {
   try {
     const { search: searchTerm, category } = req.query;
-    const templates = await require('../services/template-library').search(searchTerm, category);
-    res.json({ templates });
+    const { limit, offset } = parsePagination(req.query);
+    const allTemplates = await require('../services/template-library').search(searchTerm, category);
+    const paginated = allTemplates.slice(offset, offset + limit);
+    res.json({ templates: paginated, total: allTemplates.length, limit, offset });
   } catch (err) {
     console.error('[api] search templates error:', err);
     res.status(500).json({ error: { code: 'TEMPLATES_SEARCH_ERROR', message: 'Failed to search templates.' } });
