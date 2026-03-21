@@ -6,6 +6,7 @@
         "start": "node index.js",
         "dev": "nodemon index.js",
         "test": "npx jest --testPathPatterns=tests/ --forceExit",
+        "test:integration": "npx jest --testPathPatterns=tests/integration/ --forceExit --runInBand",
         "db:seed": "node scripts/seed.js",
         "db:reset": "node scripts/seed.js --reset"
     },
