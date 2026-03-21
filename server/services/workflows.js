@@ -30,12 +30,22 @@ async function createAndScheduleWorkflow(userId, { name, description, trigger_ty
 async function runWorkflow(workflowId, userId) {
   const { redis } = require('./redis');
   const lockKey = `workflow:lock:${workflowId}`;
+  const LOCK_TTL = 600; // 10 min — matches max expected workflow duration
+  const EXTEND_INTERVAL = 5 * 60 * 1000; // 5 min — extend lock if still running
 
-  // Acquire a Redis lock (SET NX EX 300 = 5 min TTL) to prevent concurrent execution
-  const acquired = await redis.set(lockKey, Date.now().toString(), 'EX', 300, 'NX');
+  // Acquire a Redis lock (SET NX EX 600 = 10 min TTL) to prevent concurrent execution
+  const acquired = await redis.set(lockKey, Date.now().toString(), 'EX', LOCK_TTL, 'NX');
   if (!acquired) {
-    throw new Error('Workflow is already running');
+    console.log(`[workflows] Skipping workflow ${workflowId} — already running (lock exists)`);
+    return [];
   }
+
+  // Extend the lock periodically so long-running workflows don't lose it
+  const extendTimer = setInterval(async () => {
+    try {
+      await redis.expire(lockKey, LOCK_TTL);
+    } catch (_) { /* best-effort extend */ }
+  }, EXTEND_INTERVAL);
 
   try {
     const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
@@ -63,6 +73,7 @@ async function runWorkflow(workflowId, userId) {
       throw err;
     }
   } finally {
+    clearInterval(extendTimer);
     await redis.del(lockKey).catch(() => {});
   }
 }
