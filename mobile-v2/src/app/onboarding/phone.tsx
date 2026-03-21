@@ -45,7 +45,16 @@ export default function PhoneScreen() {
       setE164Phone(formatted);
       setStep('verify');
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Could not send verification code. Please try again.';
+      let message = err?.response?.data?.error;
+      if (!message) {
+        if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+          message = 'Request timed out. Check your connection and try again.';
+        } else if (!err?.response && err?.request) {
+          message = 'Network error — check your internet connection and try again.';
+        } else {
+          message = 'Could not send verification code. Please try again.';
+        }
+      }
       showAlert('Error', message);
     } finally {
       setLoading(false);
@@ -95,7 +104,16 @@ export default function PhoneScreen() {
         router.push('/onboarding/connect');
       }, 1500);
     } catch (err: any) {
-      const message = err?.response?.data?.error || 'Invalid or expired code. Please try again.';
+      let message = err?.response?.data?.error;
+      if (!message) {
+        if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+          message = 'Request timed out. Check your connection and try again.';
+        } else if (!err?.response && err?.request) {
+          message = 'Network error — check your internet connection and try again.';
+        } else {
+          message = 'Invalid or expired code. Please try again.';
+        }
+      }
       showAlert('Verification Failed', message);
       // Stay on verify step, keep code visible but clear inputs for retry
       setCode(['', '', '', '', '', '']);

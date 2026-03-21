@@ -46,12 +46,28 @@ export default function WorkflowsScreen() {
   const workflows = data?.workflows ?? [];
   const isPending = planMutation.isPending || createMutation.isPending;
 
+  function friendlyError(err: unknown, action: string): string {
+    const e = err as any;
+    const apiMsg = e?.response?.data?.error || e?.response?.data?.message;
+    if (apiMsg) return apiMsg;
+    if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
+      return `Request timed out while trying to ${action}. Check your connection and try again.`;
+    }
+    if (e?.response?.status === 401 || e?.response?.status === 403) {
+      return `Your session may have expired. Try signing out and back in.`;
+    }
+    if (!e?.response && e?.request) {
+      return `Network error — check your internet connection and try again.`;
+    }
+    return `Could not ${action}. Please try again later.`;
+  }
+
   async function toggleWorkflow(id: string, active: boolean) {
     try {
       await updateMutation.mutateAsync({ id, patch: { active } });
       refetch();
-    } catch {
-      showAlert('Error', 'Could not update workflow.');
+    } catch (err) {
+      showAlert('Update Failed', friendlyError(err, active ? 'enable workflow' : 'disable workflow'));
     }
   }
 
@@ -75,7 +91,7 @@ export default function WorkflowsScreen() {
         setNlInput('');
         refetch();
       } catch (err: unknown) {
-        showAlert('Error', err instanceof Error ? err.message : 'Could not create workflow.');
+        showAlert('Creation Failed', friendlyError(err, 'create workflow'));
       }
     }
   }

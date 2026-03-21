@@ -436,13 +436,29 @@ export default function AppsScreen() {
         }
       };
 
+      const friendlyError = (err: unknown, action: string) => {
+        const e = err as any;
+        const apiMsg = e?.response?.data?.error || e?.response?.data?.message;
+        if (apiMsg) return apiMsg;
+        if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
+          return `Request timed out while trying to ${action}. Check your connection and try again.`;
+        }
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          return `Your session may have expired. Try signing out and back in.`;
+        }
+        if (!e?.response && e?.request) {
+          return `Network error — check your internet connection and try again.`;
+        }
+        return `Failed to ${action}. Please try again later.`;
+      };
+
       if (connected.includes(slug)) {
         try {
           await client.post('/connect/disconnect', { app: slug });
           setConnected((prev) => prev.filter((s) => s !== slug));
           refetch();
-        } catch {
-          showErr('Error', 'Failed to disconnect app.');
+        } catch (err) {
+          showErr('Disconnect Failed', friendlyError(err, 'disconnect app'));
         }
         return;
       }
@@ -464,8 +480,8 @@ export default function AppsScreen() {
           const res = await refetch();
           if (res.data?.connected) setConnected(res.data.connected);
         }
-      } catch {
-        showErr('Error', 'Failed to connect app.');
+      } catch (err) {
+        showErr('Connection Failed', friendlyError(err, 'connect app'));
       } finally {
         setConnectingSlug(null);
       }
