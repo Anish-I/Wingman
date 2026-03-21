@@ -42,6 +42,7 @@ async function processMessage(user, messageText) {
   if (shouldCache(messageText)) {
     const cached = await getCachedResponse(messageText);
     if (cached) {
+      await appendMessage(user.id, 'user', messageText);
       await appendMessage(user.id, 'assistant', cached);
       return cached;
     }
