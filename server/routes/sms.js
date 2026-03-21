@@ -65,11 +65,11 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
       // --- Telnyx path ---
-      if (process.env.NODE_ENV !== 'production' && !req.headers['telnyx-signature-ed25519']) {
+      if (process.env.NODE_ENV !== 'production' && !req.headers['telnyx-signature-ed25519-signature']) {
         console.warn('[security] WARNING: Telnyx signature check skipped in development mode — do NOT use in production');
       } else {
-        if (!req.headers['telnyx-signature-ed25519']) {
-          console.warn('[security] Missing telnyx-signature-ed25519 header');
+        if (!req.headers['telnyx-signature-ed25519-signature']) {
+          console.warn('[security] Missing telnyx-signature-ed25519-signature header');
           return res.status(403).json({ error: 'Forbidden' });
         }
         const rawBody = JSON.stringify(req.body);
