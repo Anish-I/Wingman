@@ -11,13 +11,10 @@ export const useApps = createQuery<AppsResponse>({
       const { data } = await client.get<AppsResponse>('/api/apps');
       return data;
     } catch {
-      try {
-        const { data } = await client.get<AppsResponse>('/connect/status');
-        return data;
-      } catch {
-        // Demo mode: return empty connected list
-        return { connected: [], missing: [] };
-      }
+      // Try the fallback endpoint — but let it throw on failure so the
+      // UI can detect errors instead of silently returning empty data.
+      const { data } = await client.get<AppsResponse>('/connect/status');
+      return data;
     }
   },
 });
