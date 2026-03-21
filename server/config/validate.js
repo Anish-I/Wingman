@@ -22,14 +22,33 @@ function validateEnv() {
     }
   }
 
-  // At least one SMS provider must be configured
-  const hasTelnyx = process.env.TELNYX_API_KEY && process.env.TELNYX_API_KEY.trim() !== '';
+  // At least one COMPLETE SMS provider must be configured.
+  // Partial configs (e.g. API key without phone number) are treated as invalid.
+  const hasTelnyxKey = process.env.TELNYX_API_KEY && process.env.TELNYX_API_KEY.trim() !== '';
   const hasTelnyxPhone = process.env.TELNYX_PHONE_NUMBER && process.env.TELNYX_PHONE_NUMBER.trim() !== '';
-  const hasTwilio = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_ACCOUNT_SID.trim() !== '';
+  const hasTwilioSid = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_ACCOUNT_SID.trim() !== '';
+  const hasTwilioToken = process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_AUTH_TOKEN.trim() !== '';
   const isStub = (process.env.MESSAGING_PROVIDER || '').toLowerCase() === 'stub';
 
-  if (!hasTelnyx && !hasTelnyxPhone && !hasTwilio && !isStub) {
-    missing.push('TELNYX_API_KEY or TELNYX_PHONE_NUMBER (no SMS provider configured)');
+  const telnyxComplete = hasTelnyxKey && hasTelnyxPhone;
+  const twilioComplete = hasTwilioSid && hasTwilioToken;
+
+  // Warn about partial configs (likely misconfiguration)
+  if (hasTelnyxKey && !hasTelnyxPhone) {
+    console.warn('[env-validate] WARN: TELNYX_API_KEY is set but TELNYX_PHONE_NUMBER is missing — Telnyx provider is incomplete.');
+  }
+  if (!hasTelnyxKey && hasTelnyxPhone) {
+    console.warn('[env-validate] WARN: TELNYX_PHONE_NUMBER is set but TELNYX_API_KEY is missing — Telnyx provider is incomplete.');
+  }
+  if (hasTwilioSid && !hasTwilioToken) {
+    console.warn('[env-validate] WARN: TWILIO_ACCOUNT_SID is set but TWILIO_AUTH_TOKEN is missing — Twilio provider is incomplete.');
+  }
+  if (!hasTwilioSid && hasTwilioToken) {
+    console.warn('[env-validate] WARN: TWILIO_AUTH_TOKEN is set but TWILIO_ACCOUNT_SID is missing — Twilio provider is incomplete.');
+  }
+
+  if (!telnyxComplete && !twilioComplete && !isStub) {
+    missing.push('Complete SMS provider (TELNYX_API_KEY + TELNYX_PHONE_NUMBER, or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN)');
   }
 
   if (missing.length === 0) {
