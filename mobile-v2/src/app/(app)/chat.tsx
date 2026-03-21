@@ -153,7 +153,7 @@ export default function ChatScreen() {
         <View className={`my-0.5 flex-row items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {!isUser && (
             <MotiView
-              {...popIn(0, 50)}
+              {...maybeReduce(popIn(0, 50), reducedMotion)}
               className="size-7 items-center justify-center overflow-hidden rounded-full"
               style={{ backgroundColor: surface.card }}
             >
@@ -186,9 +186,11 @@ export default function ChatScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       {/* Header */}
       <MotiView
-        from={{ opacity: 0, translateY: -8 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={springs.gentle}
+        {...maybeReduce({
+          from: { opacity: 0, translateY: -8 },
+          animate: { opacity: 1, translateY: 0 },
+          transition: springs.gentle,
+        }, reducedMotion)}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -201,8 +203,10 @@ export default function ChatScreen() {
         }}
       >
         <MotiView
-          from={{ rotate: '0deg' }}
-          animate={{ rotate: '0deg' }}
+          {...maybeReduce({
+            from: { rotate: '0deg' },
+            animate: { rotate: '0deg' },
+          }, reducedMotion)}
           className="size-11 items-center justify-center overflow-hidden rounded-full"
           style={{
             backgroundColor: surface.card,
@@ -340,14 +344,16 @@ export default function ChatScreen() {
 
         {/* Input bar */}
         <MotiView
-          {...entrance(0, 200)}
+          {...maybeReduce(entrance(0, 200), reducedMotion)}
         >
           <MotiView
-            animate={{
-              borderColor: inputFocused ? purple[500] : surface.border,
-              backgroundColor: inputFocused ? `${purple[500]}08` : surface.card,
-            }}
-            transition={{ type: 'timing', duration: 160 }}
+            {...maybeReduce({
+              animate: {
+                borderColor: inputFocused ? purple[500] : surface.border,
+                backgroundColor: inputFocused ? `${purple[500]}08` : surface.card,
+              },
+              transition: { type: 'timing' as const, duration: 160 },
+            }, reducedMotion)}
             style={{
               flexDirection: 'row',
               alignItems: 'flex-end',
@@ -377,7 +383,7 @@ export default function ChatScreen() {
               returnKeyType="send"
             />
             <MotiView
-              {...sendButtonAnimate(canSend)}
+              {...maybeReduce(sendButtonAnimate(canSend), reducedMotion)}
             >
               <Pressable
                 style={({ pressed, hovered, focused }: any) => [
