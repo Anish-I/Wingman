@@ -81,9 +81,8 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
 router.get('/workflows', requireAuth, async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query);
-    const allWorkflows = await listWorkflows(req.user.id);
-    const paginated = allWorkflows.slice(offset, offset + limit);
-    res.json({ workflows: paginated, total: allWorkflows.length, limit, offset });
+    const { rows: workflows, total } = await listWorkflows(req.user.id, { limit, offset });
+    res.json({ workflows, total, limit, offset });
   } catch (err) {
     console.error('[api] list workflows error:', err);
     res.status(500).json({ error: { code: 'WORKFLOWS_FETCH_ERROR', message: 'Failed to list workflows.' } });
@@ -122,6 +121,9 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
 router.get('/apps', requireAuth, async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query);
+    // Composio external API does not support server-side pagination — we must fetch
+    // the full connected-apps list and paginate in memory. The dataset per user is
+    // small (bounded by the number of Composio apps the user has connected).
     const status = await getConnectionStatus(String(req.user.id));
     const allConnected = status.connected || [];
     const paginated = allConnected.slice(offset, offset + limit);
@@ -231,9 +233,8 @@ router.get('/templates', requireAuth, async (req, res) => {
   try {
     const { search: searchTerm, category } = req.query;
     const { limit, offset } = parsePagination(req.query);
-    const allTemplates = await require('../services/template-library').search(searchTerm, category);
-    const paginated = allTemplates.slice(offset, offset + limit);
-    res.json({ templates: paginated, total: allTemplates.length, limit, offset });
+    const { rows: templates, total } = await require('../services/template-library').search(searchTerm, category, { limit, offset });
+    res.json({ templates, total, limit, offset });
   } catch (err) {
     console.error('[api] search templates error:', err);
     res.status(500).json({ error: { code: 'TEMPLATES_SEARCH_ERROR', message: 'Failed to search templates.' } });
