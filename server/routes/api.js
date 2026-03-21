@@ -26,7 +26,7 @@ const chatLimiter = rateLimit({
   keyGenerator: (req) => req.user.id,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests. Please try again later.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Please try again later.' } },
 });
 
 // Per-user rate limiter for workflow plan/run (20 req / 15 min)
@@ -36,7 +36,7 @@ const workflowLimiter = rateLimit({
   keyGenerator: (req) => req.user.id,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests. Please try again later.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Please try again later.' } },
 });
 
 // Max chat message length (chars) — prevents LLM cost abuse
@@ -48,7 +48,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Middleware: validate :id param is a valid UUID
 function validateIdParam(req, res, next) {
   if (!UUID_RE.test(req.params.id)) {
-    return res.status(400).json({ error: 'Invalid ID format.' });
+    return res.status(400).json({ error: { code: 'INVALID_ID_FORMAT', message: 'Invalid ID format.' } });
   }
   next();
 }
@@ -61,10 +61,10 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const { message } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
-      return res.status(400).json({ error: 'message is required' });
+      return res.status(400).json({ error: { code: 'MESSAGE_REQUIRED', message: 'message is required' } });
     }
     if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
-      return res.status(400).json({ error: `Message exceeds maximum length of ${MAX_CHAT_MESSAGE_LENGTH} characters.` });
+      return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: `Message exceeds maximum length of ${MAX_CHAT_MESSAGE_LENGTH} characters.` } });
     }
     const reply = await processMessage(req.user, message.trim());
     res.json({ reply });
@@ -95,7 +95,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
   try {
     const { name, trigger_type, cron_expression, trigger_config, actions, description } = req.body;
     if (!name || !trigger_type || !actions) {
-      return res.status(400).json({ error: 'name, trigger_type, and actions are required' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
     }
     const workflow = await createAndScheduleWorkflow(req.user.id, {
       name, description, trigger_type, cron_expression, trigger_config, actions,
@@ -137,7 +137,7 @@ router.post('/notify/register', requireAuth, async (req, res) => {
   try {
     const { token } = req.body;
     if (!token || typeof token !== 'string') {
-      return res.status(400).json({ error: 'token is required' });
+      return res.status(400).json({ error: { code: 'TOKEN_REQUIRED', message: 'token is required' } });
     }
     await updatePushToken(req.user.id, token);
     res.json({ ok: true });
@@ -156,7 +156,7 @@ router.patch('/workflows/:id', validateIdParam, requireAuth, async (req, res) =>
       'UPDATE workflows SET active = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *',
       [active !== false, req.params.id, req.user.id]
     );
-    if (!result.rows[0]) return res.status(404).json({ error: 'Workflow not found' });
+    if (!result.rows[0]) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow not found' } });
     res.json({ workflow: result.rows[0] });
   } catch (err) {
     console.error('[api] update workflow error:', err);
@@ -170,14 +170,14 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     const incomingKeys = Object.keys(req.body);
     const unrecognized = incomingKeys.filter(k => !ALLOWED_PREFERENCE_KEYS.includes(k));
     if (unrecognized.length > 0) {
-      return res.status(400).json({ error: `Unrecognized preference keys: ${unrecognized.join(', ')}` });
+      return res.status(400).json({ error: { code: 'UNRECOGNIZED_KEYS', message: `Unrecognized preference keys: ${unrecognized.join(', ')}` } });
     }
     const filtered = {};
     for (const key of ALLOWED_PREFERENCE_KEYS) {
       if (key in req.body) filtered[key] = req.body[key];
     }
     if (Object.keys(filtered).length === 0) {
-      return res.status(400).json({ error: 'No valid preference keys provided' });
+      return res.status(400).json({ error: { code: 'NO_VALID_KEYS', message: 'No valid preference keys provided' } });
     }
     const updated = await updateUserPreferences(req.user.id, filtered);
     res.json({ user: updated });
@@ -192,7 +192,7 @@ router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) =>
   try {
     const { description } = req.body;
     if (!description || typeof description !== 'string') {
-      return res.status(400).json({ error: 'description is required' });
+      return res.status(400).json({ error: { code: 'DESCRIPTION_REQUIRED', message: 'description is required' } });
     }
     const { planAndCreateWorkflows } = require('../services/workflow-planner');
     const workflows = await planAndCreateWorkflows(req.user, description.trim());
@@ -209,7 +209,7 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     const db = require('../db');
     const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
     const workflow = result.rows[0];
-    if (!workflow) return res.status(404).json({ error: 'Workflow not found' });
+    if (!workflow) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow not found' } });
 
     let runResult;
     if (workflow.steps && workflow.steps.length > 0) {
