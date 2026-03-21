@@ -364,22 +364,27 @@ router.get('/google', (req, res) => {
   // Use server-configured redirect URI only — never accept from query params (open redirect risk)
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
   const scope = encodeURIComponent('openid email profile');
-  // Pass platform in state so callback knows where to redirect (web vs native deep link)
+  // Sign the OAuth state with JWT_SECRET for CSRF protection (5-minute expiry)
   const platform = req.query.platform === 'web' ? 'web' : 'native';
   const webOrigin = req.query.webOrigin || '';
-  const statePayload = JSON.stringify({ platform, webOrigin });
-  const state = Buffer.from(statePayload).toString('base64url');
+  const state = jwt.sign({ platform, webOrigin }, JWT_SECRET, { expiresIn: '5m' });
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
   res.redirect(url);
 });
 
-// Parse state from Google OAuth callback to determine redirect target
+// Verify and parse signed OAuth state (JWT with 5-minute expiry)
 function parseOAuthState(stateParam) {
+  const fallback = { platform: 'native', webOrigin: '' };
   try {
-    if (!stateParam) return { platform: 'native', webOrigin: '' };
-    return JSON.parse(Buffer.from(stateParam, 'base64url').toString());
-  } catch {
-    return { platform: 'native', webOrigin: '' };
+    if (!stateParam) return fallback;
+    const payload = jwt.verify(stateParam, JWT_SECRET);
+    return {
+      platform: payload.platform || 'native',
+      webOrigin: payload.webOrigin || '',
+    };
+  } catch (err) {
+    console.warn('[oauth-state] Invalid or expired state token:', err.message);
+    return fallback;
   }
 }
 
@@ -405,6 +410,19 @@ function buildRedirectUrl(state, params) {
 
 // GET /auth/google/callback — handle Google OAuth redirect
 router.get('/google/callback', async (req, res) => {
+  // Verify signed state token — reject if missing, expired, or tampered
+  if (!req.query.state) {
+    return res.status(400).json({ error: 'Missing OAuth state parameter.' });
+  }
+  let stateValid = true;
+  try {
+    jwt.verify(req.query.state, JWT_SECRET);
+  } catch {
+    stateValid = false;
+  }
+  if (!stateValid) {
+    return res.status(403).json({ error: 'Invalid or expired OAuth state. Please restart the login flow.' });
+  }
   const state = parseOAuthState(req.query.state);
 
   try {
