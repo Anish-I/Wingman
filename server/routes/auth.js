@@ -234,7 +234,10 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       return res.status(429).json({ error: 'Too many failed OTP attempts for this number. Try again in 10 minutes.' });
     }
 
-    const stored = await redis.get(`otp:${phone}`);
+    // Atomically fetch and delete the OTP in one operation to prevent race conditions
+    // where a concurrent request could read the same OTP between GET and DEL
+    const otpKey = `otp:${phone}`;
+    const stored = await redis.call('GETDEL', otpKey);
     const codeStr = String(code);
     if (!stored || stored.length !== codeStr.length || !crypto.timingSafeEqual(Buffer.from(stored), Buffer.from(codeStr))) {
       // Increment per-phone attempt counter with sliding TTL matching OTP lifetime
@@ -243,8 +246,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired OTP.' });
     }
 
-    // Success — clear OTP and attempt counter
-    await redis.del(`otp:${phone}`);
+    // Success — clear attempt counter (OTP already deleted by GETDEL above)
     await redis.del(attemptKey);
 
     let user = await getUserByPhone(phone);
@@ -476,13 +478,12 @@ router.post('/exchange-code', async (req, res) => {
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Authorization code is required.' });
     }
+    // Atomically fetch and delete — prevents a concurrent request from replaying the same code
     const key = `auth_code:${code}`;
-    const stored = await redis.get(key);
+    const stored = await redis.call('GETDEL', key);
     if (!stored) {
       return res.status(401).json({ error: 'Invalid or expired authorization code.' });
     }
-    // Delete immediately — single use
-    await redis.del(key);
     const data = JSON.parse(stored);
     res.json({ success: true, token: data.token, user: { id: data.userId, name: data.name } });
   } catch (err) {
