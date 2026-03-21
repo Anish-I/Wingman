@@ -18,13 +18,10 @@ type WorkflowResponse = { workflow: Workflow };
 export const useWorkflows = createQuery<WorkflowsResponse>({
   queryKey: ['workflows'],
   fetcher: async () => {
-    try {
-      const { data } = await client.get<WorkflowsResponse>('/api/workflows');
-      return data;
-    } catch {
-      // Demo mode: return empty list
-      return { workflows: [] };
-    }
+    // Let errors propagate so the UI can detect fetch failures
+    // instead of silently returning empty data.
+    const { data } = await client.get<WorkflowsResponse>('/api/workflows');
+    return data;
   },
 });
 
