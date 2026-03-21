@@ -24,8 +24,8 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
 
     if (isTwilio) {
       // --- Twilio path ---
-      if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
-        console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Twilio signature check skipped');
+      if (process.env.NODE_ENV !== 'production' && !req.headers['x-twilio-signature']) {
+        console.warn('[security] WARNING: Twilio signature check skipped in development mode — do NOT use in production');
       } else {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
@@ -65,8 +65,8 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
       // --- Telnyx path ---
-      if (process.env.SKIP_WEBHOOK_VALIDATION === 'true') {
-        console.warn('[security] SKIP_WEBHOOK_VALIDATION is enabled — Telnyx signature check skipped');
+      if (process.env.NODE_ENV !== 'production' && !req.headers['telnyx-signature-ed25519']) {
+        console.warn('[security] WARNING: Telnyx signature check skipped in development mode — do NOT use in production');
       } else {
         if (!req.headers['telnyx-signature-ed25519']) {
           console.warn('[security] Missing telnyx-signature-ed25519 header');
