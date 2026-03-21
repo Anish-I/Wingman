@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { blue, purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
-import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat } from '@/lib/motion';
+import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
 
@@ -20,28 +20,32 @@ const PIP_GREETINGS = [
   'Your personal pigeon, at your service!',
 ];
 
-function TypingDots() {
+function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
   return (
     <View className="flex-row items-center gap-1.5 px-4 pb-3">
       <MotiView
-        from={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', damping: 12 }}
+        {...maybeReduce({
+          from: { scale: 0.8, opacity: 0 },
+          animate: { scale: 1, opacity: 1 },
+          transition: { type: 'spring' as const, damping: 12 },
+        }, !!reducedMotion)}
         className="flex-row items-center gap-2 rounded-2xl rounded-bl-[4px] px-4 py-3"
         style={{ backgroundColor: surface.card }}
       >
         {[0, 1, 2].map(i => (
           <MotiView
             key={i}
-            from={{ translateY: 0, scale: 1 }}
-            animate={{ translateY: -5, scale: 1.2 }}
-            transition={{
-              type: 'timing',
-              duration: 350,
-              loop: true,
-              repeatReverse: true,
-              delay: i * 120,
-            }}
+            {...maybeReduce({
+              from: { translateY: 0, scale: 1 },
+              animate: { translateY: -5, scale: 1.2 },
+              transition: {
+                type: 'timing' as const,
+                duration: 350,
+                loop: true,
+                repeatReverse: true,
+                delay: i * 120,
+              },
+            }, !!reducedMotion)}
             style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teal[300] }}
           />
         ))}
@@ -54,6 +58,7 @@ function TypingDots() {
 }
 
 export default function ChatScreen() {
+  const reducedMotion = useReducedMotion();
   const messages = useChatStore.use.messages();
   const loading = useChatStore.use.loading();
   const addMessage = useChatStore.use.addMessage();
@@ -139,9 +144,11 @@ export default function ChatScreen() {
     const isUser = item.role === 'user';
     return (
       <MotiView
-        from={{ opacity: 0, translateY: 12, scale: 0.95 }}
-        animate={{ opacity: 1, translateY: 0, scale: 1 }}
-        transition={{ ...springs.snappy, delay: 50 }}
+        {...maybeReduce({
+          from: { opacity: 0, translateY: 12, scale: 0.95 },
+          animate: { opacity: 1, translateY: 0, scale: 1 },
+          transition: { ...springs.snappy, delay: 50 },
+        }, reducedMotion)}
       >
         <View className={`my-0.5 flex-row items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {!isUser && (
@@ -233,9 +240,9 @@ export default function ChatScreen() {
             <View className="items-center px-6">
               {/* Pip avatar — floats gently to feel alive */}
               <MotiView
-                {...popIn(0, 200)}
+                {...maybeReduce(popIn(0, 200), reducedMotion)}
               >
-                <MotiView {...gentleFloat(800)}>
+                <MotiView {...maybeReduce(gentleFloat(800), reducedMotion)}>
                   <View
                     style={{
                       width: 100,
@@ -256,7 +263,7 @@ export default function ChatScreen() {
               </MotiView>
 
               <MotiView
-                {...entrance(0, 400)}
+                {...maybeReduce(entrance(0, 400), reducedMotion)}
               >
                 <Text style={{ color: t.primary, fontSize: 24, fontFamily: 'Sora_700Bold', textAlign: 'center', marginBottom: 4 }}>
                   Hey! I'm Pip
@@ -268,7 +275,7 @@ export default function ChatScreen() {
 
               {/* Prompt suggestions */}
               <MotiView
-                {...entrance(0, 550)}
+                {...maybeReduce(entrance(0, 550), reducedMotion)}
                 className="mt-4 w-full"
                 style={{ gap: 8 }}
               >
@@ -279,7 +286,7 @@ export default function ChatScreen() {
                   {examplePrompts.map((prompt, i) => (
                     <MotiView
                       key={prompt.text}
-                      {...popIn(i, 650)}
+                      {...maybeReduce(popIn(i, 650), reducedMotion)}
                     >
                       <Pressable
                         style={({ pressed, hovered, focused }: any) => [
@@ -329,7 +336,7 @@ export default function ChatScreen() {
           )}
         />
 
-        {loading && <TypingDots />}
+        {loading && <TypingDots reducedMotion={reducedMotion} />}
 
         {/* Input bar */}
         <MotiView
