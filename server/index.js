@@ -37,11 +37,9 @@ process.on('unhandledRejection', (reason) => {
   }));
 });
 
-// Debug: Log environment status
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET not loaded from .env');
-  process.exit(1);
-}
+// Validate critical environment variables on startup
+const { validateEnv } = require('./config/validate');
+validateEnv();
 
 const express = require('express');
 const cors = require('cors');
