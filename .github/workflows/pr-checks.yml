@@ -1,0 +1,337 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Server: Lint + Test (with service containers)
+  # ──────────────────────────────────────────────
+  server-lint:
+    name: Server Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint server
+        run: cd server && npm run lint --if-present
+
+  server-test:
+    name: Server Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wingman
+          POSTGRES_PASSWORD: wingman
+          POSTGRES_DB: wingman
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U wingman"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run server tests
+        working-directory: server
+        run: npm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://wingman:wingman@localhost:5432/wingman
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret-do-not-use-in-production
+          MESSAGING_PROVIDER: stub
+
+  # ──────────────────────────────────────────────
+  # Mobile: Lint, Type Check, Test
+  # ──────────────────────────────────────────────
+  mobile-lint:
+    name: Mobile Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint mobile
+        working-directory: mobile-v2
+        run: pnpm lint
+
+  mobile-typecheck:
+    name: Mobile Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: mobile-v2
+        run: pnpm type-check
+
+  mobile-test:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        working-directory: mobile-v2
+        run: pnpm test:ci
+
+  # ──────────────────────────────────────────────
+  # Bundle Size Check — track mobile-v2 web export size
+  # ──────────────────────────────────────────────
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Checkout the base branch to measure baseline bundle size
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      # Build the PR version
+      - name: Install PR dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      - name: Build PR web export
+        working-directory: mobile-v2
+        run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_API_URL: https://api.example.com
+
+      # Measure the PR bundle size (total of all JS files in dist/)
+      - name: Measure PR bundle size
+        id: pr_size
+        run: |
+          PR_SIZE=$(find mobile-v2/dist -name '*.js' -exec wc -c {} + 2>/dev/null | tail -1 | awk '{print $1}')
+          PR_SIZE=${PR_SIZE:-0}
+          echo "size=$PR_SIZE" >> "$GITHUB_OUTPUT"
+          echo "PR bundle size: $PR_SIZE bytes ($(( PR_SIZE / 1024 )) KB)"
+
+      # Build the base version for comparison
+      - name: Install base dependencies
+        working-directory: base/mobile-v2
+        run: pnpm install --frozen-lockfile
+        continue-on-error: true
+
+      - name: Build base web export
+        working-directory: base/mobile-v2
+        run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_API_URL: https://api.example.com
+        continue-on-error: true
+
+      - name: Measure base bundle size
+        id: base_size
+        run: |
+          BASE_SIZE=$(find base/mobile-v2/dist -name '*.js' -exec wc -c {} + 2>/dev/null | tail -1 | awk '{print $1}')
+          BASE_SIZE=${BASE_SIZE:-0}
+          echo "size=$BASE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "Base bundle size: $BASE_SIZE bytes ($(( BASE_SIZE / 1024 )) KB)"
+
+      # Post a comment on the PR with bundle size comparison
+      - name: Comment bundle size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prSize = parseInt('${{ steps.pr_size.outputs.size }}') || 0;
+            const baseSize = parseInt('${{ steps.base_size.outputs.size }}') || 0;
+            const diff = prSize - baseSize;
+            const diffKB = (diff / 1024).toFixed(1);
+            const prKB = (prSize / 1024).toFixed(1);
+            const baseKB = (baseSize / 1024).toFixed(1);
+            const pct = baseSize > 0 ? ((diff / baseSize) * 100).toFixed(1) : 'N/A';
+
+            let emoji = '✅';
+            if (diff > 50 * 1024) emoji = '🔴';       // > 50KB increase
+            else if (diff > 10 * 1024) emoji = '🟡';   // > 10KB increase
+            else if (diff < 0) emoji = '📉';            // decrease
+
+            const body = [
+              '## Bundle Size Report',
+              '',
+              '| Metric | Size |',
+              '|--------|------|',
+              `| PR bundle | ${prKB} KB |`,
+              `| Base bundle | ${baseKB} KB |`,
+              `| Diff | ${emoji} ${diff >= 0 ? '+' : ''}${diffKB} KB (${pct}%) |`,
+              '',
+              baseSize === 0 ? '_Base build unavailable — showing PR size only._' : '',
+            ].join('\n');
+
+            // Find and update existing comment, or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Bundle Size Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ──────────────────────────────────────────────
+  # Label PRs that modify server/ code
+  # ──────────────────────────────────────────────
+  label-server-changes:
+    name: Label Server Changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Check if any files in server/ were changed in this PR
+      - name: Check for server changes
+        id: server_changes
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep -c '^server/' || true)
+          echo "count=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Server files changed: $CHANGED"
+
+      # Add label if server code was modified — signals reviewers to pay extra attention
+      - name: Add review label
+        if: steps.server_changes.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Create the label if it doesn't exist
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'server-changes',
+              });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'server-changes',
+                  color: 'e11d48',
+                  description: 'PR modifies server code — requires careful review',
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['server-changes'],
+            });
+
+            console.log('Added "server-changes" label to PR');
