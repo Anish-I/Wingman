@@ -137,7 +137,12 @@ app.get('/health', (req, res) => {
 // Error handler middleware — never leak stack traces or internal details
 app.use((err, req, res, _next) => {
   console.error('Unhandled error:', err);
-  res.status(err.status || 500).json({ error: 'Internal server error' });
+  const status = err.status || 500;
+  const code = status === 401 ? 'AUTH_ERROR'
+    : status === 403 ? 'FORBIDDEN'
+    : status === 400 ? 'VALIDATION_ERROR'
+    : 'UNKNOWN_ERROR';
+  res.status(status).json({ error: { code, message: 'An unexpected error occurred.' } });
 });
 
 const server = app.listen(PORT, () => {

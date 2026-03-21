@@ -60,7 +60,10 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('[api] chat error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    const code = err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
+      : err.message?.includes('timeout') ? 'ORCHESTRATOR_TIMEOUT'
+      : 'ORCHESTRATOR_ERROR';
+    res.status(500).json({ error: { code, message: 'Failed to process chat message.' } });
   }
 });
 
@@ -71,7 +74,7 @@ router.get('/workflows', requireAuth, async (req, res) => {
     res.json({ workflows });
   } catch (err) {
     console.error('[api] list workflows error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOWS_FETCH_ERROR', message: 'Failed to list workflows.' } });
   }
 });
 
@@ -88,7 +91,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
     res.status(201).json({ workflow });
   } catch (err) {
     console.error('[api] create workflow error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOW_CREATE_ERROR', message: 'Failed to create workflow.' } });
   }
 });
 
@@ -99,7 +102,7 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
     res.json({ message: 'Workflow paused' });
   } catch (err) {
     console.error('[api] pause workflow error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOW_PAUSE_ERROR', message: 'Failed to pause workflow.' } });
   }
 });
 
@@ -110,7 +113,7 @@ router.get('/apps', requireAuth, async (req, res) => {
     res.json(status);
   } catch (err) {
     console.error('[api] apps status error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'APPS_STATUS_ERROR', message: 'Failed to fetch app connection status.' } });
   }
 });
 
@@ -125,7 +128,7 @@ router.post('/notify/register', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('[api] push token register error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'PUSH_TOKEN_ERROR', message: 'Failed to register push token.' } });
   }
 });
 
@@ -142,7 +145,7 @@ router.patch('/workflows/:id', validateIdParam, requireAuth, async (req, res) =>
     res.json({ workflow: result.rows[0] });
   } catch (err) {
     console.error('[api] update workflow error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOW_UPDATE_ERROR', message: 'Failed to update workflow.' } });
   }
 });
 
@@ -165,7 +168,7 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     res.json({ user: updated });
   } catch (err) {
     console.error('[api] update preferences error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'PREFERENCES_UPDATE_ERROR', message: 'Failed to update preferences.' } });
   }
 });
 
@@ -181,7 +184,7 @@ router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) =>
     res.status(201).json({ workflows });
   } catch (err) {
     console.error('[api] workflow plan error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOW_PLAN_ERROR', message: 'Failed to plan workflow.' } });
   }
 });
 
@@ -204,7 +207,7 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     res.json({ status: 'triggered', result: runResult });
   } catch (err) {
     console.error('[api] workflow run error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'WORKFLOW_RUN_ERROR', message: 'Failed to run workflow.' } });
   }
 });
 
@@ -216,7 +219,7 @@ router.get('/templates', requireAuth, async (req, res) => {
     res.json({ templates });
   } catch (err) {
     console.error('[api] search templates error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'TEMPLATES_SEARCH_ERROR', message: 'Failed to search templates.' } });
   }
 });
 
@@ -227,7 +230,7 @@ router.post('/templates', requireAuth, async (req, res) => {
     res.status(201).json({ template });
   } catch (err) {
     console.error('[api] publish template error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'TEMPLATE_PUBLISH_ERROR', message: 'Failed to publish template.' } });
   }
 });
 
@@ -238,7 +241,7 @@ router.post('/templates/:id/instantiate', validateIdParam, requireAuth, async (r
     res.status(201).json({ workflow });
   } catch (err) {
     console.error('[api] instantiate template error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'TEMPLATE_INSTANTIATE_ERROR', message: 'Failed to instantiate template.' } });
   }
 });
 
