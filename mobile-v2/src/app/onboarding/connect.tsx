@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +15,6 @@ interface OnboardingApp {
   iconFamily: IconFamily;
   color: string;
 }
-
-const CONNECTED_DEFAULT = ['googlecalendar', 'gmail', 'slack'];
 
 const ALL_APPS: OnboardingApp[] = [
   { slug: 'googlecalendar', name: 'Calendar', iconName: 'calendar-month', iconFamily: 'MaterialCommunityIcons', color: '#4285F4' },
@@ -39,7 +37,6 @@ const ALL_APPS: OnboardingApp[] = [
 
 export default function ConnectScreen() {
   const router = useRouter();
-  const [connected, setConnected] = useState<string[]>(CONNECTED_DEFAULT);
   const [search, setSearch] = useState('');
 
   const filtered = search
@@ -50,14 +47,6 @@ export default function ConnectScreen() {
   const rows: (typeof ALL_APPS)[] = [];
   for (let i = 0; i < filtered.length; i += 4) {
     rows.push(filtered.slice(i, i + 4));
-  }
-
-  function handleConnect(slug: string) {
-    if (connected.includes(slug)) {
-      setConnected((prev) => prev.filter((s) => s !== slug));
-    } else {
-      setConnected((prev) => [...prev, slug]);
-    }
   }
 
   return (
@@ -77,17 +66,20 @@ export default function ConnectScreen() {
               textAlign: 'center',
             }}
           >
-            {'Connect\nYour Apps'}
+            {'Your Apps\nAwait'}
           </Text>
-          {/* Count row */}
-          <View className="flex-row items-center" style={{ gap: 6 }}>
-            <View className="rounded px-2.5" style={{ backgroundColor: '#4A7BD920', paddingVertical: 4 }}>
-              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: '#4A7BD9' }}>
-                {connected.length} CONNECTED
-              </Text>
-            </View>
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#8A8A8A' }}>
-              of 1,000+ apps
+          {/* Info banner */}
+          <View
+            className="flex-row items-center rounded-lg px-3"
+            style={{
+              backgroundColor: '#4A7BD915',
+              paddingVertical: 8,
+              gap: 6,
+            }}
+          >
+            <Ionicons name="information-circle-outline" size={16} color="#4A7BD9" />
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#8A8A8A' }}>
+              You'll connect these after setup
             </Text>
           </View>
         </View>
@@ -115,36 +107,31 @@ export default function ConnectScreen() {
           />
         </View>
 
-        {/* App grid */}
+        {/* App grid — preview only, no toggles */}
         <View style={{ gap: 10 }}>
           {rows.map((row, rowIdx) => (
             <View key={rowIdx} className="flex-row" style={{ gap: 10 }}>
-              {row.map((app) => {
-                const isConnected = connected.includes(app.slug);
-                return (
-                  <TouchableOpacity
-                    key={app.slug}
-                    className="flex-1 items-center justify-center rounded-xl"
-                    style={{
-                      height: 80,
-                      backgroundColor: '#1A1A1A',
-                      borderWidth: isConnected ? 2 : 1,
-                      borderColor: isConnected ? '#32D74B' : '#2A2A2A',
-                      gap: 6,
-                    }}
-                    onPress={() => handleConnect(app.slug)}
-                    activeOpacity={0.7}
+              {row.map((app) => (
+                <View
+                  key={app.slug}
+                  className="flex-1 items-center justify-center rounded-xl"
+                  style={{
+                    height: 80,
+                    backgroundColor: '#1A1A1A',
+                    borderWidth: 1,
+                    borderColor: '#2A2A2A',
+                    gap: 6,
+                  }}
+                >
+                  <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={24} color={app.color} />
+                  <Text
+                    style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
+                    numberOfLines={1}
                   >
-                    <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={24} color={app.color} />
-                    <Text
-                      style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
-                      numberOfLines={1}
-                    >
-                      {app.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    {app.name}
+                  </Text>
+                </View>
+              ))}
               {/* Fill remaining columns if row is incomplete */}
               {row.length < 4 &&
                 Array.from({ length: 4 - row.length }).map((_, i) => (
@@ -159,8 +146,8 @@ export default function ConnectScreen() {
         {/* Bottom button */}
         <View className="pb-8">
           <GradientButton
-            title="All Set!"
-            icon="checkmark-circle"
+            title="Continue"
+            icon="arrow-forward"
             onPress={() => router.push('/onboarding/done')}
           />
         </View>

@@ -40,11 +40,7 @@ const CONFETTI_PIECES: ConfettiPiece[] = [
   { color: CONFETTI_COLORS[5], width: 12, height: 4, borderRadius: 2, top: 60, leftPct: 75, rotate: '-55deg' },
 ];
 
-const CONNECTED_CHIPS = [
-  { icon: 'calendar' as const, label: 'Calendar' },
-  { icon: 'mail' as const, label: 'Gmail' },
-  { icon: 'logo-slack' as const, label: 'Slack' },
-];
+// No hardcoded chips — user hasn't connected any apps yet during onboarding
 
 export default function DoneScreen() {
   const router = useRouter();
@@ -138,28 +134,24 @@ export default function DoneScreen() {
           </Text>
         </MotiView>
 
-        {/* Connected app pills */}
-        <View className="flex-row justify-center" style={{ gap: 8 }}>
-          {CONNECTED_CHIPS.map((chip, i) => (
-            <MotiView key={chip.label} {...popIn(i, 600)}>
-              <View
-                className="flex-row items-center rounded-md px-3"
-                style={{
-                  height: 34,
-                  backgroundColor: '#1A1A1A',
-                  borderWidth: 1,
-                  borderColor: '#2A2A2A',
-                  gap: 6,
-                }}
-              >
-                <Ionicons name={chip.icon} size={14} color="#4A7BD9" />
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFFFFF' }}>
-                  {chip.label}
-                </Text>
-              </View>
-            </MotiView>
-          ))}
-        </View>
+        {/* Hint to connect apps */}
+        <MotiView {...popIn(0, 600)}>
+          <View
+            className="flex-row items-center rounded-lg px-4"
+            style={{
+              height: 38,
+              backgroundColor: '#1A1A1A',
+              borderWidth: 1,
+              borderColor: '#2A2A2A',
+              gap: 8,
+            }}
+          >
+            <Ionicons name="apps-outline" size={14} color="#4A7BD9" />
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#8A8A8A' }}>
+              Connect your apps from the Apps tab
+            </Text>
+          </View>
+        </MotiView>
       </View>
 
       {/* Bottom button */}
