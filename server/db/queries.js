@@ -109,12 +109,24 @@ async function createWorkflow(userId, { name, description, trigger_type, cron_ex
   return result.rows[0];
 }
 
-async function listWorkflows(userId) {
+async function listWorkflows(userId, { limit, offset } = {}) {
+  if (Number.isFinite(limit) && Number.isFinite(offset)) {
+    const countResult = await query(
+      'SELECT COUNT(*) FROM workflows WHERE user_id = $1 AND active = true',
+      [userId]
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+    const result = await query(
+      'SELECT * FROM workflows WHERE user_id = $1 AND active = true ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [userId, limit, offset]
+    );
+    return { rows: result.rows, total };
+  }
   const result = await query(
     'SELECT * FROM workflows WHERE user_id = $1 AND active = true ORDER BY created_at DESC',
     [userId]
   );
-  return result.rows;
+  return { rows: result.rows, total: result.rows.length };
 }
 
 async function cancelWorkflow(workflowId, userId) {
@@ -207,23 +219,31 @@ async function createTemplate({ name, description, category, steps, variables, s
   return result.rows[0];
 }
 
-async function searchTemplates(searchTerm, category) {
-  let sql = 'SELECT * FROM workflow_templates WHERE 1=1';
+async function searchTemplates(searchTerm, category, { limit, offset } = {}) {
+  let whereSql = ' WHERE 1=1';
   const values = [];
   let idx = 1;
   if (searchTerm) {
-    sql += ` AND (name ILIKE $${idx} OR description ILIKE $${idx})`;
+    whereSql += ` AND (name ILIKE $${idx} OR description ILIKE $${idx})`;
     values.push(`%${searchTerm}%`);
     idx++;
   }
   if (category) {
-    sql += ` AND category = $${idx}`;
+    whereSql += ` AND category = $${idx}`;
     values.push(category);
     idx++;
   }
-  sql += ' ORDER BY usage_count DESC, created_at DESC';
+
+  if (Number.isFinite(limit) && Number.isFinite(offset)) {
+    const countResult = await query(`SELECT COUNT(*) FROM workflow_templates${whereSql}`, values);
+    const total = parseInt(countResult.rows[0].count, 10);
+    const pageSql = `SELECT * FROM workflow_templates${whereSql} ORDER BY usage_count DESC, created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+    const result = await query(pageSql, [...values, limit, offset]);
+    return { rows: result.rows, total };
+  }
+  const sql = `SELECT * FROM workflow_templates${whereSql} ORDER BY usage_count DESC, created_at DESC`;
   const result = await query(sql, values);
-  return result.rows;
+  return { rows: result.rows, total: result.rows.length };
 }
 
 async function getTemplateById(templateId) {
