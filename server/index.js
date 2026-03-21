@@ -147,6 +147,10 @@ app.use((err, req, res, _next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Wingman server running on port ${PORT}`);
+
+  // Cleanup stale Redis conversation keys on startup
+  const { cleanupStaleConversations } = require('./services/redis');
+  cleanupStaleConversations().catch(err => console.error('[startup] conversation cleanup failed:', err.message));
 });
 
 // uncaughtException and unhandledRejection handlers are registered at module init (top of file)

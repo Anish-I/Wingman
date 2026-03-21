@@ -24,9 +24,13 @@ async function getConversationHistory(userId) {
 async function appendMessage(userId, role, content) {
   const key = `conv:${userId}`;
   const entry = JSON.stringify({ role, content, timestamp: Date.now() });
-  await redis.lpush(key, entry);
-  await redis.ltrim(key, 0, MAX_MESSAGES - 1);
-  await redis.expire(key, CONVERSATION_TTL);
+  try {
+    await redis.lpush(key, entry);
+  } finally {
+    // Always trim and set TTL, even if lpush partially fails on pipeline
+    await redis.ltrim(key, 0, MAX_MESSAGES - 1).catch(() => {});
+    await redis.expire(key, CONVERSATION_TTL).catch(() => {});
+  }
 }
 
 async function setUserSession(token, data, ttl = 3600) {
@@ -45,6 +49,38 @@ async function deleteSession(token) {
   await redis.del(key);
 }
 
+// NOTE: Configure Redis maxmemory-policy to 'allkeys-lru' or 'volatile-lru' in production
+// to handle memory pressure gracefully (redis.conf or CONFIG SET maxmemory-policy).
+
+/**
+ * Cleanup stale conversation keys older than 48 hours.
+ * Call once on server startup. Scans for conv:* keys with no TTL
+ * or TTL > 48h and deletes them.
+ */
+async function cleanupStaleConversations() {
+  const MAX_AGE = 48 * 60 * 60; // 48 hours in seconds
+  let cursor = '0';
+  let cleaned = 0;
+  try {
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', 'conv:*', 'COUNT', 100);
+      cursor = nextCursor;
+      for (const key of keys) {
+        const ttl = await redis.ttl(key);
+        // ttl = -1 means no expiry set, ttl = -2 means key doesn't exist
+        if (ttl === -1) {
+          // No TTL set — apply the standard TTL
+          await redis.expire(key, CONVERSATION_TTL);
+          cleaned++;
+        }
+      }
+    } while (cursor !== '0');
+    if (cleaned > 0) console.log(`[redis] Cleanup: set TTL on ${cleaned} stale conversation keys`);
+  } catch (err) {
+    console.error('[redis] Cleanup error:', err.message);
+  }
+}
+
 module.exports = {
   redis,
   getConversationHistory,
@@ -52,4 +88,5 @@ module.exports = {
   setUserSession,
   getUserSession,
   deleteSession,
+  cleanupStaleConversations,
 };
