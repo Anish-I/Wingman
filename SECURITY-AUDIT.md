@@ -32,18 +32,11 @@ Additionally, the `.env` file itself contains **every production secret in plain
 
 ---
 
-### C2. JWT Secret is a Placeholder in Production
+### C2. ~~JWT Secret is a Placeholder in Production~~ — FIXED (2026-03-17)
 
-**File:** `server/routes/auth.js:15`
+**File:** `server/routes/auth.js`, `server/index.js`
 
-```js
-const JWT_SECRET = jwtSecret || 'wingman-dev-secret';
-```
-
-The `.env` has `JWT_SECRET=your_jwt_secret_here` — a literal placeholder string. The production guard on line 11-14 only fires when `NODE_ENV === 'production'`, meaning any other environment (including staging or misconfigured production) uses this **guessable secret**. Anyone who knows this value can forge arbitrary JWT tokens and impersonate any user.
-
-**Impact:** Complete authentication bypass.
-**Remediation:** Set a strong, randomly-generated JWT secret (256+ bits) and fail hard if it is missing regardless of `NODE_ENV`.
+**Fix:** Removed the fallback placeholder entirely. Both `server/index.js` (lines 41-44) and `server/routes/auth.js` (lines 51-55) now require `JWT_SECRET` at startup regardless of `NODE_ENV`, calling `process.exit(1)` if missing. The JWT is signed with `issuer: 'wingman'` and `audience: 'wingman-app'` claims via `jsonwebtoken`.
 
 ---
 
@@ -208,7 +201,7 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
-| CRITICAL | 3 | 1 | 2 | Secrets in git history, placeholder JWT secret (mitigated at runtime) |
+| CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
 | HIGH     | 6 | 6 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
 | LOW      | 6 | 4 | 2 | localStorage JWT (L1), trust proxy (L6) |
