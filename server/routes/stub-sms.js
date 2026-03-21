@@ -13,16 +13,16 @@ router.post('/sms', async (req, res) => {
     const { from, body } = req.body;
 
     if (!from || !body) {
-      return res.status(400).json({ error: 'Missing "from" and "body" fields.' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Missing "from" and "body" fields.' } });
     }
 
     // Validate phone is E.164 format
     if (!/^\+[1-9]\d{1,14}$/.test(from)) {
-      return res.status(400).json({ error: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' });
+      return res.status(400).json({ error: { code: 'INVALID_PHONE', message: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' } });
     }
 
     if (body.length > 1600) {
-      return res.status(400).json({ error: 'Message too long (max 1600 chars).' });
+      return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: 'Message too long (max 1600 chars).' } });
     }
 
     // Store inbound message in stub Redis list
@@ -91,7 +91,7 @@ router.post('/sms', async (req, res) => {
     res.json({ success: true, response: responseText });
   } catch (err) {
     console.error('[stub-sms] Error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
   }
 });
 
@@ -103,7 +103,7 @@ router.get('/messages/:phone', async (req, res) => {
     phone = decodeURIComponent(phone);
 
     if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
-      return res.status(400).json({ error: 'Invalid phone number format.' });
+      return res.status(400).json({ error: { code: 'INVALID_PHONE', message: 'Invalid phone number format.' } });
     }
 
     const key = `stub:messages:${phone}`;
@@ -111,7 +111,7 @@ router.get('/messages/:phone', async (req, res) => {
     res.json({ messages: messages.map((m) => JSON.parse(m)) });
   } catch (err) {
     console.error('[stub-sms] Get messages error:', err);
-    res.status(500).json({ error: 'Failed to retrieve messages.' });
+    res.status(500).json({ error: { code: 'MESSAGES_FETCH_ERROR', message: 'Failed to retrieve messages.' } });
   }
 });
 
