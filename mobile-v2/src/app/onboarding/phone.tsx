@@ -190,12 +190,12 @@ export default function PhoneScreen() {
             borderColor: '#3A3A3A',
           }}
         >
-          {/* Flag placeholder */}
-          <View className="rounded-sm" style={{ width: 24, height: 16, backgroundColor: '#B22234' }} />
-          <Ionicons name="chevron-down" size={14} color="#525252" style={{ marginLeft: 4 }} />
+          {/* US-only country indicator (static) */}
+          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#8A8A8A' }}>
+            +1 (US)
+          </Text>
           {/* Divider */}
           <View style={{ width: 1, height: 32, backgroundColor: '#2A2A2A', marginHorizontal: 12 }} />
-          <Text style={{ fontFamily: 'Sora_700Bold', fontSize: 16, color: '#FFFFFF' }}>+1</Text>
           <TextInput
             className="flex-1"
             style={{
