@@ -356,7 +356,7 @@ router.post('/google', async (req, res) => {
 });
 
 // GET /auth/google — redirect to Google OAuth consent screen
-router.get('/google', (req, res) => {
+router.get('/google', async (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
     return res.status(500).json({ error: { code: 'GOOGLE_NOT_CONFIGURED', message: 'Google OAuth not configured.' } });
@@ -364,10 +364,13 @@ router.get('/google', (req, res) => {
   // Use server-configured redirect URI only — never accept from query params (open redirect risk)
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
   const scope = encodeURIComponent('openid email profile');
-  // Sign the OAuth state with JWT_SECRET for CSRF protection (5-minute expiry)
+  // CSRF protection: generate a random nonce, store in Redis, and embed in JWT state.
+  // On callback, the nonce is verified against Redis and deleted (single-use).
   const platform = req.query.platform === 'web' ? 'web' : 'native';
   const webOrigin = req.query.webOrigin || '';
-  const state = jwt.sign({ platform, webOrigin }, JWT_SECRET, { expiresIn: '5m' });
+  const nonce = crypto.randomBytes(32).toString('hex');
+  await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
+  const state = jwt.sign({ platform, webOrigin, nonce }, JWT_SECRET, { expiresIn: '5m' });
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
   res.redirect(url);
 });
@@ -414,15 +417,24 @@ router.get('/google/callback', async (req, res) => {
   if (!req.query.state) {
     return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing OAuth state parameter.' } });
   }
-  let stateValid = true;
+  let statePayload;
   try {
-    jwt.verify(req.query.state, JWT_SECRET);
+    statePayload = jwt.verify(req.query.state, JWT_SECRET);
   } catch {
-    stateValid = false;
-  }
-  if (!stateValid) {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
   }
+
+  // Verify the nonce exists in Redis (ties state to a server-side session) and consume it
+  const nonce = statePayload.nonce;
+  if (!nonce) {
+    return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state missing nonce. Please restart the login flow.' } });
+  }
+  const nonceKey = `oauth_nonce:${nonce}`;
+  const nonceExists = await redis.call('GETDEL', nonceKey);
+  if (!nonceExists) {
+    return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state nonce expired or already used. Please restart the login flow.' } });
+  }
+
   const state = parseOAuthState(req.query.state);
 
   try {
