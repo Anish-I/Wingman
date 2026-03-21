@@ -69,14 +69,21 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const sendMutation = useSendMessage();
 
+  // Hard mutex — refs update synchronously across renders, so two rapid
+  // invocations before re-render cannot both pass the guard.
+  const isSendingRef = useRef(false);
+
   // Stable message IDs for dedup — survives retries without generating new UUIDs each call
   const pendingUserMsgId = useRef<string | null>(null);
   const pendingAssistantMsgId = useRef<string | null>(null);
 
   async function send(text?: string) {
+    if (isSendingRef.current) return; // Hard mutex — no double sends
     const msg = text ?? input.trim();
     if (!msg || loading)
       return;
+
+    isSendingRef.current = true;
 
     // Reuse pending IDs on retry; only generate fresh ones for new messages
     if (!pendingUserMsgId.current) {
@@ -138,6 +145,7 @@ export default function ChatScreen() {
     }
     finally {
       setLoading(false);
+      isSendingRef.current = false;
     }
   }
 
