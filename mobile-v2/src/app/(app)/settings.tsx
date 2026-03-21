@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
-import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -67,6 +67,8 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
 }
 
 export default function SettingsScreen() {
+  const reducedMotion = useReducedMotion();
+
   function handleLogout() {
     if (Platform.OS === 'web') {
       if (window.confirm('Log out\n\nAre you sure?')) {
@@ -89,9 +91,11 @@ export default function SettingsScreen() {
       <ScrollView contentContainerClassName="pb-12">
         {/* Profile header */}
         <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 12 }}
+          {...maybeReduce({
+            from: { opacity: 0, scale: 0.9 },
+            animate: { opacity: 1, scale: 1 },
+            transition: { type: 'spring' as const, damping: 12 },
+          }, reducedMotion)}
           className="items-center pt-6 pb-4"
         >
           <PipCard expression="happy" size="medium" className="mb-0" />
@@ -104,9 +108,11 @@ export default function SettingsScreen() {
 
         {/* Stats row */}
         <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ delay: 200 }}
+          {...maybeReduce({
+            from: { opacity: 0, translateY: 10 },
+            animate: { opacity: 1, translateY: 0 },
+            transition: { delay: 200 },
+          }, reducedMotion)}
           className="flex-row gap-3 px-4 mb-6"
         >
           {[
@@ -116,9 +122,11 @@ export default function SettingsScreen() {
           ].map((stat, i) => (
             <MotiView
               key={stat.label}
-              from={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', damping: 12, delay: 300 + i * 80 }}
+              {...maybeReduce({
+                from: { opacity: 0, scale: 0.8 },
+                animate: { opacity: 1, scale: 1 },
+                transition: { type: 'spring' as const, damping: 12, delay: 300 + i * 80 },
+              }, reducedMotion)}
               className="flex-1 bg-[#1A1A1A] rounded-2xl py-3 items-center border border-[#2A2A2A]"
             >
               <Text style={{ color: stat.color, fontSize: 22, fontWeight: '800' }}>{stat.num}</Text>
@@ -129,9 +137,11 @@ export default function SettingsScreen() {
 
         {/* Account section */}
         <MotiView
-          from={{ opacity: 0, translateX: -15 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 400 }}
+          {...maybeReduce({
+            from: { opacity: 0, translateX: -15 },
+            animate: { opacity: 1, translateX: 0 },
+            transition: { delay: 400 },
+          }, reducedMotion)}
           className="mt-2 px-4"
         >
           <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Account</Text>
@@ -144,9 +154,11 @@ export default function SettingsScreen() {
 
         {/* Preferences section */}
         <MotiView
-          from={{ opacity: 0, translateX: -15 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 500 }}
+          {...maybeReduce({
+            from: { opacity: 0, translateX: -15 },
+            animate: { opacity: 1, translateX: 0 },
+            transition: { delay: 500 },
+          }, reducedMotion)}
           className="mt-6 px-4"
         >
           <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Preferences</Text>
@@ -159,9 +171,11 @@ export default function SettingsScreen() {
 
         {/* About section */}
         <MotiView
-          from={{ opacity: 0, translateX: -15 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 600 }}
+          {...maybeReduce({
+            from: { opacity: 0, translateX: -15 },
+            animate: { opacity: 1, translateX: 0 },
+            transition: { delay: 600 },
+          }, reducedMotion)}
           className="mt-6 px-4"
         >
           <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">About</Text>
@@ -174,9 +188,11 @@ export default function SettingsScreen() {
 
         {/* Logout */}
         <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 700 }}
+          {...maybeReduce({
+            from: { opacity: 0 },
+            animate: { opacity: 1 },
+            transition: { delay: 700 },
+          }, reducedMotion)}
         >
           <Pressable
             className="flex-row items-center justify-center gap-2 py-4 mt-8 mx-4 bg-[#FF3B30]/10 rounded-2xl"
