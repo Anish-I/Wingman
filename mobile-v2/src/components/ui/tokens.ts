@@ -70,10 +70,10 @@ export const text = {
   primary: '#F0F0F5',
   /** Secondary — body text, longer content (high legibility) */
   secondary: '#9999A8',
-  /** Muted — labels, metadata, hints (still readable, not harsh) */
-  muted: '#6B6B7A',
-  /** Disabled / placeholder text — minimal contrast */
-  disabled: '#55556A',
+  /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
+  muted: '#8A8A99',
+  /** Disabled / placeholder text — improved contrast */
+  disabled: '#7A7A89',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
 } as const;
