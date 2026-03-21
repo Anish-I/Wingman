@@ -5,16 +5,17 @@ process.on('uncaughtException', (err) => {
   const msg = err?.message || String(err);
   const isExpected = msg.includes('ECONNREFUSED') || msg.includes('Redis');
   
-  console.error(`[${isExpected ? 'WARN' : 'FATAL'}] Uncaught exception:`, msg);
-  console.error('[crash-log]', JSON.stringify({
+  // Use pino logger if available, fall back to console for very early errors
+  const log = (() => { try { return require('./services/logger'); } catch { return console; } })();
+  const level = isExpected ? 'warn' : 'fatal';
+  log[level]({
     type: 'uncaughtException',
     message: msg,
     code: err.code,
     errno: err.errno,
-    stack: err.stack?.split('\n').slice(0, 5).join('\n'), // First 5 lines of stack
-    timestamp: new Date().toISOString(),
+    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
     expected: isExpected,
-  }));
+  }, `Uncaught exception: ${msg}`);
   
   if (!isExpected) {
     process.exit(1);
@@ -41,6 +42,7 @@ process.on('unhandledRejection', (reason) => {
 const { validateEnv } = require('./config/validate');
 validateEnv();
 
+const logger = require('./services/logger');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -129,14 +131,47 @@ try {
   console.warn('[server] Workflow worker failed to start:', err.message);
 }
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check with dependency verification
+async function checkDependencies() {
+  const results = { postgres: { ok: false, latencyMs: null }, redis: { ok: false, latencyMs: null } };
+
+  // Check PostgreSQL
+  try {
+    const pgStart = Date.now();
+    const { pool } = require('./db');
+    await pool.query('SELECT 1');
+    results.postgres = { ok: true, latencyMs: Date.now() - pgStart };
+  } catch (err) {
+    results.postgres = { ok: false, latencyMs: null, error: err.message };
+  }
+
+  // Check Redis
+  try {
+    const redisStart = Date.now();
+    const { redis } = require('./services/redis');
+    await redis.ping();
+    results.redis = { ok: true, latencyMs: Date.now() - redisStart };
+  } catch (err) {
+    results.redis = { ok: false, latencyMs: null, error: err.message };
+  }
+
+  const allOk = results.postgres.ok && results.redis.ok;
+  return { status: allOk ? 'ok' : 'degraded', ...results, uptime: process.uptime() };
+}
+
+app.get('/health', async (req, res) => {
+  const health = await checkDependencies();
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
+});
+
+app.get('/ready', async (req, res) => {
+  const health = await checkDependencies();
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
 // Error handler middleware — never leak stack traces or internal details
 app.use((err, req, res, _next) => {
-  console.error('Unhandled error:', err);
+  logger.error({ err, method: req.method, url: req.originalUrl }, 'Unhandled error');
   const status = err.status || 500;
   const code = status === 401 ? 'AUTH_ERROR'
     : status === 403 ? 'FORBIDDEN'
@@ -146,20 +181,20 @@ app.use((err, req, res, _next) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`Wingman server running on port ${PORT}`);
+  logger.info({ port: PORT }, 'Wingman server running');
 
   // Cleanup stale Redis conversation keys on startup
   const { cleanupStaleConversations } = require('./services/redis');
-  cleanupStaleConversations().catch(err => console.error('[startup] conversation cleanup failed:', err.message));
+  cleanupStaleConversations().catch(err => logger.error({ err: err.message }, 'Startup conversation cleanup failed'));
 });
 
 // uncaughtException and unhandledRejection handlers are registered at module init (top of file)
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
+  logger.info('SIGTERM received. Shutting down gracefully...');
   server.close(() => {
-    console.log('Server closed.');
+    logger.info('Server closed.');
     process.exit(0);
   });
 });
