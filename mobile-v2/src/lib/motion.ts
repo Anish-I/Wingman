@@ -13,9 +13,50 @@
  * - Bouncy for delightful pop-ins
  * - Micro (80ms) for rapid feedback (send button, toggles)
  */
-import { Platform } from 'react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
 
 const isWeb = Platform.OS === 'web';
+
+// ── Reduced motion support ───────────────────────────────────
+
+/** Hook that returns true when the user has enabled reduced motion in OS settings. */
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    // Check initial value
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduced).catch(() => {});
+
+    // Listen for changes
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
+    return () => sub.remove();
+  }, []);
+
+  return reduced;
+}
+
+/** Static no-animation props — use as a spread replacement for MotiView entrance props. */
+const NO_ANIMATION = {
+  from: undefined,
+  animate: undefined,
+  transition: undefined,
+} as const;
+
+/**
+ * Returns simplified (instant) animation props when reduced motion is enabled.
+ * Pass the result of an entrance/popIn/slideIn call and the reduced motion flag.
+ *
+ * Usage:
+ *   const reduced = useReducedMotion();
+ *   <MotiView {...maybeReduce(entrance(i), reduced)} />
+ */
+export function maybeReduce<T extends Record<string, any>>(
+  animationProps: T,
+  reducedMotion: boolean,
+): T | typeof NO_ANIMATION {
+  return reducedMotion ? NO_ANIMATION : animationProps;
+}
 
 // ── Spring presets ─────────────────────────────────────────────
 export const springs = {
