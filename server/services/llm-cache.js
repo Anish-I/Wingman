@@ -46,6 +46,24 @@ async function getCachedResponse(messageText) {
       return cached;
     }
     console.log(`[llm-cache] MISS ${bucket.name} key=${key}`);
+
+    // Stampede protection: if another request is already computing this key,
+    // wait briefly and retry from cache before proceeding to LLM call.
+    const lockKey = `${key}:lock`;
+    const lockAcquired = await redis.set(lockKey, '1', 'EX', 30, 'NX');
+    if (!lockAcquired) {
+      // Another request holds the lock — retry from cache up to 3 times
+      for (let i = 0; i < 3; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const retried = await redis.get(key);
+        if (retried) {
+          console.log(`[llm-cache] HIT (stampede retry ${i + 1}) ${bucket.name} key=${key}`);
+          return retried;
+        }
+      }
+      // Lock still held after retries — proceed with LLM call anyway
+      console.log(`[llm-cache] stampede lock timeout, proceeding with LLM call for key=${key}`);
+    }
   } catch (err) {
     console.error('[llm-cache] Redis get error:', err.message);
   }
@@ -59,6 +77,8 @@ async function setCachedResponse(messageText, response) {
   const key = cacheKey(bucket, messageText);
   try {
     await redis.set(key, response, 'EX', bucket.ttl);
+    // Release stampede lock now that cache is populated
+    await redis.del(`${key}:lock`).catch(() => {});
     console.log(`[llm-cache] SET ${bucket.name} key=${key} ttl=${bucket.ttl}s`);
   } catch (err) {
     console.error('[llm-cache] Redis set error:', err.message);
