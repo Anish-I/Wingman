@@ -53,12 +53,14 @@ async function deleteSession(token) {
 // to handle memory pressure gracefully (redis.conf or CONFIG SET maxmemory-policy).
 
 /**
- * Cleanup stale conversation keys older than 48 hours.
- * Call once on server startup. Scans for conv:* keys with no TTL
- * or TTL > 48h and deletes them.
+ * Ensure all conv:* keys have a TTL.
+ * Call once on server startup. Scans for conv:* keys and:
+ * - If TTL is -1 (no expiry set), applies a 48-hour expiry.
+ * - If TTL is -2 (key already expired/gone), skips it.
+ * - If TTL is already set, leaves it as-is.
  */
 async function cleanupStaleConversations() {
-  const MAX_AGE = 48 * 60 * 60; // 48 hours in seconds
+  const STALE_TTL = 48 * 60 * 60; // 48 hours in seconds
   let cursor = '0';
   let cleaned = 0;
   try {
@@ -67,15 +69,18 @@ async function cleanupStaleConversations() {
       cursor = nextCursor;
       for (const key of keys) {
         const ttl = await redis.ttl(key);
-        // ttl = -1 means no expiry set, ttl = -2 means key doesn't exist
+        if (ttl === -2) {
+          // Key expired or gone between SCAN and TTL check — skip
+          continue;
+        }
         if (ttl === -1) {
-          // No TTL set — apply the standard TTL
-          await redis.expire(key, CONVERSATION_TTL);
+          // No TTL set — apply a 48-hour expiry
+          await redis.expire(key, STALE_TTL);
           cleaned++;
         }
       }
     } while (cursor !== '0');
-    if (cleaned > 0) console.log(`[redis] Cleanup: set TTL on ${cleaned} stale conversation keys`);
+    if (cleaned > 0) console.log(`[redis] Cleanup: set 48h TTL on ${cleaned} stale conversation keys`);
   } catch (err) {
     console.error('[redis] Cleanup error:', err.message);
   }
