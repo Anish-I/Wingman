@@ -448,8 +448,12 @@ export default function AppsScreen() {
 
       const friendlyError = (err: unknown, action: string) => {
         const e = err as any;
-        const apiMsg = e?.response?.data?.error || e?.response?.data?.message;
-        if (apiMsg) return apiMsg;
+        const rawApiMsg = e?.response?.data?.error;
+        const apiMsg =
+          typeof rawApiMsg === 'object' && rawApiMsg !== null
+            ? rawApiMsg.message ?? JSON.stringify(rawApiMsg)
+            : rawApiMsg || e?.response?.data?.message;
+        if (apiMsg) return String(apiMsg);
         if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
           return `Request timed out while trying to ${action}. Check your connection and try again.`;
         }
