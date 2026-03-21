@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('crypto');
 const db = require('../db');
 const { createWorkflow, listWorkflows, cancelWorkflow, createWorkflowRun, updateWorkflowRun } = require('../db/queries');
 const { executeTool } = require('./composio');
@@ -27,23 +28,30 @@ async function createAndScheduleWorkflow(userId, { name, description, trigger_ty
   return workflow;
 }
 
+// Lua script: extend lock TTL only if we still own it (value matches)
+const EXTEND_SCRIPT = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end`;
+
+// Lua script: release lock only if we still own it (value matches)
+const RELEASE_SCRIPT = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`;
+
 async function runWorkflow(workflowId, userId) {
   const { redis } = require('./redis');
   const lockKey = `workflow:lock:${workflowId}`;
+  const lockValue = crypto.randomUUID(); // Ownership token
   const LOCK_TTL = 600; // 10 min — matches max expected workflow duration
   const EXTEND_INTERVAL = 5 * 60 * 1000; // 5 min — extend lock if still running
 
-  // Acquire a Redis lock (SET NX EX 600 = 10 min TTL) to prevent concurrent execution
-  const acquired = await redis.set(lockKey, Date.now().toString(), 'EX', LOCK_TTL, 'NX');
+  // Acquire: SET NX with our unique value — only succeeds if no lock exists
+  const acquired = await redis.set(lockKey, lockValue, 'EX', LOCK_TTL, 'NX');
   if (!acquired) {
     console.log(`[workflows] Skipping workflow ${workflowId} — already running (lock exists)`);
     return [];
   }
 
-  // Extend the lock periodically so long-running workflows don't lose it
+  // Extend the lock periodically — only if we still own it (Lua atomic check)
   const extendTimer = setInterval(async () => {
     try {
-      await redis.expire(lockKey, LOCK_TTL);
+      await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, LOCK_TTL);
     } catch (_) { /* best-effort extend */ }
   }, EXTEND_INTERVAL);
 
@@ -74,7 +82,8 @@ async function runWorkflow(workflowId, userId) {
     }
   } finally {
     clearInterval(extendTimer);
-    await redis.del(lockKey).catch(() => {});
+    // Release: only if we still own it — prevents deleting another runner's lock
+    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(() => {});
   }
 }
 
