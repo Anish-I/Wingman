@@ -167,10 +167,16 @@ async function updateWorkflowRun(runId, { status, result: runResult, error, star
 }
 
 async function updatePushToken(userId, token) {
+  // Only update (and bump updated_at) when the token actually changes
   const result = await query(
-    'UPDATE users SET push_token = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+    'UPDATE users SET push_token = $1, updated_at = NOW() WHERE id = $2 AND push_token IS DISTINCT FROM $1 RETURNING *',
     [token, userId]
   );
+  // If no rows returned, the token was already set — fetch the current user
+  if (!result.rows[0]) {
+    const current = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    return current.rows[0];
+  }
   return result.rows[0];
 }
 
