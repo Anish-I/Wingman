@@ -64,7 +64,7 @@ const loginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many login attempts, please try again later.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many login attempts, please try again later.' } },
 });
 
 // Rate limit signup attempts: 5 per 15 minutes per IP (abuse protection)
@@ -73,7 +73,7 @@ const signupLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many sign-up attempts, please try again later.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many sign-up attempts, please try again later.' } },
 });
 
 // Rate limit OTP requests: 5 per 15 minutes per IP
@@ -82,7 +82,7 @@ const otpLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many OTP requests, please try again later.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP requests, please try again later.' } },
 });
 
 // Rate limit OTP verification: 5 attempts per 15 minutes per phone (or IP fallback)
@@ -90,7 +90,7 @@ const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   keyGenerator: (req) => req.body?.phone || req.ip,
-  message: { error: 'Too many attempts. Try again in 15 minutes.' },
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many attempts. Try again in 15 minutes.' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -125,20 +125,20 @@ router.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email and password are required.' } });
     }
     if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format.' });
+      return res.status(400).json({ error: { code: 'INVALID_EMAIL', message: 'Invalid email format.' } });
     }
     if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      return res.status(400).json({ error: { code: 'PASSWORD_TOO_SHORT', message: 'Password must be at least 8 characters.' } });
     }
 
     // Use email:<email> as synthetic phone key to fit existing schema
     const emailKey = `email:${email.toLowerCase()}`;
     let user = await getUserByPhone(emailKey);
     if (user) {
-      return res.status(409).json({ error: 'An account with this email already exists.' });
+      return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -150,7 +150,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, name: user.name } });
   } catch (err) {
     console.error('Signup error:', err);
-    res.status(500).json({ error: 'Sign-up failed. Please try again.' });
+    res.status(500).json({ error: { code: 'SIGNUP_ERROR', message: 'Sign-up failed. Please try again.' } });
   }
 });
 
@@ -159,7 +159,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email and password are required.' } });
     }
 
     const normalizedEmail = email.toLowerCase();
@@ -169,7 +169,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     const attemptKey = `login_attempts:${normalizedEmail}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
-      return res.status(429).json({ error: 'Too many failed login attempts for this account. Try again in 15 minutes.' });
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed login attempts for this account. Try again in 15 minutes.' } });
     }
 
     const user = await getUserByPhone(emailKey);
@@ -177,14 +177,14 @@ router.post('/login', loginLimiter, async (req, res) => {
       // Increment counter even for non-existent accounts to prevent user enumeration timing
       await redis.incr(attemptKey);
       await redis.expire(attemptKey, 15 * 60);
-      return res.status(401).json({ error: 'Invalid email or password.' });
+      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
     const valid = await bcrypt.compare(password, user.pin_hash);
     if (!valid) {
       await redis.incr(attemptKey);
       await redis.expire(attemptKey, 15 * 60);
-      return res.status(401).json({ error: 'Invalid email or password.' });
+      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
     // Clear attempt counter on success
@@ -193,7 +193,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, name: user.name } });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Login failed. Please try again.' });
+    res.status(500).json({ error: { code: 'LOGIN_ERROR', message: 'Login failed. Please try again.' } });
   }
 });
 
@@ -202,10 +202,10 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) {
-      return res.status(400).json({ error: 'Phone number is required.' });
+      return res.status(400).json({ error: { code: 'PHONE_REQUIRED', message: 'Phone number is required.' } });
     }
     if (!isValidPhone(phone)) {
-      return res.status(400).json({ error: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' });
+      return res.status(400).json({ error: { code: 'INVALID_PHONE', message: 'Invalid phone number format. Use E.164 (e.g. +15551234567).' } });
     }
 
     const otp = crypto.randomInt(100000, 1000000).toString();
@@ -215,7 +215,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     res.json({ success: true, message: 'OTP sent.' });
   } catch (err) {
     console.error('OTP request error:', err);
-    res.status(500).json({ error: 'Failed to send OTP.' });
+    res.status(500).json({ error: { code: 'OTP_SEND_ERROR', message: 'Failed to send OTP.' } });
   }
 });
 
@@ -224,14 +224,14 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   try {
     const { phone, code } = req.body;
     if (!phone || !code) {
-      return res.status(400).json({ error: 'Phone and code are required.' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Phone and code are required.' } });
     }
 
     // Redis-based per-phone rate limiting (prevents distributed brute-force across IPs)
     const attemptKey = `otp_attempts:${phone}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
-      return res.status(429).json({ error: 'Too many failed OTP attempts for this number. Try again in 10 minutes.' });
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed OTP attempts for this number. Try again in 10 minutes.' } });
     }
 
     // Atomically fetch and delete the OTP in one operation to prevent race conditions
@@ -243,7 +243,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       // Increment per-phone attempt counter with sliding TTL matching OTP lifetime
       await redis.incr(attemptKey);
       await redis.expire(attemptKey, OTP_TTL);
-      return res.status(401).json({ error: 'Invalid or expired OTP.' });
+      return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
     // Success — clear attempt counter (OTP already deleted by GETDEL above)
@@ -259,7 +259,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, phone: user.phone, name: user.name } });
   } catch (err) {
     console.error('OTP verify error:', err);
-    res.status(500).json({ error: 'Failed to verify OTP.' });
+    res.status(500).json({ error: { code: 'OTP_VERIFY_ERROR', message: 'Failed to verify OTP.' } });
   }
 });
 
@@ -287,7 +287,7 @@ router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
     if (!idToken) {
-      return res.status(400).json({ error: 'Authorization code is required.' });
+      return res.status(400).json({ error: { code: 'AUTH_CODE_REQUIRED', message: 'Authorization code is required.' } });
     }
 
     // In production, NEVER accept redirect_uri from the client — use server config only.
@@ -303,7 +303,7 @@ router.post('/google', async (req, res) => {
       const clientUri = req.body.redirect_uri;
       if (clientUri) {
         if (!isAllowedRedirectUri(clientUri)) {
-          return res.status(400).json({ error: 'Invalid redirect_uri.' });
+          return res.status(400).json({ error: { code: 'INVALID_REDIRECT_URI', message: 'Invalid redirect_uri.' } });
         }
         finalRedirectUri = clientUri;
       } else {
@@ -327,7 +327,7 @@ router.post('/google', async (req, res) => {
 
     if (!tokenData.access_token) {
       console.error('Google token exchange failed:', tokenData);
-      return res.status(401).json({ error: 'Failed to exchange authorization code.' });
+      return res.status(401).json({ error: { code: 'TOKEN_EXCHANGE_FAILED', message: 'Failed to exchange authorization code.' } });
     }
 
     // Get user info from Google
@@ -337,7 +337,7 @@ router.post('/google', async (req, res) => {
     const googleUser = await userInfoResponse.json();
 
     if (!googleUser.id || !googleUser.email) {
-      return res.status(401).json({ error: 'Could not retrieve Google user info.' });
+      return res.status(401).json({ error: { code: 'GOOGLE_USER_INFO_FAILED', message: 'Could not retrieve Google user info.' } });
     }
 
     // Use google:<id> as a synthetic phone key to fit existing schema
@@ -351,7 +351,7 @@ router.post('/google', async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, name: user.name } });
   } catch (err) {
     console.error('Google auth error:', err);
-    res.status(500).json({ error: 'Google sign-in failed.' });
+    res.status(500).json({ error: { code: 'GOOGLE_AUTH_ERROR', message: 'Google sign-in failed.' } });
   }
 });
 
@@ -359,7 +359,7 @@ router.post('/google', async (req, res) => {
 router.get('/google', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
-    return res.status(500).json({ error: 'Google OAuth not configured.' });
+    return res.status(500).json({ error: { code: 'GOOGLE_NOT_CONFIGURED', message: 'Google OAuth not configured.' } });
   }
   // Use server-configured redirect URI only — never accept from query params (open redirect risk)
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
@@ -412,7 +412,7 @@ function buildRedirectUrl(state, params) {
 router.get('/google/callback', async (req, res) => {
   // Verify signed state token — reject if missing, expired, or tampered
   if (!req.query.state) {
-    return res.status(400).json({ error: 'Missing OAuth state parameter.' });
+    return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing OAuth state parameter.' } });
   }
   let stateValid = true;
   try {
@@ -421,7 +421,7 @@ router.get('/google/callback', async (req, res) => {
     stateValid = false;
   }
   if (!stateValid) {
-    return res.status(403).json({ error: 'Invalid or expired OAuth state. Please restart the login flow.' });
+    return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
   }
   const state = parseOAuthState(req.query.state);
 
@@ -506,19 +506,19 @@ router.post('/exchange-code', async (req, res) => {
   try {
     const { code } = req.body;
     if (!code || typeof code !== 'string') {
-      return res.status(400).json({ error: 'Authorization code is required.' });
+      return res.status(400).json({ error: { code: 'AUTH_CODE_REQUIRED', message: 'Authorization code is required.' } });
     }
     // Atomically fetch and delete — prevents a concurrent request from replaying the same code
     const key = `auth_code:${code}`;
     const stored = await redis.call('GETDEL', key);
     if (!stored) {
-      return res.status(401).json({ error: 'Invalid or expired authorization code.' });
+      return res.status(401).json({ error: { code: 'INVALID_AUTH_CODE', message: 'Invalid or expired authorization code.' } });
     }
     const data = JSON.parse(stored);
     res.json({ success: true, token: data.token, user: { id: data.userId, name: data.name } });
   } catch (err) {
     console.error('Exchange code error:', err);
-    res.status(500).json({ error: 'Failed to exchange authorization code.' });
+    res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
   }
 });
 
@@ -527,10 +527,10 @@ router.post('/social', async (req, res) => {
   try {
     const { provider: authProvider, token } = req.body;
     if (!authProvider || !token) {
-      return res.status(400).json({ error: 'Provider and token are required.' });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Provider and token are required.' } });
     }
     if (!['google', 'apple'].includes(authProvider)) {
-      return res.status(400).json({ error: 'Unsupported provider. Use "google" or "apple".' });
+      return res.status(400).json({ error: { code: 'UNSUPPORTED_PROVIDER', message: 'Unsupported provider. Use "google" or "apple".' } });
     }
 
     let socialId, socialName, socialEmail;
@@ -543,7 +543,7 @@ router.post('/social', async (req, res) => {
       });
       const payload = ticket.getPayload();
       if (!payload || !payload.sub) {
-        return res.status(401).json({ error: 'Invalid Google token.' });
+        return res.status(401).json({ error: { code: 'INVALID_GOOGLE_TOKEN', message: 'Invalid Google token.' } });
       }
       socialId = payload.sub;
       socialName = payload.name || payload.email;
@@ -553,14 +553,14 @@ router.post('/social', async (req, res) => {
       try {
         const payload = await verifyAppleToken(token);
         if (!payload.sub) {
-          return res.status(401).json({ error: 'Invalid Apple token.' });
+          return res.status(401).json({ error: { code: 'INVALID_APPLE_TOKEN', message: 'Invalid Apple token.' } });
         }
         socialId = payload.sub;
         socialEmail = payload.email;
         socialName = req.body.name || socialEmail || 'Apple User';
       } catch (appleErr) {
         console.error('Apple token verification failed:', appleErr.message);
-        return res.status(401).json({ error: 'Invalid or expired Apple token.' });
+        return res.status(401).json({ error: { code: 'INVALID_APPLE_TOKEN', message: 'Invalid or expired Apple token.' } });
       }
     }
 
@@ -575,7 +575,7 @@ router.post('/social', async (req, res) => {
     res.json({ success: true, token: jwtToken, user: { id: user.id, name: user.name } });
   } catch (err) {
     console.error('Social auth error:', err);
-    res.status(500).json({ error: 'Social sign-in failed.' });
+    res.status(500).json({ error: { code: 'SOCIAL_AUTH_ERROR', message: 'Social sign-in failed.' } });
   }
 });
 
@@ -590,7 +590,7 @@ router.get('/me', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Auth me error:', err);
-    res.status(500).json({ error: 'Failed to fetch user info.' });
+    res.status(500).json({ error: { code: 'USER_INFO_ERROR', message: 'Failed to fetch user info.' } });
   }
 });
 
@@ -599,7 +599,7 @@ router.post('/set-pin', requireAuth, async (req, res) => {
   try {
     const { pin } = req.body;
     if (!pin || !/^\d{4,8}$/.test(pin)) {
-      return res.status(400).json({ error: 'PIN must be 4-8 numeric digits.' });
+      return res.status(400).json({ error: { code: 'INVALID_PIN', message: 'PIN must be 4-8 numeric digits.' } });
     }
 
     // bcrypt with cost 12 - replaces SHA-256+pepper (see SECURITY-AUDIT C3)
@@ -609,7 +609,7 @@ router.post('/set-pin', requireAuth, async (req, res) => {
     res.json({ success: true, message: 'PIN set successfully.' });
   } catch (err) {
     console.error('Set PIN error:', err);
-    res.status(500).json({ error: 'Failed to set PIN.' });
+    res.status(500).json({ error: { code: 'SET_PIN_ERROR', message: 'Failed to set PIN.' } });
   }
 });
 
@@ -618,18 +618,18 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
   try {
     const { pin } = req.body;
     if (!pin || !/^\d{4,8}$/.test(pin)) {
-      return res.status(400).json({ error: 'PIN must be 4-8 digits.' });
+      return res.status(400).json({ error: { code: 'INVALID_PIN', message: 'PIN must be 4-8 digits.' } });
     }
 
     // Rate limit: max 5 attempts per userId per 15 minutes
     const attemptKey = `pin_verify_attempts:${req.user.id}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
-      return res.status(429).json({ error: 'Too many PIN verification attempts. Try again later.' });
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many PIN verification attempts. Try again later.' } });
     }
 
     if (!req.user.pin_hash) {
-      return res.status(400).json({ error: 'No PIN set for this account.' });
+      return res.status(400).json({ error: { code: 'NO_PIN_SET', message: 'No PIN set for this account.' } });
     }
 
     const valid = await bcrypt.compare(pin, req.user.pin_hash);
@@ -646,7 +646,7 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
     res.json({ success: true, valid });
   } catch (err) {
     console.error('Verify PIN error:', err);
-    res.status(500).json({ error: 'Failed to verify PIN.' });
+    res.status(500).json({ error: { code: 'VERIFY_PIN_ERROR', message: 'Failed to verify PIN.' } });
   }
 });
 

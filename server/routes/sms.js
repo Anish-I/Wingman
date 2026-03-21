@@ -12,7 +12,7 @@ const smsLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many SMS requests.',
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many SMS requests.' } },
 });
 
 router.get('/sms', (req, res) => res.status(200).send('OK'));
@@ -29,12 +29,12 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       } else {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
-          return res.status(403).json({ error: 'Forbidden' });
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
         const isValid = provider.validateIncoming(req);
         if (!isValid) {
           console.warn('[security] Invalid Twilio signature');
-          return res.status(403).json({ error: 'Forbidden' });
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
 
@@ -70,13 +70,13 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       } else {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
-          return res.status(403).json({ error: 'Forbidden' });
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
         const rawBody = JSON.stringify(req.body);
         const isValid = provider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
           console.warn('[security] Invalid Telnyx signature');
-          return res.status(403).json({ error: 'Forbidden' });
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
 
@@ -97,15 +97,15 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       const messageText = payload?.text;
 
       if (!phone || !messageText) {
-        return res.status(400).json({ error: 'Missing phone or text' });
+        return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Missing phone or text' } });
       }
 
       if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
-        return res.status(400).json({ error: 'Invalid phone number format' });
+        return res.status(400).json({ error: { code: 'INVALID_PHONE', message: 'Invalid phone number format' } });
       }
 
       if (messageText.length > 1600) {
-        return res.status(400).json({ error: 'Message too long' });
+        return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: 'Message too long' } });
       }
 
       await handleIncomingSMS(phone, messageText, res, false);

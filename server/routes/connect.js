@@ -34,7 +34,7 @@ router.get('/status', requireAuth, async (req, res) => {
     res.json(status);
   } catch (err) {
     console.error('Connection status error:', err);
-    res.status(500).json({ error: 'Failed to fetch connection status.' });
+    res.status(500).json({ error: { code: 'CONNECTION_STATUS_ERROR', message: 'Failed to fetch connection status.' } });
   }
 });
 
@@ -44,7 +44,7 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
   try {
     const { app } = req.body;
     if (!app || typeof app !== 'string') {
-      return res.status(400).json({ error: 'Missing or invalid app parameter.' });
+      return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Missing or invalid app parameter.' } });
     }
     const connectToken = crypto.randomBytes(32).toString('hex');
     const key = `connect_token:${connectToken}`;
@@ -52,7 +52,7 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
     res.json({ connectToken });
   } catch (err) {
     console.error('[connect] create-connect-token error:', err);
-    res.status(500).json({ error: 'Failed to create connect token.' });
+    res.status(500).json({ error: { code: 'CONNECT_TOKEN_ERROR', message: 'Failed to create connect token.' } });
   }
 });
 
@@ -61,13 +61,13 @@ router.get('/initiate', async (req, res) => {
   try {
     const { connectToken } = req.query;
     if (!connectToken) {
-      return res.status(400).json({ error: 'Missing connectToken parameter.' });
+      return res.status(400).json({ error: { code: 'MISSING_CONNECT_TOKEN', message: 'Missing connectToken parameter.' } });
     }
     // Look up and consume the single-use token from Redis
     const key = `connect_token:${connectToken}`;
     const stored = await redis.get(key);
     if (!stored) {
-      return res.status(401).json({ error: 'Invalid or expired connect token.' });
+      return res.status(401).json({ error: { code: 'INVALID_CONNECT_TOKEN', message: 'Invalid or expired connect token.' } });
     }
     // Delete immediately — single use
     await redis.del(key);
@@ -78,7 +78,7 @@ router.get('/initiate', async (req, res) => {
     res.redirect(url);
   } catch (err) {
     console.error('Connection initiate error:', err);
-    res.status(500).json({ error: 'Failed to generate connection link.' });
+    res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to generate connection link.' } });
   }
 });
 
@@ -87,11 +87,11 @@ router.get('/callback', async (req, res) => {
   try {
     const { state } = req.query;
     if (!state) {
-      return res.status(400).send('Missing state parameter.');
+      return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing state parameter.' } });
     }
     const payload = verifyOAuthState(state);
     if (!payload) {
-      return res.status(400).send('Invalid or expired OAuth state token.');
+      return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
     const { userId, app: appName } = payload;
     if (userId) {
@@ -100,7 +100,7 @@ router.get('/callback', async (req, res) => {
     res.redirect(`${WEB_URL}/connect/success?app=${appName || ''}`);
   } catch (err) {
     console.error('OAuth callback error:', err);
-    res.status(500).send('Something went wrong.');
+    res.status(500).json({ error: { code: 'OAUTH_CALLBACK_ERROR', message: 'Something went wrong.' } });
   }
 });
 
@@ -109,7 +109,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
   try {
     const { app } = req.body;
     if (!app || typeof app !== 'string') {
-      return res.status(400).json({ error: 'Missing or invalid app parameter.' });
+      return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Missing or invalid app parameter.' } });
     }
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
     const entityId = String(req.user.id);
@@ -131,7 +131,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Disconnect error:', err);
-    res.status(500).json({ error: 'Failed to disconnect app.' });
+    res.status(500).json({ error: { code: 'DISCONNECT_ERROR', message: 'Failed to disconnect app.' } });
   }
 });
 
@@ -145,7 +145,7 @@ router.get('/:app', requireAuth, async (req, res) => {
     res.redirect(url);
   } catch (err) {
     console.error('Connection link error:', err);
-    res.status(500).json({ error: 'Failed to generate connection link.' });
+    res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to generate connection link.' } });
   }
 });
 
@@ -173,7 +173,7 @@ router.delete('/:app', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Disconnect error:', err);
-    res.status(500).json({ error: 'Failed to disconnect app.' });
+    res.status(500).json({ error: { code: 'DISCONNECT_ERROR', message: 'Failed to disconnect app.' } });
   }
 });
 

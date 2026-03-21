@@ -10,17 +10,17 @@ const { getUserById } = require('../db/queries');
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required.' });
+    return res.status(401).json({ error: { code: 'TOKEN_REQUIRED', message: 'Authorization token required.' } });
   }
 
   const payload = verifyToken(authHeader.slice(7));
   if (!payload) {
-    return res.status(401).json({ error: 'Invalid or expired token.' });
+    return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token.' } });
   }
 
   const user = await getUserById(payload.userId).catch(() => null);
   if (!user) {
-    return res.status(401).json({ error: 'User not found.' });
+    return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
   }
 
   req.user = user;
