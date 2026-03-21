@@ -6,45 +6,197 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  # ──────────────────────────────────────────────
+  # Server: Lint, Test (with Postgres + Redis)
+  # ──────────────────────────────────────────────
+  server-lint:
+    name: Server Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Install root workspace deps (includes server/)
+      - name: Install dependencies
+        run: npm ci
+
+      # Run ESLint on server/ — uses --if-present so it won't fail if no lint script yet
+      - name: Lint server
+        run: cd server && npm run lint --if-present
+
+  server-test:
+    name: Server Tests
     runs-on: ubuntu-latest
 
+    # Spin up Postgres and Redis as sidecar containers for integration tests
     services:
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: wingman
           POSTGRES_PASSWORD: wingman
           POSTGRES_DB: wingman
         ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U wingman"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: cd server && npm test
+      # Run the server test suite with service container URLs
+      - name: Run server tests
+        working-directory: server
+        run: npm test
         env:
           NODE_ENV: test
-          REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql://wingman:wingman@localhost:5432/wingman
+          REDIS_URL: redis://localhost:6379
           JWT_SECRET: ci-test-secret-do-not-use-in-production
           MESSAGING_PROVIDER: stub
 
-      - name: Run lint (if configured)
-        run: cd server && npm run lint --if-present
+  # ──────────────────────────────────────────────
+  # Mobile: Lint, Type Check, Test, Build Check
+  # ──────────────────────────────────────────────
+  mobile-lint:
+    name: Mobile Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: TypeScript check (mobile)
-        run: cd mobile && npx tsc --noEmit || true
+      # mobile-v2 uses pnpm — install and configure it
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      # Run ESLint across the mobile codebase
+      - name: Lint mobile
+        working-directory: mobile-v2
+        run: pnpm lint
+
+  mobile-typecheck:
+    name: Mobile Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      # TypeScript strict check — catches type errors without emitting files
+      - name: Type check
+        working-directory: mobile-v2
+        run: pnpm type-check
+
+  mobile-test:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      # Run Jest unit tests with coverage report
+      - name: Run tests
+        working-directory: mobile-v2
+        run: pnpm test:ci
+
+      # Upload coverage as an artifact for later review
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: mobile-v2/coverage/
+          retention-days: 7
+
+  mobile-build:
+    name: Mobile Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      # Verify the web export compiles successfully (catches build-time errors)
+      - name: Build web export
+        working-directory: mobile-v2
+        run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_API_URL: https://api.example.com

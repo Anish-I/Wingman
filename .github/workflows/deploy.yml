@@ -1,19 +1,148 @@
 name: Deploy
 
 on:
+  # Triggers after CI completes on main — only deploys if CI passed
   workflow_run:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
 
+# Only one deploy at a time
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  # ──────────────────────────────────────────────
+  # Server Deploy via SSH + PM2
+  # ──────────────────────────────────────────────
+  server-deploy:
+    name: Deploy Server
+    runs-on: ubuntu-latest
+    # Only deploy if CI succeeded (not on failure or cancellation)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # SSH into production, pull latest code, install deps, restart PM2
+      #
+      # ┌─────────────────────────────────────────────────────────────────┐
+      # │ TODO: Configure these GitHub Secrets before first deploy:      │
+      # │                                                                │
+      # │   DEPLOY_HOST — production server IP or hostname               │
+      # │   DEPLOY_USER — SSH username (e.g. "deploy" or "ubuntu")       │
+      # │   DEPLOY_KEY  — private SSH key (ed25519 recommended)          │
+      # │   DEPLOY_PATH — path to Wingman on server (e.g. /opt/wingman) │
+      # │                                                                │
+      # │ Server setup checklist:                                        │
+      # │   1. Create a deploy user: adduser deploy                      │
+      # │   2. Add SSH public key to ~/.ssh/authorized_keys              │
+      # │   3. Install Node.js 22, PM2, PostgreSQL, Redis                │
+      # │   4. Clone the repo to DEPLOY_PATH                             │
+      # │   5. Copy .env with production secrets                         │
+      # │   6. Start with: pm2 start server/index.js --name wingman     │
+      # │   7. Save: pm2 save && pm2 startup                            │
+      # └─────────────────────────────────────────────────────────────────┘
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            set -e
+
+            # Navigate to the project directory
+            cd ${{ secrets.DEPLOY_PATH || '/opt/wingman' }}
+
+            # Pull latest changes from main
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Install server dependencies (production only)
+            cd server
+            npm ci --omit=dev
+
+            # Run database migrations if they exist
+            if [ -f scripts/migrate.js ]; then
+              node scripts/migrate.js
+            fi
+
+            # Restart the PM2 process (graceful reload keeps zero downtime)
+            pm2 reload wingman --update-env || pm2 start index.js --name wingman
+
+            # Verify the server started successfully
+            sleep 3
+            pm2 status wingman
+        # This step will be skipped if secrets are not configured
+        if: ${{ secrets.DEPLOY_HOST != '' }}
+
+      - name: Skip deploy (no server configured)
+        if: ${{ secrets.DEPLOY_HOST == '' }}
+        run: |
+          echo "::warning::Server deploy skipped — DEPLOY_HOST secret not configured."
+          echo "See workflow comments for setup instructions."
+
+  # ──────────────────────────────────────────────
+  # Mobile Deploy via EAS Build
+  # ──────────────────────────────────────────────
+  mobile-deploy:
+    name: Deploy Mobile (EAS)
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
 
-      # TODO: Add EAS Build / deployment steps here
-      - name: Deploy placeholder
-        run: echo "Deploy step — configure EAS or server deploy here"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile-v2/pnpm-lock.yaml
+
+      - name: Install mobile dependencies
+        working-directory: mobile-v2
+        run: pnpm install --frozen-lockfile
+
+      # Install the EAS CLI for building and submitting
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EAS_TOKEN }}
+
+      # ┌─────────────────────────────────────────────────────────────────┐
+      # │ TODO: Configure EAS before first deploy:                       │
+      # │                                                                │
+      # │   1. Create Expo account at https://expo.dev                   │
+      # │   2. Run locally: cd mobile-v2 && npx eas login                │
+      # │   3. Run: npx eas build:configure (already done — eas.json)    │
+      # │   4. Generate a robot token at https://expo.dev/accounts/…     │
+      # │      → Settings → Access Tokens → Create                      │
+      # │   5. Add as GitHub Secret: EAS_TOKEN                           │
+      # │   6. For App Store submission, also configure:                 │
+      # │      - Apple Developer account credentials in EAS              │
+      # │      - Google Play service account JSON in EAS                 │
+      # └─────────────────────────────────────────────────────────────────┘
+
+      # Build for both platforms in parallel using EAS cloud builders
+      - name: Build iOS (production)
+        working-directory: mobile-v2
+        run: eas build --profile production --platform ios --non-interactive
+        if: ${{ secrets.EAS_TOKEN != '' }}
+
+      - name: Build Android (production)
+        working-directory: mobile-v2
+        run: eas build --profile production --platform android --non-interactive
+        if: ${{ secrets.EAS_TOKEN != '' }}
+
+      - name: Skip EAS build (no token)
+        if: ${{ secrets.EAS_TOKEN == '' }}
+        run: |
+          echo "::warning::EAS builds skipped — EAS_TOKEN secret not configured."
+          echo "See workflow comments for setup instructions."
