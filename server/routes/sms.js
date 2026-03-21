@@ -44,15 +44,15 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       const msgId = parsed.messageId;
 
       if (!phone || !messageText) {
-        return res.status(400).send('<Response></Response>');
+        return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Missing phone or message text' } });
       }
 
       if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
-        return res.status(400).send('<Response></Response>');
+        return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Invalid phone number format' } });
       }
 
       if (messageText.length > 1600) {
-        return res.status(400).send('<Response></Response>');
+        return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Message too long' } });
       }
 
       // Idempotency
