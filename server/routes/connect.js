@@ -11,15 +11,23 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
 const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
-// Generate a signed, time-limited state token for OAuth callbacks
-function generateOAuthState(userId, app) {
-  return jwt.sign({ userId, app }, JWT_SECRET, { expiresIn: '10m' });
+// Generate a signed, time-limited state token for OAuth callbacks.
+// Includes a random nonce stored in Redis to tie the token to a server-side session (CSRF protection).
+async function generateOAuthState(userId, app) {
+  const nonce = crypto.randomBytes(32).toString('hex');
+  await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 600); // 10-minute TTL matching JWT expiry
+  return jwt.sign({ userId, app, nonce }, JWT_SECRET, { expiresIn: '10m' });
 }
 
-// Verify and decode an OAuth state token
-function verifyOAuthState(stateToken) {
+// Verify and decode an OAuth state token, consuming the server-side nonce (single-use)
+async function verifyOAuthState(stateToken) {
   try {
-    return jwt.verify(stateToken, JWT_SECRET);
+    const payload = jwt.verify(stateToken, JWT_SECRET);
+    if (!payload.nonce) return null;
+    // Atomically fetch and delete nonce — prevents replay
+    const nonceExists = await redis.call('GETDEL', `oauth_nonce:${payload.nonce}`);
+    if (!nonceExists) return null;
+    return payload;
   } catch {
     return null;
   }
@@ -72,7 +80,7 @@ router.get('/initiate', async (req, res) => {
     // Delete immediately — single use
     await redis.del(key);
     const { userId, app } = JSON.parse(stored);
-    const state = generateOAuthState(userId, app);
+    const state = await generateOAuthState(userId, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(userId, app, redirectUrl);
     res.redirect(url);
@@ -89,7 +97,7 @@ router.get('/callback', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing state parameter.' } });
     }
-    const payload = verifyOAuthState(state);
+    const payload = await verifyOAuthState(state);
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
@@ -139,7 +147,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
 router.get('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
-    const state = generateOAuthState(req.user.id, app);
+    const state = await generateOAuthState(req.user.id, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(req.user.id, app, redirectUrl);
     res.redirect(url);
