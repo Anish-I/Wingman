@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -12,39 +13,70 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
 import { entrance, chipPressStyle, springs, webInteractive } from '@/lib/motion';
 
-const PERMISSIONS = [
+type PermissionItem = {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  accent: string;
+  type: 'notifications' | 'coming-soon';
+};
+
+const PERMISSIONS: PermissionItem[] = [
   {
-    icon: 'notifications-outline' as const,
+    icon: 'notifications-outline',
     title: 'Notifications',
     subtitle: 'Get instant task updates',
     accent: purple[500],
+    type: 'notifications',
   },
   {
-    icon: 'people-outline' as const,
+    icon: 'people-outline',
     title: 'Contacts',
-    subtitle: 'Send messages to friends',
+    subtitle: 'Coming soon',
     accent: purple[400],
+    type: 'coming-soon',
   },
   {
-    icon: 'calendar-outline' as const,
+    icon: 'calendar-outline',
     title: 'Calendar',
-    subtitle: 'Schedule and manage events',
+    subtitle: 'Coming soon',
     accent: teal[300],
+    type: 'coming-soon',
   },
   {
-    icon: 'location-outline' as const,
+    icon: 'location-outline',
     title: 'Location',
-    subtitle: 'Find nearby places & navigate',
+    subtitle: 'Coming soon',
     accent: teal[400],
+    type: 'coming-soon',
   },
 ];
 
 export default function PermissionsScreen() {
   const router = useRouter();
-  const [granted, setGranted] = useState<Record<number, boolean>>({});
+  const [notificationsGranted, setNotificationsGranted] = useState(false);
 
-  function handleAllow(index: number) {
-    setGranted(prev => ({ ...prev, [index]: true }));
+  // Check existing notification permission on mount
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    Notifications.getPermissionsAsync().then(({ status }) => {
+      if (status === 'granted') {
+        setNotificationsGranted(true);
+      }
+    });
+  }, []);
+
+  async function handleAllowNotifications() {
+    if (Platform.OS === 'web') {
+      setNotificationsGranted(true);
+      return;
+    }
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      setNotificationsGranted(status === 'granted');
+    } catch {
+      // Permission request failed — leave as not granted
+    }
   }
 
   return (
@@ -83,111 +115,139 @@ export default function PermissionsScreen() {
 
         {/* Permission cards */}
         <View style={{ gap: 10, marginTop: 16 }}>
-          {PERMISSIONS.map((perm, i) => (
-            <MotiView
-              key={i}
-              {...entrance(i, 100)}
-            >
-              <View
-                style={{
-                  borderRadius: 14,
-                  backgroundColor: surface.card,
-                  borderWidth: 1,
-                  borderColor: granted[i] ? 'rgba(50, 215, 75, 0.2)' : surface.border,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                }}
+          {PERMISSIONS.map((perm, i) => {
+            const isGranted = perm.type === 'notifications' && notificationsGranted;
+            const isComingSoon = perm.type === 'coming-soon';
+
+            return (
+              <MotiView
+                key={i}
+                {...entrance(i, 100)}
               >
                 <View
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
+                    borderRadius: 14,
+                    backgroundColor: surface.card,
+                    borderWidth: 1,
+                    borderColor: isGranted ? 'rgba(50, 215, 75, 0.2)' : surface.border,
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: `${perm.accent}14`,
+                    gap: 12,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    opacity: isComingSoon ? 0.5 : 1,
                   }}
                 >
-                  <Ionicons name={perm.icon} size={20} color={perm.accent} />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
+                  <View
                     style={{
-                      color: t.primary,
-                      fontSize: 14,
-                      fontFamily: 'Inter_600SemiBold',
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: `${perm.accent}14`,
                     }}
                   >
-                    {perm.title}
-                  </Text>
-                  <Text
-                    style={{
-                      color: t.secondary,
-                      fontSize: 12,
-                      fontFamily: 'Inter_400Regular',
-                    }}
-                  >
-                    {perm.subtitle}
-                  </Text>
+                    <Ionicons name={perm.icon} size={20} color={perm.accent} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        color: t.primary,
+                        fontSize: 14,
+                        fontFamily: 'Inter_600SemiBold',
+                      }}
+                    >
+                      {perm.title}
+                    </Text>
+                    <Text
+                      style={{
+                        color: t.secondary,
+                        fontSize: 12,
+                        fontFamily: 'Inter_400Regular',
+                      }}
+                    >
+                      {perm.subtitle}
+                    </Text>
+                  </View>
+                  {isComingSoon ? (
+                    <View
+                      style={{
+                        backgroundColor: surface.cardAlt,
+                        borderRadius: 8,
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: t.muted,
+                          fontSize: 10,
+                          fontFamily: 'Inter_500Medium',
+                        }}
+                      >
+                        Soon
+                      </Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={handleAllowNotifications}
+                      disabled={isGranted}
+                      style={({ pressed }) => [
+                        ...chipPressStyle({ pressed }),
+                        webInteractive(),
+                      ]}
+                    >
+                      {isGranted
+                        ? (
+                            <MotiView
+                              from={{ scale: 0.6 }}
+                              animate={{ scale: 1 }}
+                              transition={springs.bouncy}
+                              style={{
+                                backgroundColor: semantic.success,
+                                borderRadius: 8,
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: '#FFFFFF',
+                                  fontSize: 11,
+                                  fontFamily: 'Inter_600SemiBold',
+                                }}
+                              >
+                                Done
+                              </Text>
+                            </MotiView>
+                          )
+                        : (
+                            <View
+                              style={{
+                                backgroundColor: purple[500],
+                                borderRadius: 8,
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: '#FFFFFF',
+                                  fontSize: 11,
+                                  fontFamily: 'Inter_600SemiBold',
+                                }}
+                              >
+                                Allow
+                              </Text>
+                            </View>
+                          )}
+                    </Pressable>
+                  )}
                 </View>
-                <Pressable
-                  onPress={() => handleAllow(i)}
-                  style={({ pressed }) => [
-                    ...chipPressStyle({ pressed }),
-                    webInteractive(),
-                  ]}
-                >
-                  {granted[i]
-                    ? (
-                        <MotiView
-                          from={{ scale: 0.6 }}
-                          animate={{ scale: 1 }}
-                          transition={springs.bouncy}
-                          style={{
-                            backgroundColor: semantic.success,
-                            borderRadius: 8,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: '#FFFFFF',
-                              fontSize: 11,
-                              fontFamily: 'Inter_600SemiBold',
-                            }}
-                          >
-                            Done
-                          </Text>
-                        </MotiView>
-                      )
-                    : (
-                        <View
-                          style={{
-                            backgroundColor: purple[500],
-                            borderRadius: 8,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: '#FFFFFF',
-                              fontSize: 11,
-                              fontFamily: 'Inter_600SemiBold',
-                            }}
-                          >
-                            Allow
-                          </Text>
-                        </View>
-                      )}
-                </Pressable>
-              </View>
-            </MotiView>
-          ))}
+              </MotiView>
+            );
+          })}
         </View>
       </View>
 
