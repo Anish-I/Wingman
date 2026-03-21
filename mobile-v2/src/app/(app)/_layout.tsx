@@ -14,6 +14,7 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 
 export default function TabLayout() {
   const status = useAuth.use.status();
+  const token = useAuth.use.token();
   const [isFirstTime] = useIsFirstTime();
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();
@@ -31,7 +32,8 @@ export default function TabLayout() {
   if (status === 'idle') {
     return null; // Don't render anything until auth state is determined
   }
-  if (status === 'signOut') {
+  // Guard: redirect to login if signed out OR if token is missing/empty
+  if (status === 'signOut' || !token) {
     return <Redirect href="/login" />;
   }
   if (isFirstTime) {
