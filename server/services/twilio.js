@@ -47,6 +47,12 @@ function validateWebhook(req) {
       data += key + params[key];
     }
 
+    // NOTE: Twilio's X-Twilio-Signature uses HMAC-SHA1 by design.
+    // SHA-1 is considered weak, but we MUST use it here because Twilio
+    // computes signatures with SHA-1 on their end. Switching to SHA-256
+    // would break validation. This cannot be fixed without Twilio
+    // adding SHA-256 signature support (they currently do not).
+    // See: https://www.twilio.com/docs/usage/security#validating-requests
     const hmac = crypto.createHmac('sha1', authToken)
       .update(data)
       .digest('base64');
