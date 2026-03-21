@@ -121,9 +121,10 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
 router.get('/apps', requireAuth, async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query);
-    // Composio external API does not support server-side pagination — we must fetch
-    // the full connected-apps list and paginate in memory. The dataset per user is
-    // small (bounded by the number of Composio apps the user has connected).
+    // Composio external API does not support cursor-based pagination — pageSize=200
+    // is the hard maximum. We fetch the full connected-apps list and paginate in
+    // memory. The dataset per user is small (bounded by the number of Composio apps
+    // the user has connected, rarely exceeding 200).
     const status = await getConnectionStatus(String(req.user.id));
     const allConnected = status.connected || [];
     const paginated = allConnected.slice(offset, offset + limit);

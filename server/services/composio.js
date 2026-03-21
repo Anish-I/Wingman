@@ -208,6 +208,9 @@ async function getConnectionStatus(userId, appNames = null) {
     // The REST API accepts both `user_uuid` and `entityId` — try entityId first
     // as it aligns with how getTools/getConnectionLink identify users.
     const entityId = String(userId);
+    // Known limitation: Composio REST API does not support cursor-based pagination
+    // for connectedAccounts. pageSize=200 is the maximum allowed value.
+    // In practice this is not a bottleneck — a single user rarely connects 200+ apps.
     const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const res = await fetch(url, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
 
