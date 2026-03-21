@@ -136,7 +136,7 @@ async function processMessage(user, messageText) {
   }
 
   // Fire-and-forget: extract memory from conversation
-  extractAndSaveMemory(user, messages).catch(() => {});
+  extractAndSaveMemory(user, messages).catch(err => console.error('[async-task] Error:', err.message));
 
   return finalText;
   } catch (err) {

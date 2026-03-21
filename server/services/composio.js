@@ -151,12 +151,12 @@ async function getTools(userId) {
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
   const tools = await toolset.getTools({});
-  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(() => {});
+  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => console.error('[async-task] Error:', err.message));
   return tools;
 }
 
 async function invalidateToolsCache(userId) {
-  await redis.del(`tools:${userId}`).catch(() => {});
+  await redis.del(`tools:${userId}`).catch(err => console.error('[async-task] Error:', err.message));
 }
 
 /**
