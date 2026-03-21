@@ -45,7 +45,11 @@ export default function PhoneScreen() {
       setE164Phone(formatted);
       setStep('verify');
     } catch (err: any) {
-      let message = err?.response?.data?.error;
+      const rawErr = err?.response?.data?.error;
+      let message =
+        typeof rawErr === 'object' && rawErr !== null
+          ? rawErr.message ?? JSON.stringify(rawErr)
+          : rawErr;
       if (!message) {
         if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
           message = 'Request timed out. Check your connection and try again.';
@@ -55,7 +59,7 @@ export default function PhoneScreen() {
           message = 'Could not send verification code. Please try again.';
         }
       }
-      showAlert('Error', message);
+      showAlert('Error', String(message));
     } finally {
       setLoading(false);
     }
@@ -104,7 +108,11 @@ export default function PhoneScreen() {
         router.push('/onboarding/connect');
       }, 1500);
     } catch (err: any) {
-      let message = err?.response?.data?.error;
+      const rawVerifyErr = err?.response?.data?.error;
+      let message =
+        typeof rawVerifyErr === 'object' && rawVerifyErr !== null
+          ? rawVerifyErr.message ?? JSON.stringify(rawVerifyErr)
+          : rawVerifyErr;
       if (!message) {
         if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
           message = 'Request timed out. Check your connection and try again.';
@@ -114,7 +122,7 @@ export default function PhoneScreen() {
           message = 'Invalid or expired code. Please try again.';
         }
       }
-      showAlert('Verification Failed', message);
+      showAlert('Verification Failed', String(message));
       // Stay on verify step, keep code visible but clear inputs for retry
       setCode(['', '', '', '', '', '']);
       setActiveIdx(0);
