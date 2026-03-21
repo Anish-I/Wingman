@@ -85,9 +85,12 @@ async function processMessage(user, messageText) {
             if (/not connected|no connected account|connection not found/i.test(errMsg)) {
               const app = appFromToolName(block.name);
               const link = await getConnectionLink(userId, app).catch(() => null);
-              return link
+              const reply = link
                 ? `To use ${app}, connect your account first: ${link}\n\nReply once you've connected and I'll complete your request.`
                 : `Please connect ${app} at composio.dev to use this feature.`;
+              await appendMessage(user.id, 'user', messageText);
+              await appendMessage(user.id, 'assistant', reply);
+              return reply;
             }
 
             result = { error: errMsg };
@@ -100,9 +103,12 @@ async function processMessage(user, messageText) {
         if (/not connected|no connected account|unauthorized|401/i.test(err.message)) {
           const app = appFromToolName(block.name);
           const link = await getConnectionLink(userId, app).catch(() => null);
-          return link
+          const reply = link
             ? `To use ${app}, connect your account: ${link}\n\nReply once you've connected.`
             : `Please connect ${app} at composio.dev first.`;
+          await appendMessage(user.id, 'user', messageText);
+          await appendMessage(user.id, 'assistant', reply);
+          return reply;
         }
 
         result = { error: err.message };
