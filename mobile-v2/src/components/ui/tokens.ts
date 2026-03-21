@@ -72,8 +72,8 @@ export const text = {
   secondary: '#9999A8',
   /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
   muted: '#8A8A99',
-  /** Disabled / placeholder text — improved contrast */
-  disabled: '#7A7A89',
+  /** Disabled / placeholder text — WCAG AA 4.5:1 on all dark surfaces */
+  disabled: '#828291',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
 } as const;
