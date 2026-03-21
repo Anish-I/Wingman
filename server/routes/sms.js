@@ -111,7 +111,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, false);
     }
   } catch (err) {
-    console.error('SMS webhook error:', err);
+    const code = err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
+      : err.name === 'JsonWebTokenError' ? 'AUTH_ERROR'
+      : 'WEBHOOK_ERROR';
+    console.error(`SMS webhook error [${code}]:`, err);
     res.status(200).json({});
   }
 });
