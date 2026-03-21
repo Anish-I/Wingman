@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,17 @@ export default function WorkflowsScreen() {
   const updateMutation = useUpdateWorkflow();
   const [modalVisible, setModalVisible] = useState(false);
   const [nlInput, setNlInput] = useState('');
+
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 20000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const workflows = data?.workflows ?? [];
   const isPending = planMutation.isPending || createMutation.isPending;
@@ -97,6 +108,25 @@ export default function WorkflowsScreen() {
   }
 
   if (isLoading) {
+    if (loadingTimedOut) {
+      return (
+        <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
+          <Ionicons name="cloud-offline-outline" size={40} color="#8E8E9A" />
+          <Text className="text-foreground text-base font-bold mt-4">
+            Failed to load
+          </Text>
+          <Text className="text-[#8E8E9A] text-sm text-center mt-1">
+            This is taking longer than expected. Check your connection and try again.
+          </Text>
+          <Pressable
+            className="mt-5 bg-[#7C5CFC] rounded-xl px-6 py-3"
+            onPress={() => { setLoadingTimedOut(false); refetch(); }}
+          >
+            <Text className="text-white text-sm font-bold">Retry</Text>
+          </Pressable>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center">
         <MotiView
