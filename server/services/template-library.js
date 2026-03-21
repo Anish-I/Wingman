@@ -77,7 +77,7 @@ const STARTER_TEMPLATES = [
 async function seedTemplates() {
   for (const tmpl of STARTER_TEMPLATES) {
     // Check if already exists by name + is_system
-    const existing = await searchTemplates(tmpl.name, null);
+    const { rows: existing } = await searchTemplates(tmpl.name, null);
     const already = existing.find(e => e.name === tmpl.name && e.is_system);
     if (!already) {
       await createTemplate(tmpl);
@@ -86,8 +86,8 @@ async function seedTemplates() {
   }
 }
 
-async function search(term, category) {
-  return searchTemplates(term, category);
+async function search(term, category, pagination) {
+  return searchTemplates(term, category, pagination);
 }
 
 async function publish(userId, { name, description, category, steps, variables, system_prompt }) {
