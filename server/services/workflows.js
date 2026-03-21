@@ -28,29 +28,42 @@ async function createAndScheduleWorkflow(userId, { name, description, trigger_ty
 }
 
 async function runWorkflow(workflowId, userId) {
-  const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
-  const workflow = result.rows[0];
-  if (!workflow) throw new Error('Workflow not found');
+  const { redis } = require('./redis');
+  const lockKey = `workflow:lock:${workflowId}`;
 
-  const run = await createWorkflowRun(workflowId);
-  await updateWorkflowRun(run.id, { status: 'running', started_at: new Date() });
+  // Acquire a Redis lock (SET NX EX 300 = 5 min TTL) to prevent concurrent execution
+  const acquired = await redis.set(lockKey, Date.now().toString(), 'EX', 300, 'NX');
+  if (!acquired) {
+    throw new Error('Workflow is already running');
+  }
 
   try {
-    const results = [];
-    for (const action of (workflow.actions || [])) {
-      // action = { name: 'GMAIL_SEND_EMAIL', input: { to, subject, body } }
-      const res = await executeTool(String(userId), {
-        id: `wf-${run.id}-${action.name}`,
-        name: action.name,
-        input: action.input || {},
-      });
-      results.push({ action: action.name, result: res });
+    const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
+    const workflow = result.rows[0];
+    if (!workflow) throw new Error('Workflow not found');
+
+    const run = await createWorkflowRun(workflowId);
+    await updateWorkflowRun(run.id, { status: 'running', started_at: new Date() });
+
+    try {
+      const results = [];
+      for (const action of (workflow.actions || [])) {
+        // action = { name: 'GMAIL_SEND_EMAIL', input: { to, subject, body } }
+        const res = await executeTool(String(userId), {
+          id: `wf-${run.id}-${action.name}`,
+          name: action.name,
+          input: action.input || {},
+        });
+        results.push({ action: action.name, result: res });
+      }
+      await updateWorkflowRun(run.id, { status: 'completed', completed_at: new Date(), result: { steps: results } });
+      return results;
+    } catch (err) {
+      await updateWorkflowRun(run.id, { status: 'failed', completed_at: new Date(), error: err.message });
+      throw err;
     }
-    await updateWorkflowRun(run.id, { status: 'completed', completed_at: new Date(), result: { steps: results } });
-    return results;
-  } catch (err) {
-    await updateWorkflowRun(run.id, { status: 'failed', completed_at: new Date(), error: err.message });
-    throw err;
+  } finally {
+    await redis.del(lockKey).catch(() => {});
   }
 }
 
