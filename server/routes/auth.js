@@ -290,13 +290,25 @@ router.post('/google', async (req, res) => {
       return res.status(400).json({ error: 'Authorization code is required.' });
     }
 
-    // Validate redirect_uri against allowed origins to prevent redirect injection
-    const redirectUri = req.body.redirect_uri;
+    // In production, NEVER accept redirect_uri from the client — use server config only.
+    // In development, allow client-provided redirect_uri but validate against allowlist.
     const defaultRedirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
-    const finalRedirectUri = redirectUri || defaultRedirectUri;
+    let finalRedirectUri;
 
-    if (!isAllowedRedirectUri(finalRedirectUri)) {
-      return res.status(400).json({ error: 'Invalid redirect_uri.' });
+    if (process.env.NODE_ENV === 'production') {
+      // Production: ignore any client-supplied redirect_uri
+      finalRedirectUri = process.env.GOOGLE_REDIRECT_URI || defaultRedirectUri;
+    } else {
+      // Development: allow client override only if it passes the allowlist check
+      const clientUri = req.body.redirect_uri;
+      if (clientUri) {
+        if (!isAllowedRedirectUri(clientUri)) {
+          return res.status(400).json({ error: 'Invalid redirect_uri.' });
+        }
+        finalRedirectUri = clientUri;
+      } else {
+        finalRedirectUri = defaultRedirectUri;
+      }
     }
 
     // Exchange the authorization code for tokens with Google
