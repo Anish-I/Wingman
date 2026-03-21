@@ -22,6 +22,12 @@ jobs:
     # Only deploy if CI succeeded (not on failure or cancellation)
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +51,7 @@ jobs:
       # │   7. Save: pm2 save && pm2 startup                            │
       # └─────────────────────────────────────────────────────────────────┘
       - name: Deploy to production server
+        if: ${{ env.DEPLOY_HOST != '' }}
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -75,11 +82,9 @@ jobs:
             # Verify the server started successfully
             sleep 3
             pm2 status wingman
-        # This step will be skipped if secrets are not configured
-        if: ${{ secrets.DEPLOY_HOST != '' }}
 
       - name: Skip deploy (no server configured)
-        if: ${{ secrets.DEPLOY_HOST == '' }}
+        if: ${{ env.DEPLOY_HOST == '' }}
         run: |
           echo "::warning::Server deploy skipped — DEPLOY_HOST secret not configured."
           echo "See workflow comments for setup instructions."
@@ -91,6 +96,9 @@ jobs:
     name: Deploy Mobile (EAS)
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -109,8 +117,15 @@ jobs:
         working-directory: mobile-v2
         run: pnpm install --frozen-lockfile
 
+      - name: Skip EAS build (no token)
+        if: ${{ env.EAS_TOKEN == '' }}
+        run: |
+          echo "::warning::EAS builds skipped — EAS_TOKEN secret not configured."
+          echo "See workflow comments for setup instructions."
+
       # Install the EAS CLI for building and submitting
       - name: Setup EAS
+        if: ${{ env.EAS_TOKEN != '' }}
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
@@ -132,17 +147,11 @@ jobs:
 
       # Build for both platforms in parallel using EAS cloud builders
       - name: Build iOS (production)
+        if: ${{ env.EAS_TOKEN != '' }}
         working-directory: mobile-v2
         run: eas build --profile production --platform ios --non-interactive
-        if: ${{ secrets.EAS_TOKEN != '' }}
 
       - name: Build Android (production)
+        if: ${{ env.EAS_TOKEN != '' }}
         working-directory: mobile-v2
         run: eas build --profile production --platform android --non-interactive
-        if: ${{ secrets.EAS_TOKEN != '' }}
-
-      - name: Skip EAS build (no token)
-        if: ${{ secrets.EAS_TOKEN == '' }}
-        run: |
-          echo "::warning::EAS builds skipped — EAS_TOKEN secret not configured."
-          echo "See workflow comments for setup instructions."
