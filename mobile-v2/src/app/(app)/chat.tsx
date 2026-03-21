@@ -69,30 +69,47 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const sendMutation = useSendMessage();
 
+  // Stable message IDs for dedup — survives retries without generating new UUIDs each call
+  const pendingUserMsgId = useRef<string | null>(null);
+  const pendingAssistantMsgId = useRef<string | null>(null);
+
   async function send(text?: string) {
     const msg = text ?? input.trim();
     if (!msg || loading)
       return;
-    const userMsgId = Crypto.randomUUID();
-    const assistantMsgId = Crypto.randomUUID();
 
-    // Deduplicate: skip if a message with this ID already exists (e.g. retry)
-    if (messages.some(m => m.id === userMsgId))
-      return;
+    // Reuse pending IDs on retry; only generate fresh ones for new messages
+    if (!pendingUserMsgId.current) {
+      pendingUserMsgId.current = Crypto.randomUUID();
+    }
+    if (!pendingAssistantMsgId.current) {
+      pendingAssistantMsgId.current = Crypto.randomUUID();
+    }
+    const userMsgId = pendingUserMsgId.current;
+    const assistantMsgId = pendingAssistantMsgId.current;
 
-    const userMsg: Message = {
-      id: userMsgId,
-      role: 'user',
-      content: msg,
-      timestamp: Date.now(),
-    };
-    addMessage(userMsg);
+    // Deduplicate: skip if user message was already added (e.g. retry path)
+    const currentMessages = useChatStore.getState().messages;
+    if (currentMessages.some(m => m.id === userMsgId)) {
+      // Already added — skip straight to the API call
+    } else {
+      const userMsg: Message = {
+        id: userMsgId,
+        role: 'user',
+        content: msg,
+        timestamp: Date.now(),
+      };
+      addMessage(userMsg);
+    }
+
     setInput('');
     Keyboard.dismiss();
     setLoading(true);
     try {
       const result = await sendMutation.mutateAsync({ message: msg });
-      if (!messages.some(m => m.id === assistantMsgId)) {
+      // Fresh snapshot from store to avoid stale closure
+      const freshMessages = useChatStore.getState().messages;
+      if (!freshMessages.some(m => m.id === assistantMsgId)) {
         addMessage({
           id: assistantMsgId,
           role: 'assistant',
@@ -100,9 +117,14 @@ export default function ChatScreen() {
           timestamp: Date.now(),
         });
       }
+      // Success — clear pending IDs so next send generates fresh ones
+      pendingUserMsgId.current = null;
+      pendingAssistantMsgId.current = null;
     }
     catch (err: unknown) {
-      if (!messages.some(m => m.id === assistantMsgId)) {
+      // Fresh snapshot from store to avoid stale closure
+      const freshMessages = useChatStore.getState().messages;
+      if (!freshMessages.some(m => m.id === assistantMsgId)) {
         addMessage({
           id: assistantMsgId,
           role: 'assistant',
@@ -110,6 +132,9 @@ export default function ChatScreen() {
           timestamp: Date.now(),
         });
       }
+      // Clear pending IDs on error too (error message was added)
+      pendingUserMsgId.current = null;
+      pendingAssistantMsgId.current = null;
     }
     finally {
       setLoading(false);
