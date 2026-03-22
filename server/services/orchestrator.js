@@ -8,6 +8,17 @@ const { shouldCache, getCachedResponse, setCachedResponse } = require('./llm-cac
 
 const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
+const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
+const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10);
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
 
 const LOCAL_TOOLS = [
   {
@@ -74,17 +85,24 @@ async function _processMessageInner(user, messageText) {
     for (const block of response.toolUseBlocks) assistantContent.push(block);
     messages.push({ role: 'assistant', content: assistantContent });
 
-    // Execute each tool call
+    // Execute each tool call with per-iteration timeout
+    const iterationWork = async () => {
     const toolResults = [];
     for (const block of response.toolUseBlocks) {
       let result;
       try {
         if (block.name === 'CREATE_WORKFLOW') {
-          const workflows = await planAndCreateWorkflows(user, block.input.description);
+          const workflows = await withTimeout(
+            planAndCreateWorkflows(user, block.input.description),
+            TOOL_EXEC_TIMEOUT, `CREATE_WORKFLOW`
+          );
           result = { success: true, workflows: workflows.map(w => ({ id: w.id, name: w.name })) };
         } else {
           console.log(`[user:${userId}] Tool: ${block.name}`);
-          result = await executeTool(userId, block);
+          result = await withTimeout(
+            executeTool(userId, block),
+            TOOL_EXEC_TIMEOUT, `tool:${block.name}`
+          );
 
           // Composio returns { successful, error } — surface errors cleanly
           if (result && result.successful === false) {
@@ -126,7 +144,10 @@ async function _processMessageInner(user, messageText) {
         content: typeof result === 'string' ? result : JSON.stringify(result),
       });
     }
+    return toolResults;
+    };
 
+    const toolResults = await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
     messages.push({ role: 'user', content: toolResults });
     iterations++;
   }
