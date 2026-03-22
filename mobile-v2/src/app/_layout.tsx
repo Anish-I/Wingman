@@ -33,13 +33,15 @@ export default function RootLayout() {
     async function bootstrap() {
       try {
         await initStorage();
-        hydrateAuth();
-        loadSelectedTheme();
       } catch (error) {
         console.error('[bootstrap] Failed to initialize app storage:', error);
-      } finally {
-        setReady(true);
       }
+      // Always hydrate auth even if storage init failed — hydrate() has its
+      // own try/catch and will fall back to signOut, which prevents the app
+      // from being stuck on 'idle' (rendering nothing) indefinitely.
+      hydrateAuth();
+      loadSelectedTheme();
+      setReady(true);
     }
     bootstrap();
   }, []);
