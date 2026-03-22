@@ -43,6 +43,7 @@ export default function WorkflowsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [nlInput, setNlInput] = useState('');
 
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
   useEffect(() => {
@@ -78,11 +79,19 @@ export default function WorkflowsScreen() {
   }
 
   async function toggleWorkflow(id: string, active: boolean) {
+    setTogglingIds((prev) => new Set(prev).add(id));
     try {
       await updateMutation.mutateAsync({ id, patch: { active } });
-      refetch();
+      await refetch();
     } catch (err) {
       showAlert('Update Failed', friendlyError(err, active ? 'enable workflow' : 'disable workflow'));
+      await refetch();
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -246,8 +255,10 @@ export default function WorkflowsScreen() {
                   <Switch
                     value={item.active}
                     onValueChange={(v) => toggleWorkflow(item.id, v)}
+                    disabled={togglingIds.has(item.id)}
                     trackColor={{ false: '#1C1C20', true: '#32D74B' }}
                     thumbColor="#fff"
+                    style={togglingIds.has(item.id) ? { opacity: 0.5 } : undefined}
                   />
                 </View>
                 {/* Trigger badge */}
