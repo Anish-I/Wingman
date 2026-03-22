@@ -377,7 +377,15 @@ async function updateWorkflowRun(runId, { status, result: runResult, error, star
 }
 
 async function deleteUser(userId) {
-  await query('DELETE FROM users WHERE id = $1', [userId]);
+  await withTransaction(async (txQuery) => {
+    // Lock the row to prevent concurrent modifications during deletion
+    const locked = await txQuery('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    if (!locked.rows.length) {
+      throw Object.assign(new Error('User not found'), { code: 'USER_NOT_FOUND' });
+    }
+    // ON DELETE CASCADE on foreign keys handles related data cleanup
+    await txQuery('DELETE FROM users WHERE id = $1', [userId]);
+  });
 }
 
 async function updatePushToken(userId, token) {
