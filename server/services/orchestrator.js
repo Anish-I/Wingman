@@ -11,6 +11,7 @@ const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || 
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
 const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10);
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
+const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
 
 // Global counter for orphaned (post-timeout) promises still running in background
 let _orphanedCount = 0;
@@ -121,11 +122,24 @@ async function processMessage(user, messageText) {
       }
       _orphanedCount++;
       console.warn(`[user:${user.id}] Request timed out, orphaned promise tracked (count: ${_orphanedCount})`);
+      let reaped = false;
+      const reapTimer = setTimeout(() => {
+        if (!reaped) {
+          reaped = true;
+          _orphanedCount = Math.max(0, _orphanedCount - 1);
+          console.warn(`[user:${user.id}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (remaining: ${_orphanedCount})`);
+        }
+      }, ORPHAN_REAP_TIMEOUT);
+      if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
       innerPromise
         .catch(() => {}) // swallow — inner already handles its own errors
         .finally(() => {
-          _orphanedCount--;
-          console.log(`[user:${user.id}] Orphaned promise settled (remaining: ${_orphanedCount})`);
+          if (!reaped) {
+            reaped = true;
+            clearTimeout(reapTimer);
+            _orphanedCount = Math.max(0, _orphanedCount - 1);
+            console.log(`[user:${user.id}] Orphaned promise settled (remaining: ${_orphanedCount})`);
+          }
         });
     }
     throw err;
