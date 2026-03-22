@@ -20,6 +20,40 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
+/**
+ * Execute a tool with timeout tracking. Unlike bare withTimeout, this tracks
+ * whether the underlying call completed (or will complete) after the timeout
+ * fires. This prevents the LLM from retrying side-effecting tools whose
+ * results simply arrived late.
+ *
+ * Returns { result, timedOut: false } on success, or throws an enriched error
+ * with `timedOut: true` and `completionPromise` (a Promise that resolves when
+ * the underlying call finishes) on timeout.
+ */
+function execWithTimeout(promise, ms, label) {
+  let settled = false;
+  const tracked = promise.then(
+    (val) => { settled = true; return val; },
+    (err) => { settled = true; throw err; }
+  );
+
+  return Promise.race([
+    tracked.then(result => ({ result, timedOut: false })),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        const err = new Error(`${label} timed out after ${ms}ms`);
+        err.timedOut = true;
+        // Allow callers to await eventual completion
+        err.completionPromise = tracked.catch(() => null);
+        reject(err);
+      }, ms);
+    }),
+  ]);
+}
+
+// Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
+const SIDE_EFFECT_PATTERNS = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_POST|TWILIO_|TELNYX_|.*_SEND_|.*_CREATE_|.*_DELETE_|.*_UPDATE_|.*_POST_|.*_REMOVE_)/i;
+
 const LOCAL_TOOLS = [
   {
     type: 'function',
@@ -117,10 +151,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
           result = { success: true, workflows: workflows.map(w => ({ id: w.id, name: w.name })) };
         } else {
           console.log(`[user:${userId}] Tool: ${block.name}`);
-          result = await withTimeout(
+          const { result: toolResult } = await execWithTimeout(
             executeTool(userId, block),
             TOOL_EXEC_TIMEOUT, `tool:${block.name}`
           );
+          result = toolResult;
 
           // Composio returns { successful, error } — surface errors cleanly
           if (result && result.successful === false) {
@@ -143,8 +178,22 @@ async function _processMessageInner(user, messageText, abortController = { abort
       } catch (err) {
         console.error(`[user:${userId}] Tool failed [${block.name}]:`, err.message);
 
+        // Timeout on a side-effecting tool — the underlying call is still
+        // in-flight and may succeed. Tell the LLM NOT to retry.
+        if (err.timedOut && SIDE_EFFECT_PATTERNS.test(block.name)) {
+          console.warn(`[user:${userId}] Side-effecting tool ${block.name} timed out — suppressing retry`);
+          // Best-effort: wait briefly for late completion so we can give a definitive answer
+          const late = await Promise.race([
+            err.completionPromise,
+            new Promise(resolve => setTimeout(() => resolve(null), 2000)),
+          ]);
+          if (late && late.successful !== false) {
+            result = late;
+          } else {
+            result = { error: `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.` };
+          }
         // Auth errors — feed back into LLM loop so intent is preserved
-        if (/not connected|no connected account|unauthorized|401/i.test(err.message)) {
+        } else if (/not connected|no connected account|unauthorized|401/i.test(err.message)) {
           const app = appFromToolName(block.name);
           const link = await getConnectionLink(userId, app).catch(() => null);
           const connectMsg = link
@@ -173,11 +222,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
       console.warn(`[user:${userId}] Iteration ${iterations + 1} timed out: ${iterErr.message}`);
       for (const block of response.toolUseBlocks) {
         if (!completedToolIds.has(block.id)) {
-          console.warn(`[user:${userId}] Tool ${block.name} (${block.id}) did not complete — returning timeout error to LLM`);
+          const hasSideEffects = SIDE_EFFECT_PATTERNS.test(block.name);
+          const msg = hasSideEffects
+            ? `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.`
+            : `Tool execution timed out — result unavailable. Do not retry this tool call; inform the user the operation is still pending.`;
+          console.warn(`[user:${userId}] Tool ${block.name} (${block.id}) did not complete (sideEffect=${hasSideEffects}) — returning timeout error to LLM`);
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
-            content: JSON.stringify({ error: `Tool execution timed out — result unavailable. Do not retry this tool call; inform the user the operation is still pending.` }),
+            content: JSON.stringify({ error: msg }),
           });
         }
       }
