@@ -1,8 +1,10 @@
 const { OpenAIToolSet, Composio } = require('composio-core');
+const crypto = require('crypto');
 const { redis } = require('./redis');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
+const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
 
 // All 1003 apps available on Composio.
 // Used for connection status checks and OAuth link generation.
@@ -160,20 +162,69 @@ async function invalidateToolsCache(userId) {
 }
 
 /**
- * Execute a single tool call for a user.
- * Returns the parsed result object.
+ * Build an idempotency key for a tool call.
+ * Based on userId + tool name + sorted arguments so identical calls
+ * within the TTL window are deduplicated regardless of block.id.
+ */
+function _toolIdempotencyKey(userId, toolCallBlock) {
+  const payload = `${userId}:${toolCallBlock.name}:${JSON.stringify(toolCallBlock.input)}`;
+  const hash = crypto.createHash('sha256').update(payload).digest('hex').slice(0, 24);
+  return `tool:idemp:${hash}`;
+}
+
+/**
+ * Execute a single tool call for a user, with idempotency.
+ *
+ * A Redis SET NX guard ensures that if the same tool call (same user,
+ * same tool name, same arguments) is retried within the TTL window,
+ * the tool is NOT re-executed. Instead the cached result from the
+ * first execution is returned. This prevents duplicate side effects
+ * for non-idempotent tools like GMAIL_SEND or CREATE_GITHUB_ISSUE.
  */
 async function executeTool(userId, toolCallBlock) {
-  const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-  const raw = await toolset.executeToolCall({
-    id: toolCallBlock.id,
-    type: 'function',
-    function: {
-      name: toolCallBlock.name,
-      arguments: JSON.stringify(toolCallBlock.input),
-    },
-  });
-  try { return JSON.parse(raw); } catch { return { result: raw }; }
+  const idempKey = _toolIdempotencyKey(userId, toolCallBlock);
+
+  // Try to claim the execution slot atomically
+  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', TOOL_IDEMPOTENCY_TTL);
+
+  if (claimed !== 'OK') {
+    // Another execution of this exact call is in progress or completed
+    // Wait briefly then check for a cached result
+    for (let i = 0; i < 10; i++) {
+      const cached = await redis.get(idempKey);
+      if (cached && cached !== 'pending') {
+        console.log(`[user:${userId}] Idempotent cache hit for ${toolCallBlock.name}`);
+        try { return JSON.parse(cached); } catch { return { result: cached }; }
+      }
+      // Still pending — wait 500ms before checking again
+      await new Promise(r => setTimeout(r, 500));
+    }
+    // Timed out waiting for the first execution — return a safe message
+    console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
+    return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
+  }
+
+  // We claimed the slot — execute the tool
+  try {
+    const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
+    const raw = await toolset.executeToolCall({
+      id: toolCallBlock.id,
+      type: 'function',
+      function: {
+        name: toolCallBlock.name,
+        arguments: JSON.stringify(toolCallBlock.input),
+      },
+    });
+    const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
+
+    // Cache the result so retries get the same response
+    await redis.set(idempKey, JSON.stringify(parsed), 'EX', TOOL_IDEMPOTENCY_TTL).catch(() => {});
+    return parsed;
+  } catch (err) {
+    // On failure, remove the idempotency key so retries can attempt again
+    await redis.del(idempKey).catch(() => {});
+    throw err;
+  }
 }
 
 /**
