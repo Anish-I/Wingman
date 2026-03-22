@@ -124,6 +124,33 @@ async function createUser(phone, name) {
   }
 }
 
+/**
+ * Atomically create a user with email set at insert time.
+ * Prevents the TOCTOU race where concurrent signups both see no user
+ * and both create separate accounts for the same email.
+ * Returns { user, created } — created=false means an existing user was found.
+ */
+async function createUserByEmail(email, name) {
+  const phone = `email:${email}`;
+  try {
+    const result = await query(
+      'INSERT INTO users (phone, name, email) VALUES ($1, $2, $3) RETURNING *',
+      [phone, name || null, email]
+    );
+    return { user: result.rows[0], created: true };
+  } catch (err) {
+    // 23505 = unique_violation on phone or email index — another request won the race
+    if (err.code === '23505') {
+      const existing = await query(
+        'SELECT * FROM users WHERE email = $1 OR phone = $2 LIMIT 1',
+        [email, phone]
+      );
+      if (existing.rows[0]) return { user: existing.rows[0], created: false };
+    }
+    throw err;
+  }
+}
+
 async function updateUserZapierAccount(userId, zapierAccountId) {
   const result = await query(
     'UPDATE users SET zapier_account_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
@@ -492,6 +519,7 @@ module.exports = {
   getUserByAppleId,
   getUserById,
   createUser,
+  createUserByEmail,
   linkUserIdentity,
   deleteUser,
   updateUserZapierAccount,

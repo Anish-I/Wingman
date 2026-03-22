@@ -7,7 +7,7 @@ const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, updateUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
+const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, createUserByEmail, updateUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
 const { withTransaction } = require('../db/index');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
@@ -215,13 +215,15 @@ router.post('/signup', signupLimiter, async (req, res) => {
       await updateUserPin(user.id, passwordHash);
       user = await linkUserIdentity(user.id, { email: normalizedEmail }) || user;
     } else {
-      const emailKey = `email:${normalizedEmail}`;
-      user = await createUser(emailKey, email.split('@')[0]);
-      if (user.pin_hash) {
+      // Atomically insert with email set to prevent concurrent-signup race.
+      // createUserByEmail catches unique constraint violations and returns
+      // the existing row if another request won the race.
+      const { user: newUser, created } = await createUserByEmail(normalizedEmail, email.split('@')[0]);
+      user = newUser;
+      if (!created && user.pin_hash) {
         return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
       }
       await updateUserPin(user.id, passwordHash);
-      user = await linkUserIdentity(user.id, { email: normalizedEmail }) || user;
     }
 
     const token = signToken({ userId: user.id, phone: user.phone });
