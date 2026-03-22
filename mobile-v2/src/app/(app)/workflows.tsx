@@ -126,11 +126,11 @@ export default function WorkflowsScreen() {
   if (fetchError || (isLoading && loadingTimedOut)) {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
-        <Ionicons name="cloud-offline-outline" size={40} color="#B3B3C1" />
+        <Ionicons name="cloud-offline-outline" size={40} color={t.muted} />
         <Text className="text-foreground text-base font-bold mt-4">
           Failed to load
         </Text>
-        <Text className="text-[#B3B3C1] text-sm text-center mt-1">
+        <Text style={{ color: t.muted }} className="text-sm text-center mt-1">
           {fetchError
             ? 'Could not load workflows. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
