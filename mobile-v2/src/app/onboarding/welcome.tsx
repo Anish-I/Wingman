@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { surface, text as t, purple, presets } from '@/components/ui/tokens';
+import { useThemeColors, purple, presets } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -12,6 +12,7 @@ import { popIn, entrance, gentleFloat } from '@/lib/motion';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { surface, text: t } = useThemeColors();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
