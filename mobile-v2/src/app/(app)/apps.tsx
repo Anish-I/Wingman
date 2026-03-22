@@ -468,12 +468,30 @@ export default function AppsScreen() {
       };
 
       if (connected.includes(slug)) {
-        try {
-          await client.post('/connect/disconnect', { app: slug });
-          setConnected((prev) => prev.filter((s) => s !== slug));
-          refetch();
-        } catch (err) {
-          showErr('Disconnect Failed', friendlyError(err, 'disconnect app'));
+        const appName = ALL_APPS.find((a) => a.slug === slug)?.name ?? slug;
+        const doDisconnect = async () => {
+          try {
+            await client.post('/connect/disconnect', { app: slug });
+            setConnected((prev) => prev.filter((s) => s !== slug));
+            refetch();
+          } catch (err) {
+            showErr('Disconnect Failed', friendlyError(err, 'disconnect app'));
+          }
+        };
+
+        if (Platform.OS === 'web') {
+          if (window.confirm(`Disconnect ${appName}? You will need to re-authenticate to use it again.`)) {
+            await doDisconnect();
+          }
+        } else {
+          Alert.alert(
+            `Disconnect ${appName}?`,
+            'You will need to re-authenticate to use this app again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Disconnect', style: 'destructive', onPress: doDisconnect },
+            ],
+          );
         }
         return;
       }
