@@ -6,6 +6,12 @@ const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
 
+// Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
+// For these tools, we must NOT remove the idempotency key on failure, because an orphaned
+// promise (from a timed-out request) may still complete in the background. Removing the key
+// would allow a retry to execute concurrently, causing duplicate non-idempotent actions.
+const SIDE_EFFECT_PATTERN = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_POST|TWILIO_|TELNYX_|.*_SEND_|.*_CREATE_|.*_DELETE_|.*_UPDATE_|.*_POST_|.*_REMOVE_)/i;
+
 // All 1003 apps available on Composio.
 // Used for connection status checks and OAuth link generation.
 // Tools are fetched without an app filter so Composio returns whatever the user has connected.
@@ -221,8 +227,17 @@ async function executeTool(userId, toolCallBlock) {
     await redis.set(idempKey, JSON.stringify(parsed), 'EX', TOOL_IDEMPOTENCY_TTL).catch(() => {});
     return parsed;
   } catch (err) {
-    // On failure, remove the idempotency key so retries can attempt again
-    await redis.del(idempKey).catch(() => {});
+    if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
+      // Side-effecting tool: cache the error instead of deleting the key.
+      // An orphaned promise (from a timed-out request) may still be running
+      // on the remote service. Deleting the key would let a retry claim a new
+      // slot and execute concurrently, risking duplicate sends/posts/deletes.
+      const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
+      await redis.set(idempKey, errorResult, 'EX', TOOL_IDEMPOTENCY_TTL).catch(() => {});
+    } else {
+      // Safe/idempotent tool: remove the key so retries can attempt again
+      await redis.del(idempKey).catch(() => {});
+    }
     throw err;
   }
 }
