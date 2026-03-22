@@ -442,13 +442,15 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
   }
 });
 
-// Allowed redirect_uri origins for Google OAuth token exchange
-const ALLOWED_REDIRECT_ORIGINS = [
-  process.env.NEXT_PUBLIC_APP_URL,
-  process.env.CORS_ORIGIN,
+// Allowed redirect_uri full URLs for Google OAuth token exchange
+// Validates exact URL (origin + path), not just origin, to prevent path manipulation.
+const ALLOWED_REDIRECT_URIS = [
+  process.env.GOOGLE_REDIRECT_URI,
+  ...(process.env.NEXT_PUBLIC_APP_URL ? [`${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`] : []),
+  ...(process.env.CORS_ORIGIN ? [`${process.env.CORS_ORIGIN}/auth/callback`] : []),
   ...(process.env.NODE_ENV !== 'production' ? [
-    'http://localhost:3000',
-    'http://localhost:8081',
+    'http://localhost:3000/auth/callback',
+    'http://localhost:8081/auth/callback',
   ] : []),
 ].filter(Boolean);
 
@@ -456,23 +458,70 @@ function isAllowedRedirectUri(uri) {
   if (!uri || typeof uri !== 'string') return false;
   try {
     const parsed = new URL(uri);
-    const origin = parsed.origin;
-    return ALLOWED_REDIRECT_ORIGINS.includes(origin);
+    // Compare origin + pathname (strip trailing slash for consistency)
+    const normalized = parsed.origin + parsed.pathname.replace(/\/+$/, '');
+    return ALLOWED_REDIRECT_URIS.some(allowed => {
+      const parsedAllowed = new URL(allowed);
+      const normalizedAllowed = parsedAllowed.origin + parsedAllowed.pathname.replace(/\/+$/, '');
+      return normalized === normalizedAllowed;
+    });
   } catch {
     return false;
   }
 }
 
+// Helper: generate PKCE code_verifier and code_challenge (S256)
+function generatePkce() {
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  return { verifier, challenge };
+}
+
+// POST /auth/google/init-state — issue a state token for SPA/mobile Google OAuth flow
+// Client calls this before redirecting to Google, then sends state back with the code.
+router.post('/google/init-state', async (req, res) => {
+  try {
+    const nonce = crypto.randomBytes(32).toString('hex');
+    await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
+    const state = jwt.sign({ nonce, flow: 'spa' }, JWT_SECRET, { expiresIn: '5m' });
+    res.json({ state });
+  } catch (err) {
+    console.error('Google init-state error:', err);
+    res.status(500).json({ error: { code: 'INIT_STATE_ERROR', message: 'Failed to generate OAuth state.' } });
+  }
+});
+
 // POST /auth/google
 router.post('/google', async (req, res) => {
   try {
-    const { code } = req.body;
+    const { code, state, code_verifier } = req.body;
     if (!code) {
       return res.status(400).json({ error: { code: 'AUTH_CODE_REQUIRED', message: 'Authorization code is required.' } });
     }
 
+    // Validate CSRF state token — required to prevent authorization code interception
+    if (!state) {
+      return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'OAuth state parameter is required. Call POST /auth/google/init-state first.' } });
+    }
+    let statePayload;
+    try {
+      statePayload = jwt.verify(state, JWT_SECRET);
+    } catch {
+      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
+    }
+    // Verify and consume the nonce (single-use)
+    const nonce = statePayload.nonce;
+    if (!nonce) {
+      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state missing nonce.' } });
+    }
+    const nonceKey = `oauth_nonce:${nonce}`;
+    const nonceExists = await redis.call('GETDEL', nonceKey);
+    if (!nonceExists) {
+      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state nonce expired or already used. Please restart the login flow.' } });
+    }
+
     // In production, NEVER accept redirect_uri from the client — use server config only.
-    // In development, allow client-provided redirect_uri but validate against allowlist.
+    // In development, allow client-provided redirect_uri but validate full path against allowlist.
     const defaultRedirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
     let finalRedirectUri;
 
@@ -480,7 +529,7 @@ router.post('/google', async (req, res) => {
       // Production: ignore any client-supplied redirect_uri
       finalRedirectUri = process.env.GOOGLE_REDIRECT_URI || defaultRedirectUri;
     } else {
-      // Development: allow client override only if it passes the allowlist check
+      // Development: allow client override only if it passes the full-path allowlist check
       const clientUri = req.body.redirect_uri;
       if (clientUri) {
         if (!isAllowedRedirectUri(clientUri)) {
@@ -493,16 +542,21 @@ router.post('/google', async (req, res) => {
     }
 
     // Exchange the authorization code for tokens with Google
+    // Include code_verifier for PKCE validation if the client used PKCE
+    const tokenParams = {
+      code: code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: finalRedirectUri,
+      grant_type: 'authorization_code',
+    };
+    if (code_verifier) {
+      tokenParams.code_verifier = code_verifier;
+    }
     const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code: code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: finalRedirectUri,
-        grant_type: 'authorization_code',
-      }),
+      body: new URLSearchParams(tokenParams),
       timeoutMs: 10_000,
     });
     const tokenData = await tokenResponse.json();
@@ -558,8 +612,13 @@ router.get('/google', async (req, res, next) => {
     const webOrigin = req.query.webOrigin || '';
     const nonce = crypto.randomBytes(32).toString('hex');
     await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
+
+    // PKCE: generate code_verifier (stored server-side), send code_challenge to Google
+    const pkce = generatePkce();
+    await redis.set(`oauth_pkce:${nonce}`, pkce.verifier, 'EX', 300); // same TTL as nonce
+
     const state = jwt.sign({ platform, webOrigin, nonce }, JWT_SECRET, { expiresIn: '5m' });
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}&code_challenge=${pkce.challenge}&code_challenge_method=S256`;
     res.redirect(url);
   } catch (err) {
     next(err);
@@ -626,6 +685,10 @@ router.get('/google/callback', async (req, res) => {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state nonce expired or already used. Please restart the login flow.' } });
   }
 
+  // Retrieve and consume PKCE code_verifier stored during GET /auth/google
+  const pkceKey = `oauth_pkce:${nonce}`;
+  const codeVerifier = await redis.call('GETDEL', pkceKey);
+
   const state = parseOAuthState(req.query.state);
 
   try {
@@ -650,17 +713,21 @@ router.get('/google/callback', async (req, res) => {
     // Must match the redirect_uri used in the GET /auth/google consent redirect
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BASE_URL || 'http://localhost:3001'}/auth/google/callback`;
 
-    // Exchange auth code for tokens
+    // Exchange auth code for tokens — include PKCE code_verifier for S256 challenge verification
+    const tokenParams = {
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    };
+    if (codeVerifier) {
+      tokenParams.code_verifier = codeVerifier;
+    }
     const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      }),
+      body: new URLSearchParams(tokenParams),
       timeoutMs: 10_000,
     });
     const tokenData = await tokenResponse.json();
