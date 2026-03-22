@@ -295,7 +295,15 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
     iterations++;
   }
 
-  const finalText = response?.text || 'Workflow completed.';
+  // Detect iteration exhaustion: loop exited because iterations hit the cap
+  // while the LLM was still returning tool calls — treat as failure.
+  const exhausted = iterations >= MAX_AGENT_ITERATIONS
+    && response?.toolUseBlocks?.length > 0;
+  const finalStatus = exhausted ? 'failed' : 'completed';
+  const finalText = exhausted
+    ? `Workflow failed: agent exceeded maximum iterations (${MAX_AGENT_ITERATIONS}).`
+    : (response?.text || 'Workflow completed.');
+
   // Final append: persist any remaining messages (e.g. final assistant text-only turn)
   const remainingMsgs = messages.slice(persistedMsgCount);
   const remainingLogs = stepLog.slice(persistedLogCount);
@@ -304,19 +312,22 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
       newMessages: remainingMsgs,
       newStepLogs: remainingLogs,
       contextPatch: pendingContextPatch,
-      status: 'completed',
+      status: finalStatus,
     });
   } else {
-    await appendWorkflowRunState(run.id, { status: 'completed' });
+    await appendWorkflowRunState(run.id, { status: finalStatus });
   }
   // Store only a lightweight summary — full step_log lives in workflow_run_events
   await updateWorkflowRun(run.id, {
-    status: 'completed',
+    status: finalStatus,
     completed_at: new Date(),
-    result: { summary: finalText, steps: stepLog.length },
+    result: { summary: finalText, steps: stepLog.length, ...(exhausted ? { error: 'max_iterations_exceeded' } : {}) },
   });
 
-    return { status: 'completed', runId: run.id, summary: finalText };
+    if (exhausted) {
+      console.warn(`[workflow-agent] Workflow ${workflowId} run ${run.id} exceeded ${MAX_AGENT_ITERATIONS} iterations — marked as failed`);
+    }
+    return { status: finalStatus, runId: run.id, summary: finalText };
   });
 }
 
@@ -464,7 +475,13 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
     iterations++;
   }
 
-  const finalText = response?.text || 'Workflow completed.';
+  const exhausted = iterations >= MAX_AGENT_ITERATIONS
+    && response?.toolUseBlocks?.length > 0;
+  const finalStatus = exhausted ? 'failed' : 'completed';
+  const finalText = exhausted
+    ? `Workflow failed: agent exceeded maximum iterations (${MAX_AGENT_ITERATIONS}).`
+    : (response?.text || 'Workflow completed.');
+
   const remainingMsgs = messages.slice(persistedMsgCount);
   const remainingLogs = stepLog.slice(persistedLogCount);
   if (remainingMsgs.length > 0 || remainingLogs.length > 0 || Object.keys(pendingContextPatch).length > 0) {
@@ -472,18 +489,21 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
       newMessages: remainingMsgs,
       newStepLogs: remainingLogs,
       contextPatch: pendingContextPatch,
-      status: 'completed',
+      status: finalStatus,
     });
   } else {
-    await appendWorkflowRunState(runId, { status: 'completed' });
+    await appendWorkflowRunState(runId, { status: finalStatus });
   }
   await updateWorkflowRun(runId, {
-    status: 'completed',
+    status: finalStatus,
     completed_at: new Date(),
-    result: { summary: finalText, steps: stepLog.length },
+    result: { summary: finalText, steps: stepLog.length, ...(exhausted ? { error: 'max_iterations_exceeded' } : {}) },
   });
 
-    return { status: 'completed', runId, summary: finalText };
+    if (exhausted) {
+      console.warn(`[workflow-agent] Resumed run ${runId} exceeded ${MAX_AGENT_ITERATIONS} iterations — marked as failed`);
+    }
+    return { status: finalStatus, runId, summary: finalText };
   });
 }
 
