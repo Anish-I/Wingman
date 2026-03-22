@@ -355,7 +355,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
  */
 async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   const run = await require('../db/queries').getWorkflowRun(runId);
-  if (!run || (run.status !== 'waiting' && run.status !== 'delayed')) throw new Error('Run not found or not paused');
+  if (!run) throw new Error('Run not found or not paused');
 
   const workflow = await getWorkflowById(run.workflow_id);
   const user = await getUserById(workflow.user_id);
@@ -365,7 +365,9 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
     console.log(`[workflow-agent] Workflow ${workflow.id} busy; deferring resume for run ${runId}`);
     return scheduleResumeRetry(workflow.id, workflow.user_id, runId, replyText, retryAttempt + 1);
   }, async () => {
-    await updateWorkflowRun(runId, { status: 'running' });
+    // Atomically claim the run — prevents double-processing when concurrent resumes both pass the initial check
+    const claimed = await require('../db/queries').claimWorkflowRunForResume(runId);
+    if (!claimed) throw new Error('Run not found or not paused (already claimed)');
 
     const priorContext = run.context || {};
     const systemPrompt = buildWorkflowSystemPrompt(workflow, priorContext);

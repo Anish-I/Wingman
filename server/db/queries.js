@@ -442,6 +442,14 @@ async function getWorkflowRun(runId) {
   return result.rows[0] || null;
 }
 
+async function claimWorkflowRunForResume(runId) {
+  const result = await query(
+    "UPDATE workflow_runs SET status = 'running' WHERE id = $1 AND status IN ('waiting', 'delayed') RETURNING *",
+    [runId]
+  );
+  return result.rows[0] || null;
+}
+
 async function getLastWorkflowRunContext(workflowId) {
   const result = await query(
     "SELECT context FROM workflow_runs WHERE workflow_id = $1 AND status = 'completed' ORDER BY completed_at DESC LIMIT 1",
@@ -563,6 +571,7 @@ module.exports = {
   appendWorkflowRunState,
   loadWorkflowRunEvents,
   getWorkflowRun,
+  claimWorkflowRunForResume,
   getLastWorkflowRunContext,
   createTemplate,
   searchTemplates,
