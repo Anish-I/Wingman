@@ -2,7 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { provider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
-const { appendMessage, redis } = require('../services/redis');
+const { appendMessage, deduplicateMessage } = require('../services/redis');
 
 const router = express.Router();
 
@@ -55,12 +55,9 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
         return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Message too long' } });
       }
 
-      // Idempotency
-      if (msgId) {
-        const dedupKey = `sms:dedup:${msgId}`;
-        const isNew = await redis.set(dedupKey, '1', 'NX', 'EX', 300);
-        if (!isNew) return res.status(200).send('<Response></Response>');
-      }
+      // Idempotency — atomic dedup with content-based fallback when msgId is absent
+      const isNew = await deduplicateMessage(msgId, phone, messageText);
+      if (!isNew) return res.status(200).send('<Response></Response>');
 
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
@@ -86,12 +83,6 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       }
 
       const msgId = event.payload?.id;
-      if (msgId) {
-        const dedupKey = `sms:dedup:${msgId}`;
-        const isNew = await redis.set(dedupKey, '1', 'NX', 'EX', 300);
-        if (!isNew) return res.sendStatus(200);
-      }
-
       const payload = event.payload;
       const phone = payload?.from?.phone_number;
       const messageText = payload?.text;
@@ -107,6 +98,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       if (messageText.length > 1600) {
         return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: 'Message too long' } });
       }
+
+      // Idempotency — atomic dedup with content-based fallback when msgId is absent
+      const isNew = await deduplicateMessage(msgId, phone, messageText);
+      if (!isNew) return res.sendStatus(200);
 
       await handleIncomingSMS(phone, messageText, res, false);
     }

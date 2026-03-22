@@ -107,6 +107,30 @@ async function cleanupStaleConversations() {
   }
 }
 
+/**
+ * Atomic message deduplication using SET NX EX.
+ * Returns true if this is the first time the message was seen (caller should process it).
+ * Returns false if the message was already seen (caller should skip it).
+ *
+ * When msgId is provided, dedup is based on the provider message ID.
+ * When msgId is absent, dedup falls back to a hash of phone + message content
+ * bucketed into 5-second windows to catch replays without a message ID.
+ */
+async function deduplicateMessage(msgId, phone, messageText) {
+  let dedupKey;
+  if (msgId) {
+    dedupKey = `sms:dedup:${msgId}`;
+  } else {
+    // Content-based fallback: bucket by 5-second window
+    const crypto = require('crypto');
+    const bucket = Math.floor(Date.now() / 5000);
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex').slice(0, 16);
+    dedupKey = `sms:dedup:content:${hash}`;
+  }
+  const result = await redis.set(dedupKey, '1', 'NX', 'EX', 300);
+  return result === 'OK';
+}
+
 module.exports = {
   redis,
   createRedisClient,
@@ -116,4 +140,5 @@ module.exports = {
   getUserSession,
   deleteSession,
   cleanupStaleConversations,
+  deduplicateMessage,
 };
