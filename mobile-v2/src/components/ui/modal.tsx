@@ -35,11 +35,76 @@ import type {
 } from '@gorhom/bottom-sheet';
 import { BottomSheetModal, useBottomSheet } from '@gorhom/bottom-sheet';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Platform, Pressable, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
 import { Text } from './text';
+
+/**
+ * Focus trap hook for web accessibility.
+ * Traps Tab/Shift+Tab within the given container so keyboard focus
+ * cannot escape behind a modal overlay.
+ */
+function useFocusTrap(active: boolean) {
+  const containerRef = React.useRef<View>(null);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || !active) return;
+
+    const el = containerRef.current as unknown as HTMLElement | null;
+    if (!el) return;
+
+    function getFocusableElements(root: HTMLElement): HTMLElement[] {
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+
+      const focusable = getFocusableElements(el!);
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    // Move focus into the modal on mount
+    const focusable = getFocusableElements(el);
+    if (focusable.length > 0) {
+      focusable[0].focus();
+    } else {
+      el.setAttribute('tabindex', '-1');
+      el.focus();
+    }
+
+    el.addEventListener('keydown', handleKeyDown);
+    return () => {
+      el.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [active]);
+
+  return containerRef;
+}
 
 type ModalProps = BottomSheetModalProps & {
   title?: string;
@@ -86,6 +151,8 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
     [title, modal.dismiss],
   );
 
+  const focusTrapRef = useFocusTrap(true);
+
   return (
     <BottomSheetModal
       {...props}
@@ -96,7 +163,16 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
       backdropComponent={props.backdropComponent || renderBackdrop}
       enableDynamicSizing={false}
       handleComponent={renderHandleComponent}
-    />
+    >
+      <View
+        ref={focusTrapRef}
+        style={{ flex: 1 }}
+        accessibilityRole="none"
+        {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true } : {})}
+      >
+        {props.children}
+      </View>
+    </BottomSheetModal>
   );
 }
 
@@ -111,9 +187,10 @@ function CustomBackdrop({ style }: BottomSheetBackdropProps) {
   return (
     <AnimatedPressable
       onPress={() => close()}
-      entering={FadeIn.duration(50)}
-      exiting={FadeOut.duration(20)}
+      entering={FadeIn.duration(50).reduceMotion(ReduceMotion.System)}
+      exiting={FadeOut.duration(20).reduceMotion(ReduceMotion.System)}
       style={[style, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
+      aria-hidden={true}
     />
   );
 }
