@@ -1,6 +1,20 @@
+/**
+ * Sanitize user-supplied strings before interpolating into LLM system prompts.
+ * Strips characters and patterns commonly used in prompt injection attacks.
+ */
+function sanitizeForPrompt(value, maxLength = 100) {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/[\r\n]+/g, ' ')           // collapse newlines to prevent block-level injection
+    .replace(/[<>{}[\]]/g, '')           // remove bracket/brace characters
+    .replace(/\b(ignore|forget|disregard|override|bypass)\s+(all\s+)?(previous|above|prior|earlier)\s+(instructions?|prompts?|rules?|context)\b/gi, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
 function buildContext(user, tools = [], memoryContext = '') {
-  const name = user.name || 'friend';
-  const timezone = user.timezone || 'America/New_York';
+  const name = sanitizeForPrompt(user.name, 50) || 'friend';
+  const timezone = sanitizeForPrompt(user.timezone, 40) || 'America/New_York';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', {
@@ -17,8 +31,9 @@ function buildContext(user, tools = [], memoryContext = '') {
     .filter(Boolean)
     .join(', ');
 
-  const memoryBlock = memoryContext
-    ? `\nWhat I know about you:\n${memoryContext}\nUse this to personalize responses. Never repeat these facts back unprompted — just let them inform how you help.\n`
+  const safeMemory = sanitizeForPrompt(memoryContext, 500);
+  const memoryBlock = safeMemory
+    ? `\nWhat I know about you:\n${safeMemory}\nUse this to personalize responses. Never repeat these facts back unprompted — just let them inform how you help.\n`
     : '';
 
   const systemPrompt = `You are Wingman — ${name}'s sharp, reliable right hand for getting things done. You're not a bot, not an assistant, not a helper. You're the friend who's always two steps ahead, handles the details, and texts back like a real person.
@@ -53,4 +68,4 @@ What you never do:
   return { systemPrompt, userDisplayName: name };
 }
 
-module.exports = { buildContext };
+module.exports = { buildContext, sanitizeForPrompt };
