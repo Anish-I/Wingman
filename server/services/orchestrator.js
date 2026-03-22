@@ -39,13 +39,19 @@ const LOCAL_TOOLS = [
 
 async function processMessage(user, messageText) {
   const abortController = { aborted: false };
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
       abortController.aborted = true;
       reject(new Error('Request timed out'));
-    }, PROCESS_MESSAGE_TIMEOUT)
-  );
-  return Promise.race([_processMessageInner(user, messageText, abortController), timeout]);
+    }, PROCESS_MESSAGE_TIMEOUT);
+  });
+  try {
+    const result = await Promise.race([_processMessageInner(user, messageText, abortController), timeout]);
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function _processMessageInner(user, messageText, abortController = { aborted: false }) {
@@ -65,6 +71,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (shouldCache(messageText)) {
     const cached = await getCachedResponse(messageText, userId);
     if (cached) {
+      if (abortController.aborted) return cached;
       await appendMessage(user.id, 'user', messageText);
       await appendMessage(user.id, 'assistant', cached);
       return cached;
@@ -80,6 +87,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   let completed = false;
 
   while (iterations < MAX_TOOL_ITERATIONS) {
+    if (abortController.aborted) break;
     response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
 
     if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) {
@@ -181,13 +189,19 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // Only persist to history if LLM completed normally and the outer
   // timeout hasn't already fired (which would leave an orphaned promise).
-  if (!completed || abortController.aborted) {
-    const reason = abortController.aborted ? 'request timed out' : `hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS})`;
-    console.warn(`[user:${userId}] Skipping history append: ${reason}`);
+  if (!completed) {
+    console.warn(`[user:${userId}] Skipping history append: hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS})`);
     return response?.text || "Sorry, I couldn't finish processing that. Please try again.";
   }
 
   const finalText = response?.text || 'Done! Let me know if you need anything else.';
+
+  // Check abort immediately before persisting to close the TOCTOU window.
+  // If the timeout fired between the loop exit and here, skip persistence.
+  if (abortController.aborted) {
+    console.warn(`[user:${userId}] Skipping history append: request timed out`);
+    return finalText;
+  }
   await appendMessage(user.id, 'user', messageText);
   await appendMessage(user.id, 'assistant', finalText);
 
