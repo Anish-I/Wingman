@@ -93,9 +93,10 @@ export default function SignupScreen() {
   }
 
   async function handleGoogleSignIn() {
-    if (Platform.OS === 'web') {
-      // On web, use popup-based flow with web-safe redirect
-      try {
+    setLoading(true);
+    try {
+      if (Platform.OS === 'web') {
+        // On web, use popup-based flow with web-safe redirect
         const webOrigin = encodeURIComponent(window.location.origin);
         const result = await WebBrowser.openAuthSessionAsync(
           `${Env.EXPO_PUBLIC_API_URL}/auth/google?platform=web&webOrigin=${webOrigin}`,
@@ -107,16 +108,10 @@ export default function SignupScreen() {
           if (code && await exchangeAuthCode(code)) return;
         }
         showAlert('Sign-In Cancelled', 'Google sign-in was cancelled or failed. Please try again.');
+        return;
       }
-      catch (err) {
-        console.error('Google sign-in error:', err);
-        showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
-      }
-      return;
-    }
 
-    // Native: use deep link redirect
-    try {
+      // Native: use deep link redirect
       const result = await WebBrowser.openAuthSessionAsync(
         `${Env.EXPO_PUBLIC_API_URL}/auth/google`,
         'wingman://auth/callback',
@@ -132,7 +127,9 @@ export default function SignupScreen() {
     }
     catch (err) {
       console.error('Google sign-in error:', err);
-      showAlert('Sign-In Error', 'Failed to start Google sign-in. Please try again.');
+      showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -141,7 +138,12 @@ export default function SignupScreen() {
       showAlert('Not Available', 'Apple Sign-In is only available on iOS devices.');
       return;
     }
-    showAlert('Coming Soon', 'Apple Sign-In will be available in a future update.');
+    setLoading(true);
+    try {
+      showAlert('Coming Soon', 'Apple Sign-In will be available in a future update.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -195,6 +197,7 @@ export default function SignupScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
+                editable={!loading}
               />
             </View>
 
@@ -222,6 +225,7 @@ export default function SignupScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
+                editable={!loading}
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
@@ -274,6 +278,7 @@ export default function SignupScreen() {
                   : undefined,
               ]}
               onPress={handleGoogleSignIn}
+              disabled={loading}
             >
               <GoogleIcon />
               <Text
@@ -305,6 +310,7 @@ export default function SignupScreen() {
                   : undefined,
               ]}
               onPress={handleAppleSignIn}
+              disabled={loading}
             >
               <AppleIcon />
               <Text
