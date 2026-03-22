@@ -47,12 +47,18 @@ async function pollReminders() {
   try {
     const reminders = await getPendingReminders();
     for (const reminder of reminders) {
-      const user = await getUserById(reminder.user_id);
-      if (user?.phone) {
+      try {
+        const user = await getUserById(reminder.user_id);
+        if (!user?.phone) {
+          console.warn(`[worker] Reminder ${reminder.id} skipped — user ${reminder.user_id} has no phone`);
+          continue;
+        }
         await provider.sendMessage(user.phone, `Reminder: ${reminder.message}`);
+        await markReminderFired(reminder.id);
+        console.log(`[worker] Fired reminder ${reminder.id} for user ${reminder.user_id}`);
+      } catch (err) {
+        console.error(`[worker] Reminder ${reminder.id} delivery failed:`, err.message);
       }
-      await markReminderFired(reminder.id);
-      console.log(`[worker] Fired reminder ${reminder.id} for user ${reminder.user_id}`);
     }
   } catch (err) {
     console.error('[worker] Reminder poll error:', err.message);
