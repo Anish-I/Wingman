@@ -183,6 +183,8 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   // Use workflow description to select relevant tools
   const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
+  // Build allowlist of tool names the agent is permitted to call
+  const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
 
   const messages = [];
   const stepLog = [];
@@ -219,6 +221,19 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
       const stepEntry = { tool: block.name, input: block.input, iteration: iterations };
 
       try {
+        // Validate tool name against allowlist — reject anything not offered
+        if (!allowedToolNames.has(block.name)) {
+          console.warn(`[workflow-agent] Blocked disallowed tool call: ${block.name}`);
+          result = { error: `Tool "${block.name}" is not available. Only use tools provided to you.` };
+          stepLog.push({ ...stepEntry, result: { error: result.error } });
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
         // Handle pseudo-tools
         if (block.name === 'NOTIFY_USER') {
           await provider.sendMessage(user.phone, block.input.message);
@@ -376,6 +391,7 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   const allTools = await getTools(entityId);
   const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
+  const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
 
   // Restore saved messages and step_log from the events table (not the run row)
   const { messages: savedMessages, stepLog: savedStepLog } = await loadWorkflowRunEvents(run.id);
@@ -412,6 +428,19 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
       const stepEntry = { tool: block.name, input: block.input, iteration: iterations };
 
       try {
+        // Validate tool name against allowlist — reject anything not offered
+        if (!allowedToolNames.has(block.name)) {
+          console.warn(`[workflow-agent] Blocked disallowed tool call: ${block.name}`);
+          result = { error: `Tool "${block.name}" is not available. Only use tools provided to you.` };
+          stepLog.push({ ...stepEntry, result: { error: result.error } });
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
         if (block.name === 'NOTIFY_USER') {
           await provider.sendMessage(user.phone, block.input.message);
           result = { success: true, message: 'User notified' };

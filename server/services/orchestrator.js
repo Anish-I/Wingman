@@ -10,14 +10,18 @@ const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
 const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10);
+const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
+
+// Global counter for orphaned (post-timeout) promises still running in background
+let _orphanedCount = 0;
+function getOrphanedCount() { return _orphanedCount; }
 
 function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
+  let timerId;
+  const timer = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timer]).finally(() => clearTimeout(timerId));
 }
 
 /**
@@ -37,18 +41,29 @@ function execWithTimeout(promise, ms, label) {
     (err) => { settled = true; throw err; }
   );
 
+  let timerId;
+  const timer = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      const err = new Error(`${label} timed out after ${ms}ms`);
+      err.timedOut = true;
+      // Allow callers to await eventual completion
+      err.completionPromise = tracked.catch(() => null);
+      reject(err);
+    }, ms);
+  });
+
   return Promise.race([
     tracked.then(result => ({ result, timedOut: false })),
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        const err = new Error(`${label} timed out after ${ms}ms`);
-        err.timedOut = true;
-        // Allow callers to await eventual completion
-        err.completionPromise = tracked.catch(() => null);
-        reject(err);
-      }, ms);
-    }),
-  ]);
+    timer,
+  ]).finally(() => clearTimeout(timerId));
+}
+
+class AbortError extends Error {
+  constructor(msg = 'Operation aborted') { super(msg); this.name = 'AbortError'; }
+}
+
+function throwIfAborted(abortController, label) {
+  if (abortController.aborted) throw new AbortError(`Aborted before ${label}`);
 }
 
 // Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
@@ -72,6 +87,12 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
+  // Reject early if too many orphaned promises are already running
+  if (_orphanedCount >= MAX_ORPHANED_PROMISES) {
+    console.warn(`[user:${user.id}] Rejecting request: ${_orphanedCount} orphaned promises already in-flight (limit ${MAX_ORPHANED_PROMISES})`);
+    return "I'm currently overloaded — please try again in a moment.";
+  }
+
   const abortController = { aborted: false };
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -80,9 +101,25 @@ async function processMessage(user, messageText) {
       reject(new Error('Request timed out'));
     }, PROCESS_MESSAGE_TIMEOUT);
   });
+
+  const innerPromise = _processMessageInner(user, messageText, abortController);
+
   try {
-    const result = await Promise.race([_processMessageInner(user, messageText, abortController), timeout]);
+    const result = await Promise.race([innerPromise, timeout]);
     return result;
+  } catch (err) {
+    // On timeout, the inner promise is now orphaned — track it
+    if (abortController.aborted) {
+      _orphanedCount++;
+      console.warn(`[user:${user.id}] Request timed out, orphaned promise tracked (count: ${_orphanedCount})`);
+      innerPromise
+        .catch(() => {}) // swallow — inner already handles its own errors
+        .finally(() => {
+          _orphanedCount--;
+          console.log(`[user:${user.id}] Orphaned promise settled (remaining: ${_orphanedCount})`);
+        });
+    }
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -99,6 +136,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   const selectedTools = selectToolsForMessage(allTools, messageText);
   const tools = [...LOCAL_TOOLS, ...selectedTools];
+  // Build allowlist of tool names the LLM is permitted to call this turn
+  const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
   console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
 
   // Check semantic cache before doing any LLM work
@@ -121,8 +160,10 @@ async function _processMessageInner(user, messageText, abortController = { abort
   let completed = false;
 
   while (iterations < MAX_TOOL_ITERATIONS) {
-    if (abortController.aborted) break;
+    throwIfAborted(abortController, 'LLM call');
     response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
+
+    throwIfAborted(abortController, 'tool execution');
 
     if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) {
       completed = true;
@@ -141,8 +182,26 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
     const iterationWork = async () => {
     for (const block of response.toolUseBlocks) {
+      // Check abort before each tool — prevents executing further tools
+      // (especially side-effecting ones) after the request has timed out
+      throwIfAborted(abortController, `tool:${block.name}`);
+
       let result;
       try {
+        // Validate tool name against allowlist — reject anything the LLM
+        // was not offered this turn (guards against prompt injection)
+        if (!allowedToolNames.has(block.name)) {
+          console.warn(`[user:${userId}] Blocked disallowed tool call: ${block.name}`);
+          result = { error: `Tool "${block.name}" is not available. Only use tools provided to you.` };
+          completedToolIds.add(block.id);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
         if (block.name === 'CREATE_WORKFLOW') {
           const workflows = await withTimeout(
             planAndCreateWorkflows(user, block.input.description),
@@ -271,6 +330,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   return finalText;
   } catch (err) {
+    // AbortError means the outer processMessage timed out and set the flag —
+    // stop immediately and let the orphaned-promise tracker handle cleanup.
+    if (err.name === 'AbortError') {
+      console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
+      return "Sorry, that took too long. Please try again.";
+    }
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       return "One sec — juggling a few things. Try again in a moment.";
@@ -282,4 +347,4 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
 }
 
-module.exports = { processMessage };
+module.exports = { processMessage, getOrphanedCount };
