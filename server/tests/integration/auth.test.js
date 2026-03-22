@@ -86,6 +86,37 @@ describe('POST /auth/signup + POST /auth/login', () => {
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
   });
+
+  it('preserves email login after linking a real phone via OTP', async () => {
+    const otpEmail = `otp-${Date.now()}@wingman-test.local`;
+    const phone = '+15555550123';
+    const password = 'OtpPassword123!';
+
+    const signupRes = await supertest(app)
+      .post('/auth/signup')
+      .send({ email: otpEmail, password });
+
+    expect(signupRes.status).toBe(200);
+
+    await redis.set(`otp:${phone}`, require('crypto').createHmac('sha256', process.env.JWT_SECRET).update('123456').digest('hex'), 'EX', 600);
+
+    const verifyRes = await supertest(app)
+      .post('/auth/verify-otp')
+      .set('Authorization', `Bearer ${signupRes.body.token}`)
+      .send({ phone, code: '123456' });
+
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.user.phone).toBe(phone);
+
+    const loginRes = await supertest(app)
+      .post('/auth/login')
+      .send({ email: otpEmail, password });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.user.id).toBe(signupRes.body.user.id);
+
+    await pool.query('DELETE FROM users WHERE id = $1', [signupRes.body.user.id]).catch(() => {});
+  });
 });
 
 describe('Protected routes reject without token', () => {
