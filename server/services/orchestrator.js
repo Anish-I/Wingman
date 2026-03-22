@@ -276,6 +276,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
     try {
       await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
     } catch (iterErr) {
+      // AbortError must propagate — the request is cancelled, don't continue the loop
+      if (iterErr.name === 'AbortError') throw iterErr;
       // Iteration timed out — some tools may have completed, others are still in-flight.
       // Generate error results for tools that didn't finish so the LLM gets complete context.
       console.warn(`[user:${userId}] Iteration ${iterations + 1} timed out: ${iterErr.message}`);
