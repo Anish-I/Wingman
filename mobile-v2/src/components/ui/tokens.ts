@@ -71,7 +71,7 @@ export const text = {
   /** Secondary — body text, longer content (high legibility) */
   secondary: '#B6B6C4',
   /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
-  muted: '#ADADBB',
+  muted: '#B3B3C1',
   /** Disabled / placeholder text — WCAG AA 4.5:1 on all dark surfaces */
   disabled: '#A8A8B8',
   /** Inverse for light/elevated surfaces */

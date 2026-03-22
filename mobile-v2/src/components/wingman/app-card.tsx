@@ -88,7 +88,7 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
         style={{
           fontSize: 12,
           fontFamily: 'Inter_500Medium',
-          color: connected ? '#F0F0F5' : '#ADADBB',
+          color: connected ? '#F0F0F5' : '#B3B3C1',
         }}
       >
         {name}
