@@ -214,6 +214,28 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     const workflow = result.rows[0];
     if (!workflow) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow not found' } });
 
+    // Validate workflow data before execution
+    const steps = workflow.steps || [];
+    const actions = workflow.actions || [];
+
+    if (!Array.isArray(steps)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow steps must be an array' } });
+    if (!Array.isArray(actions)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow actions must be an array' } });
+    if (steps.length === 0 && actions.length === 0) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow has no steps or actions to execute' } });
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (!step || typeof step !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is not a valid object` } });
+      if (typeof step.description !== 'string' || step.description.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is missing a description` } });
+    }
+
+    for (let i = 0; i < actions.length; i++) {
+      const action = actions[i];
+      if (!action || typeof action !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} is not a valid object` } });
+      if (typeof action.name !== 'string' || action.name.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} is missing a name` } });
+      if (!/^[A-Z][A-Z0-9_]*$/.test(action.name)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} has an invalid name format` } });
+      if (action.input !== undefined && (typeof action.input !== 'object' || Array.isArray(action.input) || action.input === null)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input must be a plain object` } });
+    }
+
     let runResult;
     if (workflow.steps && workflow.steps.length > 0) {
       const { executeWorkflowAgent } = require('../services/workflow-agent');
