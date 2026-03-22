@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS automation_rules (
 );
 
 CREATE TABLE IF NOT EXISTS reminders (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   message TEXT NOT NULL,
   fire_at TIMESTAMPTZ NOT NULL,
   fired BOOLEAN DEFAULT FALSE,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS reminders (
 
 CREATE TABLE IF NOT EXISTS workflows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
   trigger_type TEXT NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS workflow_templates (
   steps JSONB NOT NULL DEFAULT '[]',
   variables JSONB DEFAULT '{}',
   system_prompt TEXT,
-  author_user_id BIGINT REFERENCES users(id),
+  author_user_id INTEGER REFERENCES users(id),
   is_system BOOLEAN DEFAULT FALSE,
   usage_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS workflow_pending_replies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id UUID NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
   workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   prompt_text TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   resolved_at TIMESTAMPTZ,
