@@ -57,7 +57,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Trust proxy headers (required for Cloudflare Tunnel / reverse proxies)
-app.set('trust proxy', 1);
+// Only enable when explicitly configured — prevents X-Forwarded-For spoofing
+// in environments without a real reverse proxy.
+// TRUST_PROXY values: 'loopback' (recommended), number of hops, comma-separated subnets, or 'true'
+if (process.env.TRUST_PROXY) {
+  const val = process.env.TRUST_PROXY;
+  const parsed = /^\d+$/.test(val) ? parseInt(val, 10) : val;
+  app.set('trust proxy', parsed);
+}
 
 // Security headers
 app.use(helmet());
