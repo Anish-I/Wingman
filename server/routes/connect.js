@@ -11,6 +11,20 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
 const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
+// HMAC to bind OAuth callback to the browser that initiated the flow (IDOR fix)
+function computeStateHmac(state) {
+  return crypto.createHmac('sha256', JWT_SECRET).update(state).digest('hex');
+}
+
+const OAUTH_COOKIE_NAME = 'oauth_state_hmac';
+const OAUTH_COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 10 * 60 * 1000, // 10 minutes, matches state JWT expiry
+  path: '/connect/callback',
+};
+
 // Generate a signed, time-limited state token for OAuth callbacks.
 // Includes a random nonce stored in Redis to tie the token to a server-side session (CSRF protection).
 async function generateOAuthState(userId, app) {
@@ -83,6 +97,7 @@ router.get('/initiate', async (req, res) => {
     const state = await generateOAuthState(userId, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(userId, app, redirectUrl);
+    res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
     console.error('Connection initiate error:', err);
@@ -97,6 +112,14 @@ router.get('/callback', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing state parameter.' } });
     }
+    // Verify the callback is from the same browser that initiated the flow (IDOR fix)
+    const cookieHmac = req.cookies && req.cookies[OAUTH_COOKIE_NAME];
+    const expectedHmac = computeStateHmac(state);
+    if (!cookieHmac || cookieHmac.length !== expectedHmac.length ||
+        !crypto.timingSafeEqual(Buffer.from(cookieHmac), Buffer.from(expectedHmac))) {
+      return res.status(403).json({ error: { code: 'OAUTH_SESSION_MISMATCH', message: 'OAuth session mismatch. Please retry the connection from your app.' } });
+    }
+    res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
     const payload = await verifyOAuthState(state);
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
@@ -150,6 +173,7 @@ router.get('/:app', requireAuth, async (req, res) => {
     const state = await generateOAuthState(req.user.id, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(req.user.id, app, redirectUrl);
+    res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
     console.error('Connection link error:', err);

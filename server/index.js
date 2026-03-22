@@ -47,6 +47,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 
 const smsRoutes = require('./routes/sms');
 const authRoutes = require('./routes/auth');
@@ -99,6 +100,9 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Cookie parsing (required for OAuth session binding)
+app.use(cookieParser());
 
 // Body parsing with size limits
 app.use(express.json({ limit: '100kb' }));
