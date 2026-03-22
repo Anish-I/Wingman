@@ -8,12 +8,19 @@ const { getUserById } = require('../db/queries');
  * Rejects with 401 if token is missing, invalid, expired, revoked, or user no longer exists.
  */
 async function requireAuth(req, res, next) {
+  let token;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (req.cookies && req.cookies.__wingman_sess) {
+    token = req.cookies.__wingman_sess;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: { code: 'TOKEN_REQUIRED', message: 'Authorization token required.' } });
   }
 
-  const payload = verifyToken(authHeader.slice(7));
+  const payload = verifyToken(token);
   if (!payload) {
     return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token.' } });
   }
