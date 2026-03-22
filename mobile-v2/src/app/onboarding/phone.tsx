@@ -83,18 +83,19 @@ export default function PhoneScreen() {
   }
 
   async function handleVerify() {
+    if (verifyingRef.current) return;
     const otp = code.join('');
     if (otp.length !== 6) {
       showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
+    verifyingRef.current = true;
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
       // Validate that a real token was returned (not a demo token or undefined)
       if (!data.token || data.token === 'demo-mock-token') {
         showAlert('Verification Failed', 'No valid authentication token received. Please try again.');
-        setLoading(false);
         return;
       }
       signIn(data.token);
@@ -123,20 +124,18 @@ export default function PhoneScreen() {
         }
       }
       showAlert('Verification Failed', String(message));
-      // Stay on verify step, keep code visible but clear inputs for retry
       setCode(['', '', '', '', '', '']);
       setActiveIdx(0);
       inputs.current[0]?.focus();
     } finally {
       setLoading(false);
+      verifyingRef.current = false;
     }
   }
 
   useEffect(() => {
-    // Auto-submit when all 6 digits are entered, but only if not already verifying
-    if (code.every((d) => d !== '') && step === 'verify' && !verifyingRef.current && !loading) {
-      verifyingRef.current = true;
-      handleVerify().finally(() => { verifyingRef.current = false; });
+    if (code.every((d) => d !== '') && step === 'verify') {
+      handleVerify();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, step]);
