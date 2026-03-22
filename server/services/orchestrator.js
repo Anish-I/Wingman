@@ -93,9 +93,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
     for (const block of response.toolUseBlocks) assistantContent.push(block);
     messages.push({ role: 'assistant', content: assistantContent });
 
-    // Execute each tool call with per-iteration timeout
-    const iterationWork = async () => {
+    // Execute each tool call, tracking completion per-tool to handle iteration timeouts gracefully
+    const completedToolIds = new Set();
     const toolResults = [];
+
+    const iterationWork = async () => {
     for (const block of response.toolUseBlocks) {
       let result;
       try {
@@ -146,16 +148,33 @@ async function _processMessageInner(user, messageText, abortController = { abort
         }
       }
 
+      completedToolIds.add(block.id);
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
         content: typeof result === 'string' ? result : JSON.stringify(result),
       });
     }
-    return toolResults;
     };
 
-    const toolResults = await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
+    try {
+      await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
+    } catch (iterErr) {
+      // Iteration timed out — some tools may have completed, others are still in-flight.
+      // Generate error results for tools that didn't finish so the LLM gets complete context.
+      console.warn(`[user:${userId}] Iteration ${iterations + 1} timed out: ${iterErr.message}`);
+      for (const block of response.toolUseBlocks) {
+        if (!completedToolIds.has(block.id)) {
+          console.warn(`[user:${userId}] Tool ${block.name} (${block.id}) did not complete — returning timeout error to LLM`);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify({ error: `Tool execution timed out — result unavailable. Do not retry this tool call; inform the user the operation is still pending.` }),
+          });
+        }
+      }
+    }
+
     messages.push({ role: 'user', content: toolResults });
     iterations++;
   }
