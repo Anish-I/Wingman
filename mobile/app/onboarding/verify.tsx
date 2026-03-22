@@ -22,7 +22,7 @@ import { colors, spacing, radius } from '../../src/theme';
 export default function VerifyScreen() {
   const router = useRouter();
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [code, setCode] = useState(['', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputs = useRef<TextInput[]>([]);
@@ -43,7 +43,7 @@ export default function VerifyScreen() {
     const newCode = [...code];
     newCode[idx] = text.slice(-1);
     setCode(newCode);
-    if (text && idx < 3) {
+    if (text && idx < code.length - 1) {
       inputs.current[idx + 1]?.focus();
       setActiveIdx(idx + 1);
     }
@@ -58,8 +58,8 @@ export default function VerifyScreen() {
 
   async function handleVerify() {
     const otp = code.join('');
-    if (otp.length !== 4) {
-      Alert.alert('Incomplete', 'Please enter all 4 digits.');
+    if (otp.length !== 6) {
+      Alert.alert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
     if (!phone) {
@@ -69,11 +69,17 @@ export default function VerifyScreen() {
     setLoading(true);
     try {
       const { token } = await api.auth.verifyOtp(phone, otp);
+      if (!token) {
+        throw new Error('No authentication token returned.');
+      }
       await saveToken(token);
-    } catch {
-      // Backend unavailable — save a demo token so the app is usable
-      const demoPayload = btoa(JSON.stringify({ sub: '1', name: 'Demo User', phone }));
-      await saveToken(`demo.${demoPayload}.signature`);
+    } catch (err: unknown) {
+      setLoading(false);
+      Alert.alert('Verification Failed', err instanceof Error ? err.message : 'Failed to verify code. Please try again.');
+      setCode(['', '', '', '', '', '']);
+      setActiveIdx(0);
+      inputs.current[0]?.focus();
+      return;
     }
     try { await registerForPushNotifications(); } catch {}
     setVerified(true);
@@ -97,10 +103,10 @@ export default function VerifyScreen() {
   }
 
   useEffect(() => {
-    if (code.every(d => d !== '') && !verified) {
+    if (code.every((d) => d !== '') && !verified) {
       handleVerify();
     }
-  }, [code]);
+  }, [code, verified]);
 
   async function handleResend() {
     if (!phone) return;
@@ -135,62 +141,62 @@ export default function VerifyScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View style={{ flex: 1, opacity: entryOpacity, transform: [{ translateY: entryTranslate }] }}>
-      <KeyboardAvoidingView
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Check your texts</Text>
-        <Text style={styles.subtitle}>
-          We sent a 4-digit code to {phone || 'your phone'}
-        </Text>
-
-        <View style={styles.codeRow}>
-          {code.map((digit, i) => (
-            <TextInput
-              key={i}
-              ref={(r) => { if (r) inputs.current[i] = r; }}
-              style={[
-                styles.codeBox,
-                activeIdx === i && styles.codeBoxActive,
-                digit ? styles.codeBoxFilled : null,
-              ]}
-              value={digit}
-              onChangeText={(t) => handleCodeChange(t, i)}
-              onFocus={() => setActiveIdx(i)}
-              onKeyPress={(e) => handleKeyPress(e, i)}
-              keyboardType="number-pad"
-              maxLength={1}
-              selectTextOnFocus
-            />
-          ))}
-        </View>
-
-        <TouchableOpacity onPress={handleResend} style={styles.resendBtn}>
-          <Text style={styles.resendText}>Didn't get a code? Resend</Text>
-        </TouchableOpacity>
-
-        <View style={styles.spacer} />
-      </KeyboardAvoidingView>
-
-      <View style={styles.footer}>
-        <Pressable
-          style={(state: any) => [
-            styles.verifyBtn,
-            (loading || code.some(d => d === '')) && styles.verifyBtnDisabled,
-            state.hovered && styles.verifyBtnHover,
-            state.focused && styles.verifyBtnFocus,
-            state.pressed && styles.verifyBtnPressed,
-          ]}
-          onPress={handleVerify}
-          disabled={loading || code.some(d => d === '')}
+        <KeyboardAvoidingView
+          style={styles.content}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
-        </Pressable>
-      </View>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <Text style={styles.title}>Check your texts</Text>
+          <Text style={styles.subtitle}>
+            We sent a 6-digit code to {phone || 'your phone'}
+          </Text>
+
+          <View style={styles.codeRow}>
+            {code.map((digit, i) => (
+              <TextInput
+                key={i}
+                ref={(r) => { if (r) inputs.current[i] = r; }}
+                style={[
+                  styles.codeBox,
+                  activeIdx === i && styles.codeBoxActive,
+                  digit ? styles.codeBoxFilled : null,
+                ]}
+                value={digit}
+                onChangeText={(t) => handleCodeChange(t, i)}
+                onFocus={() => setActiveIdx(i)}
+                onKeyPress={(e) => handleKeyPress(e, i)}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity onPress={handleResend} style={styles.resendBtn}>
+            <Text style={styles.resendText}>Didn't get a code? Resend</Text>
+          </TouchableOpacity>
+
+          <View style={styles.spacer} />
+        </KeyboardAvoidingView>
+
+        <View style={styles.footer}>
+          <Pressable
+            style={(state: any) => [
+              styles.verifyBtn,
+              (loading || code.some((d) => d === '')) && styles.verifyBtnDisabled,
+              state.hovered && styles.verifyBtnHover,
+              state.focused && styles.verifyBtnFocus,
+              state.pressed && styles.verifyBtnPressed,
+            ]}
+            onPress={handleVerify}
+            disabled={loading || code.some((d) => d === '')}
+          >
+            <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
+          </Pressable>
+        </View>
       </Animated.View>
     </SafeAreaView>
   );
@@ -226,7 +232,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   codeBox: {
-    width: 64,
+    width: 48,
     height: 64,
     backgroundColor: colors.card,
     borderRadius: radius.button,
