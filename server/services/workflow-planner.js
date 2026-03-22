@@ -3,6 +3,16 @@ const { callLLM } = require('./llm');
 const { createAndScheduleWorkflow } = require('./workflows');
 const { getCachedWorkflowPlan, setCachedWorkflowPlan } = require('./llm-cache');
 
+const ALLOWED_TRIGGER_TYPES = new Set(['schedule', 'manual', 'event']);
+const MAX_PLANS = 10;
+const MAX_STEPS = 50;
+const MAX_NAME_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_INSTRUCTION_LENGTH = 2000;
+const MAX_VARIABLE_KEY_LENGTH = 100;
+const MAX_VARIABLE_VALUE_LENGTH = 5000;
+const MAX_VARIABLES = 50;
+
 const PLANNER_SYSTEM_PROMPT = `You are a workflow planner for Wingman. Given a user's natural language request, create one or more workflow definitions.
 
 Return a JSON array of workflow objects. Each object must have:
@@ -12,13 +22,65 @@ Return a JSON array of workflow objects. Each object must have:
 - cron_expression: cron string if scheduled (null otherwise)
 - steps: array of { instruction: string } describing what the agent should do
 - variables: object of key-value pairs the agent needs
-- system_prompt: instructions for the agent executing this workflow
 
 If the request implies multiple independent automations, return multiple workflows.
 If the request is ambiguous about timing, default to manual trigger.
 For recurring tasks, parse the schedule into a cron expression.
 
 RESPOND WITH ONLY THE JSON ARRAY — no markdown, no explanation.`;
+
+/**
+ * Validate and sanitize a single workflow plan from LLM output.
+ * Strips unrecognized fields, enforces types and limits.
+ */
+function validatePlan(raw) {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('Each workflow plan must be a JSON object');
+  }
+
+  const name = typeof raw.name === 'string' ? raw.name.slice(0, MAX_NAME_LENGTH) : null;
+  if (!name) throw new Error('Workflow plan missing required "name" string');
+
+  const description = typeof raw.description === 'string'
+    ? raw.description.slice(0, MAX_DESCRIPTION_LENGTH)
+    : '';
+
+  const triggerType = ALLOWED_TRIGGER_TYPES.has(raw.trigger_type)
+    ? raw.trigger_type
+    : 'manual';
+
+  const cronExpression = (triggerType === 'schedule' && typeof raw.cron_expression === 'string')
+    ? raw.cron_expression
+    : null;
+
+  // Validate steps: must be array of { instruction: string }
+  let steps = [];
+  if (Array.isArray(raw.steps)) {
+    for (const step of raw.steps.slice(0, MAX_STEPS)) {
+      if (typeof step === 'object' && step !== null && typeof step.instruction === 'string') {
+        steps.push({ instruction: step.instruction.slice(0, MAX_INSTRUCTION_LENGTH) });
+      }
+      // silently drop malformed steps
+    }
+  }
+
+  // Validate variables: must be flat object with string values
+  let variables = {};
+  if (typeof raw.variables === 'object' && raw.variables !== null && !Array.isArray(raw.variables)) {
+    let count = 0;
+    for (const [key, value] of Object.entries(raw.variables)) {
+      if (count >= MAX_VARIABLES) break;
+      const safeKey = String(key).slice(0, MAX_VARIABLE_KEY_LENGTH);
+      // Coerce values to strings to prevent nested object injection
+      variables[safeKey] = String(value).slice(0, MAX_VARIABLE_VALUE_LENGTH);
+      count++;
+    }
+  }
+
+  // system_prompt is NOT accepted from LLM output — it must come from
+  // trusted templates only, never from dynamically generated plans
+  return { name, description, trigger_type: triggerType, cron_expression: cronExpression, steps, variables };
+}
 
 async function planWorkflows(userMessage, userId) {
   // Check cache first
@@ -28,21 +90,27 @@ async function planWorkflows(userMessage, userId) {
   const messages = [{ role: 'user', content: userMessage }];
   const response = await callLLM(PLANNER_SYSTEM_PROMPT, messages, [], {});
 
-  let plans;
+  let rawPlans;
   try {
     // Extract JSON from response, handling possible markdown wrapping
     let text = response.text.trim();
     if (text.startsWith('```')) {
       text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     }
-    plans = JSON.parse(text);
-    if (!Array.isArray(plans)) plans = [plans];
+    rawPlans = JSON.parse(text);
+    if (!Array.isArray(rawPlans)) rawPlans = [rawPlans];
   } catch (err) {
     console.error('[planner] Failed to parse LLM response:', response.text);
     throw new Error('Failed to plan workflow — could not parse response');
   }
 
-  // Cache the plan
+  if (rawPlans.length > MAX_PLANS) {
+    rawPlans = rawPlans.slice(0, MAX_PLANS);
+  }
+
+  const plans = rawPlans.map(validatePlan);
+
+  // Cache the validated plan
   await setCachedWorkflowPlan(userMessage, plans, userId);
 
   return plans;
@@ -69,7 +137,7 @@ async function planAndCreateWorkflows(user, description) {
       [JSON.stringify(plan.steps || []), JSON.stringify(plan.variables || {}), workflow.id]
     );
 
-    created.push({ ...workflow, steps: plan.steps, variables: plan.variables, system_prompt: plan.system_prompt });
+    created.push({ ...workflow, steps: plan.steps, variables: plan.variables });
   }
 
   return created;
