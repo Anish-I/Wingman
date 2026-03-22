@@ -1,12 +1,10 @@
 const { Worker } = require('bullmq');
-const Redis = require('ioredis');
+const { createRedisClient } = require('../services/redis');
 const { getUserById } = require('../db/queries');
 const { executeTool, getTools } = require('../services/composio');
 const { provider } = require('../services/messaging');
 
-const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
+const connection = createRedisClient();
 
 async function fetchCalendarViaComposio(entityId) {
   try {

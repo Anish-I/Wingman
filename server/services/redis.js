@@ -1,12 +1,33 @@
 const Redis = require('ioredis');
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null, // Required by BullMQ
-  retryStrategy(times) {
-    if (times > 3) return null;
-    return Math.min(times * 200, 2000);
-  },
-});
+/**
+ * Build ioredis options with optional password from REDIS_PASSWORD env var.
+ * Callers can override any option by spreading their own after the defaults.
+ */
+function buildRedisOptions(overrides = {}) {
+  const opts = {
+    maxRetriesPerRequest: null, // Required by BullMQ
+    retryStrategy(times) {
+      if (times > 3) return null;
+      return Math.min(times * 200, 2000);
+    },
+    ...overrides,
+  };
+  if (process.env.REDIS_PASSWORD) {
+    opts.password = process.env.REDIS_PASSWORD;
+  }
+  return opts;
+}
+
+/**
+ * Create an ioredis client using REDIS_URL (with REDIS_PASSWORD when set).
+ * All modules should use this instead of instantiating Redis directly.
+ */
+function createRedisClient(overrides = {}) {
+  return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', buildRedisOptions(overrides));
+}
+
+const redis = createRedisClient();
 
 redis.on('error', (err) => {
   console.error('Redis connection error:', err.message);
@@ -88,6 +109,7 @@ async function cleanupStaleConversations() {
 
 module.exports = {
   redis,
+  createRedisClient,
   getConversationHistory,
   appendMessage,
   setUserSession,

@@ -1,18 +1,12 @@
 'use strict';
 
 const { EventEmitter } = require('events');
-const Redis = require('ioredis');
+const { createRedisClient } = require('../redis');
 
 class StubProvider extends EventEmitter {
   constructor() {
     super();
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-      maxRetriesPerRequest: 3,
-      retryStrategy(times) {
-        if (times > 3) return null;
-        return Math.min(times * 200, 2000);
-      },
-    });
+    this.redis = createRedisClient({ maxRetriesPerRequest: 3 });
     this.redis.on('error', (err) => {
       console.error('[stub] Redis error:', err.message);
     });

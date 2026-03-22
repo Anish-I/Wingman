@@ -1,12 +1,10 @@
 const { Worker } = require('bullmq');
-const Redis = require('ioredis');
+const { createRedisClient } = require('../services/redis');
 const { getUserById } = require('../db/queries');
 const { executeToolCall } = require('../services/zapier-tools');
 const { sendSMS } = require('../services/telnyx');
 
-const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
+const connection = createRedisClient();
 
 /**
  * Format an alert message based on type and data.

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const Redis = require('ioredis');
+const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
@@ -49,7 +49,7 @@ function requireAuth(req, res, next) {
   if (!_requireAuth) _requireAuth = require('../middleware/requireAuth');
   return _requireAuth(req, res, next);
 }
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null });
+const redis = createRedisClient();
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is required');

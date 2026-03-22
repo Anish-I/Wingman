@@ -51,6 +51,11 @@ function validateEnv() {
     missing.push('Complete SMS provider (TELNYX_API_KEY + TELNYX_PHONE_NUMBER, or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN)');
   }
 
+  // Warn if Redis has no password configured in production
+  if (isProduction && !process.env.REDIS_PASSWORD) {
+    console.warn('[env-validate] WARN: REDIS_PASSWORD is not set — Redis is unauthenticated. Set REDIS_PASSWORD for production deployments.');
+  }
+
   if (missing.length === 0) {
     return; // All good
   }

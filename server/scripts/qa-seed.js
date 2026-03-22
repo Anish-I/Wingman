@@ -5,18 +5,17 @@
  */
 
 const pg = require('pg');
-const Redis = require('ioredis');
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const { createRedisClient } = require('../services/redis');
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://wingman:wingman@localhost:5432/wingman';
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const TEST_PHONE = '+15005550006';
 const TEST_OTP = '1234';
 
 async function seed() {
   const client = new pg.Client(DATABASE_URL);
-  const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 3 });
+  const redis = createRedisClient({ maxRetriesPerRequest: 3 });
 
   try {
     console.log('🌱 QA Seed Script Started\n');

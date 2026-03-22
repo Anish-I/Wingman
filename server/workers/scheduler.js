@@ -1,5 +1,5 @@
 const { Queue } = require('bullmq');
-const Redis = require('ioredis');
+const { createRedisClient } = require('../services/redis');
 const cron = require('node-cron');
 const { query } = require('../db/index');
 const { getPendingReminders, markReminderFired } = require('../db/queries');
@@ -8,9 +8,7 @@ const { OpenAIToolSet } = require('composio-core');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 
-const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
+const connection = createRedisClient();
 
 let morningBriefingQueue;
 let eventAlertsQueue;
