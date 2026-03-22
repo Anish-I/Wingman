@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { blue, purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
+import { blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
 import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -22,6 +22,7 @@ const PIP_GREETINGS = [
 ];
 
 function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
+  const { surface } = useThemeColors();
   return (
     <View className="flex-row items-center gap-1.5 px-4 pb-3">
       <MotiView
@@ -59,6 +60,7 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
 }
 
 export default function ChatScreen() {
+  const { surface, text: t } = useThemeColors();
   const reducedMotion = useReducedMotion();
   const messages = useChatStore.use.messages();
   const loading = useChatStore.use.loading();

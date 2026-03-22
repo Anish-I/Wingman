@@ -12,6 +12,7 @@ import { hydrateAuth } from '@/features/auth/use-auth-store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
 import { initStorage } from '@/lib/storage';
+import { useUniwind } from 'uniwind';
 import '../global.css';
 
 export { ErrorBoundary } from 'expo-router';
@@ -48,7 +49,6 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     if (Platform.OS === 'web') {
-      document.body.style.backgroundColor = '#0A0A0C';
       document.body.style.margin = '0';
     }
   }, []);
@@ -78,6 +78,8 @@ export default function RootLayout() {
 
 function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
+  const { theme } = useUniwind();
+  const isDark = theme === 'dark';
   // Phone (<768): full width, capped at 430px centered
   // Tablet (768–1024): 720px max
   // Desktop (>1024): 960px max
@@ -87,7 +89,7 @@ function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
     <View
       style={{
         flex: 1,
-        backgroundColor: '#0A0A0C',
+        backgroundColor: isDark ? '#0A0A0C' : '#FFFFFF',
         alignItems: 'center',
         minHeight: '100vh' as any,
       }}
@@ -108,10 +110,11 @@ function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
 
 function Providers({ children }: { children: React.ReactNode }) {
   const theme = useThemeConfig();
+  const { theme: colorScheme } = useUniwind();
   return (
     <GestureHandlerRootView
       style={styles.container}
-      className="dark"
+      className={colorScheme === 'dark' ? 'dark' : ''}
     >
       <KeyboardProvider>
         <ThemeProvider value={theme}>

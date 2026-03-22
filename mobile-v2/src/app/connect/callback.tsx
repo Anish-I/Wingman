@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
+import { useThemeColors } from '@/components/ui/tokens';
 
 /**
  * OAuth callback route for web.
@@ -11,6 +12,7 @@ import { client } from '@/lib/api/client';
  * or ?error=... on failure. The code is exchanged for a JWT via POST /auth/exchange-code.
  */
 export default function OAuthCallbackScreen() {
+  const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ code?: string; error?: string }>();
 
@@ -75,9 +77,9 @@ export default function OAuthCallbackScreen() {
   }, [params.code, params.error, router]);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0C0C0C' }}>
-      <ActivityIndicator size="large" color="#6B9BEF" />
-      <Text style={{ color: '#8A8A8A', marginTop: 16, fontFamily: 'Inter_400Regular', fontSize: 14 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: surface.bg }}>
+      <ActivityIndicator size="large" color="#7C5CFC" />
+      <Text style={{ color: t.muted, marginTop: 16, fontFamily: 'Inter_400Regular', fontSize: 14 }}>
         Completing sign-in...
       </Text>
     </View>

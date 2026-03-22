@@ -20,6 +20,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
+import { useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
@@ -204,21 +205,22 @@ const AppCard = React.memo(function AppCard({
   isConnecting,
   onPress,
 }: AppCardProps) {
+  const { surface } = useThemeColors();
   return (
     <Pressable
       className="w-[90px] rounded-2xl p-3 items-center relative mr-2.5"
       style={({ pressed, hovered, focused }: any) => [
         {
-          backgroundColor: isConnected ? '#141416' : '#111113',
+          backgroundColor: isConnected ? surface.card : surface.cardAlt,
           borderWidth: isConnected ? 1.5 : 1,
-          borderColor: isConnected ? 'rgba(50, 215, 75, 0.35)' : '#262630',
+          borderColor: isConnected ? 'rgba(50, 215, 75, 0.35)' : surface.border,
         },
         ...chipPressStyle({ pressed }),
         webInteractive(isConnecting),
         // Web hover: subtle lift with glow
         Platform.OS === 'web' && hovered && !pressed && !isConnecting
-          ? { 
-              borderColor: '#3A3A4A',
+          ? {
+              borderColor: surface.borderStrong,
               boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
               transform: [{ scale: 1.03 }],
             } as any
@@ -241,7 +243,7 @@ const AppCard = React.memo(function AppCard({
           <ActivityIndicator size="small" color="#7C5CFC" />
         </View>
       )}
-      <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2 bg-[#141416]">
+      <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2" style={{ backgroundColor: surface.card }}>
         <Image
           source={{ uri: app.logo }}
           style={{ width: 32, height: 32, borderRadius: 8 }}
@@ -345,6 +347,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
   selected,
   onSelect,
 }: CategoryTabsProps) {
+  const { surface, text: t } = useThemeColors();
   return (
     <FlatList
       horizontal
@@ -364,20 +367,18 @@ const CategoryTabs = React.memo(function CategoryTabs({
             className="rounded-full px-3 py-1.5 flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
               {
-                backgroundColor: active ? 'rgba(124, 92, 252, 0.12)' : '#141416',
+                backgroundColor: active ? 'rgba(124, 92, 252, 0.12)' : surface.card,
                 borderWidth: 1,
-                borderColor: active ? '#7C5CFC' : '#262630',
+                borderColor: active ? '#7C5CFC' : surface.border,
               },
               ...chipPressStyle({ pressed }),
               webInteractive(),
-              // Web hover: enhance active state or add subtle background
               Platform.OS === 'web' && hovered && !pressed && !active
-                ? { backgroundColor: '#1A1A1F', borderColor: '#3A3A4A' } as any
+                ? { backgroundColor: surface.section, borderColor: surface.borderStrong } as any
                 : undefined,
               Platform.OS === 'web' && hovered && !pressed && active
                 ? { backgroundColor: 'rgba(124, 92, 252, 0.18)' } as any
                 : undefined,
-              // Web focus ring
               Platform.OS === 'web' && focused
                 ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
                 : undefined,
@@ -385,7 +386,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
           >
             <Text
               style={{
-                color: active ? '#7C5CFC' : '#B3B3C1',
+                color: active ? '#7C5CFC' : t.muted,
                 fontSize: 12,
                 fontWeight: '600',
               }}
@@ -394,7 +395,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             </Text>
             <Text
               style={{
-                color: active ? '#7C5CFC' : '#B3B3C1',
+                color: active ? '#7C5CFC' : t.muted,
                 fontSize: 10,
                 fontWeight: '700',
                 marginLeft: 4,
@@ -414,6 +415,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
 // ---------------------------------------------------------------------------
 
 export default function AppsScreen() {
+  const { surface, text: t } = useThemeColors();
   const { data, isLoading, error: fetchError, refetch } = useApps();
   const [connected, setConnected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -624,7 +626,7 @@ export default function AppsScreen() {
             <Text className="text-foreground text-[28px] font-extrabold">
               Your Apps
             </Text>
-            <Text className="text-[#B3B3C1] text-sm mt-1">
+            <Text style={{ color: t.muted }} className="text-sm mt-1">
               {ALL_APPS.length} apps available
             </Text>
           </View>
@@ -648,18 +650,19 @@ export default function AppsScreen() {
       {/* Search */}
       <MotiView
         {...entrance(0, 100)}
-        className="flex-row items-center bg-[#141416] rounded-2xl mx-6 mb-3 px-4 border border-[#262630]"
+        className="flex-row items-center rounded-2xl mx-6 mb-3 px-4"
+        style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}
       >
         <Ionicons
           name="search-outline"
           size={18}
-          color="#B3B3C1"
+          color={t.muted}
           style={{ marginRight: 8 }}
         />
         <TextInput
           className="flex-1 py-3.5 text-foreground text-[15px]"
           placeholder={`Search ${ALL_APPS.length} apps...`}
-          placeholderTextColor="#B3B3C1"
+          placeholderTextColor={t.muted}
           value={search}
           onChangeText={setSearch}
         />

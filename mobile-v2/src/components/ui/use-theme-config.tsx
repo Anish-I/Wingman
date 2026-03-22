@@ -30,7 +30,11 @@ const LightTheme: Theme = {
   colors: {
     ...DefaultTheme.colors,
     primary: colors.primary[500],
-    background: colors.white,
+    background: '#FFFFFF',
+    text: '#1C1C1E',
+    border: '#D1D1D6',
+    card: '#F5F5F7',
+    notification: colors.primary[500],
   },
 };
 

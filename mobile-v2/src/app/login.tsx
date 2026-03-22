@@ -5,7 +5,7 @@ import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FocusAwareStatusBar } from '@/components/ui';
-import { purple, surface, text as t } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -20,6 +20,7 @@ function showAlert(title: string, message: string) {
 }
 
 export default function LoginScreen() {
+  const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');

@@ -7,8 +7,10 @@ import { AxiosError } from 'axios';
 import Env from 'env';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
+import { useThemeColors } from '@/components/ui/tokens';
 
 export default function ConnectAppScreen() {
+  const { surface, text: t } = useThemeColors();
   const { app } = useLocalSearchParams<{ app: string }>();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -53,25 +55,25 @@ export default function ConnectAppScreen() {
 
   if (error) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0A0A0C', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <View style={{ flex: 1, backgroundColor: surface.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <Text style={{ color: '#FF6B6B', fontSize: 16, fontFamily: 'Inter_600SemiBold', textAlign: 'center', marginBottom: 16 }}>
           {error}
         </Text>
         <Pressable
           onPress={() => router.back()}
           style={[
-            { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, backgroundColor: '#1A1A1A' },
+            { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, backgroundColor: surface.section },
             Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined,
           ]}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'Inter_500Medium' }}>Go Back</Text>
+          <Text style={{ color: t.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>Go Back</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0A0C', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: surface.bg, alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator color="#6B9BEF" size="large" />
     </View>
   );

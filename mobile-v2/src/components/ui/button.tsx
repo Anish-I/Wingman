@@ -35,9 +35,9 @@ const button = tv({
       },
       /** Social/auth button — elevated outline */
       social: {
-        container: 'border border-[#35354A] dark:border-[#35354A] bg-[#131315] dark:bg-[#131315]',
-        label: 'text-[#F0F0F5] dark:text-[#F0F0F5]',
-        indicator: 'text-[#F0F0F5] dark:text-[#F0F0F5]',
+        container: 'border border-neutral-300 dark:border-[#35354A] bg-white dark:bg-[#131315]',
+        label: 'text-neutral-900 dark:text-[#F0F0F5]',
+        indicator: 'text-neutral-900 dark:text-[#F0F0F5]',
       },
       /** Outline variant — neutral, clear border */
       outline: {
@@ -82,9 +82,9 @@ const button = tv({
     },
     disabled: {
       true: {
-        container: 'bg-[#1F1F24] dark:bg-[#1F1F24]',
-        label: 'text-[#6B6B7A] dark:text-[#6B6B7A]',
-        indicator: 'text-[#6B6B7A] dark:text-[#6B6B7A]',
+        container: 'bg-neutral-200 dark:bg-[#1F1F24]',
+        label: 'text-neutral-400 dark:text-[#6B6B7A]',
+        indicator: 'text-neutral-400 dark:text-[#6B6B7A]',
       },
     },
     fullWidth: {

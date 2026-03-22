@@ -54,7 +54,7 @@ export default function DoneScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
+    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
       <ProgressBar step={7} variant="green" />
 
       {/* Confetti layer */}
@@ -116,7 +116,7 @@ export default function DoneScreen() {
             style={{
               fontFamily: 'Sora_700Bold',
               fontSize: 32,
-              color: '#FFFFFF',
+              color: t.primary,
               letterSpacing: -1.5,
               textAlign: 'center',
             }}
@@ -127,7 +127,7 @@ export default function DoneScreen() {
             style={{
               fontFamily: 'Inter_400Regular',
               fontSize: 15,
-              color: '#8A8A8A',
+              color: t.muted,
               lineHeight: 21,
               textAlign: 'center',
             }}
@@ -142,14 +142,14 @@ export default function DoneScreen() {
             className="flex-row items-center rounded-lg px-4"
             style={{
               height: 38,
-              backgroundColor: '#1A1A1A',
+              backgroundColor: surface.section,
               borderWidth: 1,
-              borderColor: '#2A2A2A',
+              borderColor: surface.border,
               gap: 8,
             }}
           >
             <Ionicons name="apps-outline" size={14} color="#6B9BEF" />
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#8A8A8A' }}>
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: t.muted }}>
               Connect your apps from the Apps tab
             </Text>
           </View>

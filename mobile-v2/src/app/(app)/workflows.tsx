@@ -8,6 +8,7 @@ import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
+import { useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -36,6 +37,7 @@ const TEMPLATES = [
 ];
 
 export default function WorkflowsScreen() {
+  const { surface, text: t } = useThemeColors();
   const { data, isLoading, error: fetchError, refetch } = useWorkflows();
   const createMutation = useCreateWorkflow();
   const planMutation = usePlanWorkflow();
@@ -167,7 +169,7 @@ export default function WorkflowsScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text className="text-[#B3B3C1] text-sm mt-0.5">Let Pip handle the boring stuff</Text>
+            <Text style={{ color: t.muted }} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
             {...popIn(0, 200)}
@@ -194,7 +196,7 @@ export default function WorkflowsScreen() {
               >
                 <PipCard expression="thinking" size="small" />
                 <Text className="text-foreground text-lg font-bold mt-2">No automations yet</Text>
-                <Text className="text-[#B3B3C1] text-sm text-center mt-1">
+                <Text style={{ color: t.muted }} className="text-sm text-center mt-1">
                   Tell me what to automate, or try a template:
                 </Text>
               </MotiView>
@@ -207,9 +209,10 @@ export default function WorkflowsScreen() {
                     {...slideIn(i, 350)}
                   >
                     <Pressable
-                      className="flex-row items-center bg-[#141416] rounded-2xl p-4 gap-3 border border-[#262630]"
+                      className="flex-row items-center rounded-2xl p-4 gap-3"
                       onPress={() => createWorkflow(t.title)}
                       style={({ pressed, hovered }: any) => [
+                        { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border },
                         ...pressStyle({ pressed }),
                         webInteractive(),
                         Platform.OS === 'web' && hovered && !pressed
@@ -238,7 +241,7 @@ export default function WorkflowsScreen() {
             <MotiView
               {...entrance(index, 100)}
             >
-              <View className="bg-[#141416] rounded-2xl p-4 gap-3 border border-[#262630]">
+              <View className="rounded-2xl p-4 gap-3" style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}>
                 <View className="flex-row items-center gap-3">
                   <View
                     className="w-[42px] h-[42px] rounded-xl items-center justify-center"
@@ -249,14 +252,14 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text className="text-[#B3B3C1] text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
+                      <Text style={{ color: t.muted }} className="text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
                   <Switch
                     value={item.active}
                     onValueChange={(v) => toggleWorkflow(item.id, v)}
                     disabled={togglingIds.has(item.id)}
-                    trackColor={{ false: '#1C1C20', true: '#32D74B' }}
+                    trackColor={{ false: surface.elevated, true: '#32D74B' }}
                     thumbColor="#fff"
                     style={togglingIds.has(item.id) ? { opacity: 0.5 } : undefined}
                   />
@@ -312,21 +315,21 @@ export default function WorkflowsScreen() {
       {/* NL Input Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/70 justify-end">
-          <View className="bg-[#141416] rounded-t-[24px] p-6 pb-12 border-t border-[#262630]">
+          <View style={{ backgroundColor: surface.card, borderTopWidth: 1, borderTopColor: surface.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 }}>
             <View className="flex-row items-center gap-3 mb-5">
               <View className="w-10 h-10 rounded-xl bg-[#7C5CFC]/20 items-center justify-center">
                 <Ionicons name="sparkles" size={20} color="#7C5CFC" />
               </View>
               <View>
                 <Text className="text-foreground text-lg font-bold">New Automation</Text>
-                <Text className="text-[#B3B3C1] text-xs">Describe it in plain English</Text>
+                <Text style={{ color: t.muted }} className="text-xs">Describe it in plain English</Text>
               </View>
             </View>
             <TextInput
-              className="bg-[#141416] rounded-2xl p-4 text-foreground text-[15px] mb-4 border border-[#262630]"
-              style={{ textAlignVertical: 'top', minHeight: 100 }}
+              className="rounded-2xl p-4 text-foreground text-[15px] mb-4"
+              style={{ backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border, textAlignVertical: 'top', minHeight: 100 }}
               placeholder="e.g., Every morning, summarize my calendar in Slack..."
-              placeholderTextColor="#B3B3C1"
+              placeholderTextColor={t.muted}
               value={nlInput}
               onChangeText={setNlInput}
               multiline
@@ -360,7 +363,7 @@ export default function WorkflowsScreen() {
                 webInteractive(),
               ]}
             >
-              <Text className="text-[#B3B3C1] text-[15px] font-medium">Cancel</Text>
+              <Text style={{ color: t.muted }} className="text-[15px] font-medium">Cancel</Text>
             </Pressable>
           </View>
         </View>
