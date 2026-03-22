@@ -36,7 +36,7 @@ export default function TabLayout() {
   if (status === 'signOut' || !token) {
     return <Redirect href="/login" />;
   }
-  if (isFirstTime) {
+  if (isFirstTime !== false) {
     return <Redirect href="/onboarding/welcome" />;
   }
 
