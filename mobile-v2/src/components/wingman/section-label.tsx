@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Text, View } from 'react-native';
-import { purple, text as t } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 
 type SectionLabelProps = {
   text: string;
@@ -8,6 +8,7 @@ type SectionLabelProps = {
 };
 
 export default function SectionLabel({ text, color = purple[500] }: SectionLabelProps) {
+  const { text: t } = useThemeColors();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
       <View

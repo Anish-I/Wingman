@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { radii, semantic, surface, teal } from '@/components/ui/tokens';
+import { radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { chipPressStyle, webInteractive } from '@/lib/motion';
 
 type AppCardProps = {
@@ -13,6 +13,7 @@ type AppCardProps = {
 };
 
 export default function AppCard({ emoji, name, connected, onPress, color }: AppCardProps) {
+  const { surface, text: t } = useThemeColors();
   return (
     <Pressable
       accessibilityRole="button"
@@ -90,7 +91,7 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
         style={{
           fontSize: 12,
           fontFamily: 'Inter_500Medium',
-          color: connected ? '#F0F0F5' : '#B3B3C1',
+          color: connected ? t.primary : t.secondary,
         }}
       >
         {name}

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, SplashScreen, Tabs } from 'expo-router';
 import * as React from 'react';
 import { useCallback, useEffect } from 'react';
-import { purple, surface, text as t } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 
@@ -13,6 +13,7 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 }
 
 export default function TabLayout() {
+  const { surface, text: t } = useThemeColors();
   const status = useAuth.use.status();
   const token = useAuth.use.token();
   const [isFirstTime] = useIsFirstTime();

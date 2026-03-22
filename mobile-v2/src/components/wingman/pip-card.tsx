@@ -3,7 +3,7 @@ import type { PipExpression } from '@/types';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { Image, View } from 'react-native';
-import { purple, surface } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 import { useReducedMotion } from '@/lib/motion';
 
 const pipImages: Record<string, ImageSourcePropType> = {
@@ -63,6 +63,7 @@ const sizeMap: Record<NonNullable<PipCardProps['size']>, number> = {
 };
 
 export default function PipCard({ expression = 'happy', size = 'large', className, message: _message }: PipCardProps) {
+  const { surface } = useThemeColors();
   const imageSize = sizeMap[size];
   const scaledSize = Math.round(imageSize * 1.25);
   const showBorder = size === 'large' || size === 'medium';

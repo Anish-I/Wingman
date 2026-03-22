@@ -8,6 +8,7 @@ import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useThemeConfig } from '@/components/ui/use-theme-config';
+import { useThemeColors } from '@/components/ui/tokens';
 import { hydrateAuth } from '@/features/auth/use-auth-store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
@@ -78,8 +79,7 @@ export default function RootLayout() {
 
 function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
-  const { theme } = useUniwind();
-  const isDark = theme === 'dark';
+  const { surface } = useThemeColors();
   // Phone (<768): full width, capped at 430px centered
   // Tablet (768–1024): 720px max
   // Desktop (>1024): 960px max
@@ -89,7 +89,7 @@ function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
     <View
       style={{
         flex: 1,
-        backgroundColor: isDark ? '#0A0A0C' : '#FFFFFF',
+        backgroundColor: surface.bg,
         alignItems: 'center',
         minHeight: '100vh' as any,
       }}

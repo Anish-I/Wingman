@@ -9,7 +9,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, Tex
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { purple, surface, text as t } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -48,6 +48,7 @@ function AppleIcon() {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { surface, text: t } = useThemeColors();
   const reduced = useReducedMotion();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

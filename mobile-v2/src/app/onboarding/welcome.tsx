@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors, purple, presets } from '@/components/ui/tokens';
+import { useThemeColors, purple, radii } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -79,7 +79,10 @@ export default function WelcomeScreen() {
           {/* Trust cue card */}
           <View
             style={{
-              ...presets.cardSection,
+              backgroundColor: surface.section,
+              borderRadius: radii.lg,
+              borderWidth: 1,
+              borderColor: surface.border,
               flexDirection: 'row',
               alignItems: 'flex-start',
               gap: 12,

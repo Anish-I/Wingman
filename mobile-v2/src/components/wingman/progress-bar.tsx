@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { View } from 'react-native';
-import { purple, semantic, surface } from '@/components/ui/tokens';
+import { purple, semantic, useThemeColors } from '@/components/ui/tokens';
 import { useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type ProgressBarProps = {
@@ -11,6 +11,7 @@ type ProgressBarProps = {
 };
 
 export default function ProgressBar({ step, total = 7, variant = 'purple' }: ProgressBarProps) {
+  const { surface } = useThemeColors();
   const activeColor = variant === 'green' ? semantic.success : purple[500];
   const reduced = useReducedMotion();
 
