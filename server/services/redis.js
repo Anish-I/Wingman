@@ -144,9 +144,11 @@ async function acquireConversationLock(userId, ttlSeconds = 120) {
   const acquired = await redis.set(key, token, 'NX', 'EX', ttlSeconds);
   if (acquired !== 'OK') return null;
   return async function release() {
-    // Only release if we still hold the lock (compare token)
-    const current = await redis.get(key);
-    if (current === token) await redis.del(key);
+    // Atomic compare-and-delete via Lua to prevent lock theft
+    await redis.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('del', KEYS[1]) end",
+      1, key, token
+    );
   };
 }
 
