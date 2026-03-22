@@ -20,11 +20,15 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Debounce 401 sign-outs so concurrent failures don't race
+let isSigningOut = false;
+
 // Auto-logout on 401 with user notification
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isSigningOut) {
+      isSigningOut = true;
       showMessage({
         message: 'Session expired',
         description: 'Please sign in again to continue.',
@@ -32,6 +36,10 @@ client.interceptors.response.use(
         duration: 4000,
       });
       signOut();
+      // Reset after a short delay so a genuinely new session can still be invalidated
+      setTimeout(() => {
+        isSigningOut = false;
+      }, 2000);
     }
     return Promise.reject(error);
   }
