@@ -1,6 +1,6 @@
 'use strict';
 
-const { redis, registerCloseable } = require('../services/redis');
+const { redis } = require('../services/redis');
 
 let workflowWorker = null;
 
@@ -58,7 +58,6 @@ async function startWorker() {
       console.error('[workflow-worker] Worker error:', err.message);
     });
 
-    registerCloseable(workflowWorker);
     console.log(`[workflow-worker] Started (Redis ${version})`);
     return workflowWorker;
   } catch (err) {
@@ -67,6 +66,4 @@ async function startWorker() {
   }
 }
 
-startWorker();
-
-module.exports = { getWorker: () => workflowWorker };
+module.exports = { startWorker, getWorker: () => workflowWorker };

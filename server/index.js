@@ -130,14 +130,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'Wingman server is running' });
 });
 
-// Start workflow worker (BullMQ consumer)
-try {
-  require('./workers/workflow-worker');
-  console.log('[server] Workflow worker started');
-} catch (err) {
-  console.warn('[server] Workflow worker failed to start:', err.message);
-}
-
 // Health check with dependency verification
 async function checkDependencies() {
   const results = { postgres: { ok: false, latencyMs: null }, redis: { ok: false, latencyMs: null } };
@@ -193,6 +185,17 @@ const server = app.listen(PORT, () => {
   // Cleanup stale Redis conversation keys on startup
   const { cleanupStaleConversations } = require('./services/redis');
   cleanupStaleConversations().catch(err => logger.error({ err: err.message }, 'Startup conversation cleanup failed'));
+
+  // Start BullMQ workers only after server is listening so jobs that call
+  // back into HTTP routes or depend on fully-initialized services don't fail.
+  try {
+    const { startWorker } = require('./workers/workflow-worker');
+    startWorker()
+      .then(() => logger.info('[server] Workflow worker started'))
+      .catch(err => logger.warn({ err: err.message }, '[server] Workflow worker failed to start'));
+  } catch (err) {
+    logger.warn({ err: err.message }, '[server] Workflow worker failed to load');
+  }
 });
 
 // uncaughtException and unhandledRejection handlers are registered at module init (top of file)
