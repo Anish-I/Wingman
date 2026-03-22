@@ -39,7 +39,7 @@ async function runWorkflow(workflowId, userId) {
   const lockKey = `workflow:lock:${workflowId}`;
   const lockValue = crypto.randomUUID(); // Ownership token
   const LOCK_TTL = 600; // 10 min — matches max expected workflow duration
-  const EXTEND_INTERVAL = 5 * 60 * 1000; // 5 min — extend lock if still running
+  const EXTEND_INTERVAL = Math.floor(LOCK_TTL / 3) * 1000; // TTL/3 — extend well before expiry
 
   // Acquire: SET NX with our unique value — only succeeds if no lock exists
   const acquired = await redis.set(lockKey, lockValue, 'EX', LOCK_TTL, 'NX');
@@ -48,14 +48,15 @@ async function runWorkflow(workflowId, userId) {
     return [];
   }
 
-  // Extend the lock periodically — only if we still own it (Lua atomic check)
-  const extendTimer = setInterval(async () => {
-    try {
-      await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, LOCK_TTL);
-    } catch (_) { /* best-effort extend */ }
-  }, EXTEND_INTERVAL);
-
+  let extendTimer;
   try {
+    // Extend the lock periodically — only if we still own it (Lua atomic check)
+    // Started inside try so finally always clears it, even on early throw.
+    extendTimer = setInterval(async () => {
+      try {
+        await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, LOCK_TTL);
+      } catch (_) { /* best-effort extend */ }
+    }, EXTEND_INTERVAL);
     const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
     const workflow = result.rows[0];
     if (!workflow) throw new Error('Workflow not found');
