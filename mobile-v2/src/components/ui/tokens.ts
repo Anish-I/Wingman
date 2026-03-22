@@ -69,11 +69,11 @@ export const text = {
   /** High-contrast primary — intentionally warm-white, approachable */
   primary: '#F0F0F5',
   /** Secondary — body text, longer content (high legibility) */
-  secondary: '#9999A8',
+  secondary: '#B6B6C4',
   /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
-  muted: '#8A8A99',
+  muted: '#ADADBB',
   /** Disabled / placeholder text — WCAG AA 4.5:1 on all dark surfaces */
-  disabled: '#828291',
+  disabled: '#A8A8B8',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
 } as const;

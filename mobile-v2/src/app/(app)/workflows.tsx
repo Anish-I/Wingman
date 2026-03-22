@@ -114,11 +114,11 @@ export default function WorkflowsScreen() {
   if (fetchError || (isLoading && loadingTimedOut)) {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
-        <Ionicons name="cloud-offline-outline" size={40} color="#8E8E9A" />
+        <Ionicons name="cloud-offline-outline" size={40} color="#ADADBB" />
         <Text className="text-foreground text-base font-bold mt-4">
           Failed to load
         </Text>
-        <Text className="text-[#8E8E9A] text-sm text-center mt-1">
+        <Text className="text-[#ADADBB] text-sm text-center mt-1">
           {fetchError
             ? 'Could not load workflows. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -158,7 +158,7 @@ export default function WorkflowsScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text className="text-[#8E8E9A] text-sm mt-0.5">Let Pip handle the boring stuff</Text>
+            <Text className="text-[#ADADBB] text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
             {...popIn(0, 200)}
@@ -185,7 +185,7 @@ export default function WorkflowsScreen() {
               >
                 <PipCard expression="thinking" size="small" />
                 <Text className="text-foreground text-lg font-bold mt-2">No automations yet</Text>
-                <Text className="text-[#8E8E9A] text-sm text-center mt-1">
+                <Text className="text-[#ADADBB] text-sm text-center mt-1">
                   Tell me what to automate, or try a template:
                 </Text>
               </MotiView>
@@ -240,7 +240,7 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text className="text-[#8E8E9A] text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
+                      <Text className="text-[#ADADBB] text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
                   <Switch
@@ -308,14 +308,14 @@ export default function WorkflowsScreen() {
               </View>
               <View>
                 <Text className="text-foreground text-lg font-bold">New Automation</Text>
-                <Text className="text-[#8E8E9A] text-xs">Describe it in plain English</Text>
+                <Text className="text-[#ADADBB] text-xs">Describe it in plain English</Text>
               </View>
             </View>
             <TextInput
               className="bg-[#141416] rounded-2xl p-4 text-foreground text-[15px] mb-4 border border-[#262630]"
               style={{ textAlignVertical: 'top', minHeight: 100 }}
               placeholder="e.g., Every morning, summarize my calendar in Slack..."
-              placeholderTextColor="#55556A"
+              placeholderTextColor="#ADADBB"
               value={nlInput}
               onChangeText={setNlInput}
               multiline
@@ -349,7 +349,7 @@ export default function WorkflowsScreen() {
                 webInteractive(),
               ]}
             >
-              <Text className="text-[#8E8E9A] text-[15px] font-medium">Cancel</Text>
+              <Text className="text-[#ADADBB] text-[15px] font-medium">Cancel</Text>
             </Pressable>
           </View>
         </View>
