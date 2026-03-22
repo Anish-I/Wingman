@@ -63,6 +63,7 @@ export default function ChatScreen() {
   const messages = useChatStore.use.messages();
   const loading = useChatStore.use.loading();
   const addMessage = useChatStore.use.addMessage();
+  const updateMessage = useChatStore.use.updateMessage();
   const setLoading = useChatStore.use.setLoading();
   const [input, setInput] = useState('');
   const [greeting] = useState(() => PIP_GREETINGS[Math.floor(Math.random() * PIP_GREETINGS.length)]);
@@ -76,6 +77,7 @@ export default function ChatScreen() {
   // Stable message IDs for dedup — survives retries without generating new UUIDs each call
   const pendingUserMsgId = useRef<string | null>(null);
   const pendingAssistantMsgId = useRef<string | null>(null);
+  const lastFailedMsgRef = useRef<string | null>(null);
 
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
@@ -98,13 +100,15 @@ export default function ChatScreen() {
     // Deduplicate: skip if user message was already added (e.g. retry path)
     const currentMessages = useChatStore.getState().messages;
     if (currentMessages.some(m => m.id === userMsgId)) {
-      // Already added — skip straight to the API call
+      // Already added — update status back to sending for retry
+      updateMessage(userMsgId, { status: 'sending' });
     } else {
       const userMsg: Message = {
         id: userMsgId,
         role: 'user',
         content: msg,
         timestamp: Date.now(),
+        status: 'sending',
       };
       addMessage(userMsg);
     }
@@ -114,6 +118,8 @@ export default function ChatScreen() {
     setLoading(true);
     try {
       const result = await sendMutation.mutateAsync({ message: msg });
+      // Mark user message as sent
+      updateMessage(userMsgId, { status: 'sent' });
       // Fresh snapshot from store to avoid stale closure
       const freshMessages = useChatStore.getState().messages;
       if (!freshMessages.some(m => m.id === assistantMsgId)) {
@@ -129,6 +135,8 @@ export default function ChatScreen() {
       pendingAssistantMsgId.current = null;
     }
     catch (err: unknown) {
+      // Mark user message as failed
+      updateMessage(userMsgId, { status: 'failed' });
       // Fresh snapshot from store to avoid stale closure
       const freshMessages = useChatStore.getState().messages;
       if (!freshMessages.some(m => m.id === assistantMsgId)) {
@@ -139,14 +147,32 @@ export default function ChatScreen() {
           timestamp: Date.now(),
         });
       }
-      // Clear pending IDs on error too (error message was added)
-      pendingUserMsgId.current = null;
-      pendingAssistantMsgId.current = null;
+      // Keep pending IDs on failure so retry reuses them
+      lastFailedMsgRef.current = msg;
     }
     finally {
       setLoading(false);
       isSendingRef.current = false;
     }
+  }
+
+  function retry(messageId: string) {
+    const msg = useChatStore.getState().messages.find(m => m.id === messageId);
+    if (!msg || msg.status !== 'failed') return;
+    // Remove the error assistant message that followed the failed user message
+    const msgs = useChatStore.getState().messages;
+    const failedIdx = msgs.findIndex(m => m.id === messageId);
+    if (failedIdx >= 0 && failedIdx + 1 < msgs.length && msgs[failedIdx + 1].role === 'assistant') {
+      const errorMsgId = msgs[failedIdx + 1].id;
+      useChatStore.setState((state) => ({
+        messages: state.messages.filter(m => m.id !== errorMsgId),
+      }));
+      // Reset assistant ID so a new one is generated
+      pendingAssistantMsgId.current = null;
+    }
+    // Reuse the same user message ID for retry
+    pendingUserMsgId.current = messageId;
+    send(msg.content);
   }
 
   useEffect(() => {
@@ -188,6 +214,8 @@ export default function ChatScreen() {
 
   function renderItem({ item, index }: { item: Message; index: number }) {
     const isUser = item.role === 'user';
+    const status = item.status;
+    const isFailed = status === 'failed';
     return (
       <MotiView
         {...maybeReduce({
@@ -206,22 +234,53 @@ export default function ChatScreen() {
               <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 32, height: 32, resizeMode: 'cover' }} />
             </MotiView>
           )}
-          <View
-            style={[
-              {
-                maxWidth: '78%',
-                borderRadius: 18,
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-              },
-              isUser
-                ? { backgroundColor: purple[500], borderBottomRightRadius: 4 }
-                : { backgroundColor: surface.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: surface.border },
-            ]}
-          >
-            <Text style={{ fontSize: 15, lineHeight: 22, color: isUser ? '#FFFFFF' : t.primary }}>
-              {item.content}
-            </Text>
+          <View style={{ maxWidth: '78%' }}>
+            <View
+              style={[
+                {
+                  borderRadius: 18,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                },
+                isUser
+                  ? {
+                      backgroundColor: isFailed ? '#7C3AED80' : purple[500],
+                      borderBottomRightRadius: 4,
+                    }
+                  : { backgroundColor: surface.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: surface.border },
+              ]}
+            >
+              <Text style={{ fontSize: 15, lineHeight: 22, color: isUser ? '#FFFFFF' : t.primary }}>
+                {item.content}
+              </Text>
+            </View>
+            {isUser && status && (
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 3, gap: 4 }}>
+                {status === 'sending' && (
+                  <Text style={{ fontSize: 11, color: t.muted, fontFamily: 'Inter_500Medium' }}>Sending…</Text>
+                )}
+                {status === 'sent' && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Ionicons name="checkmark-done-outline" size={13} color={teal[300]} />
+                    <Text style={{ fontSize: 11, color: teal[300], fontFamily: 'Inter_500Medium' }}>Sent</Text>
+                  </View>
+                )}
+                {isFailed && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="alert-circle-outline" size={13} color={semantic.error} />
+                    <Text style={{ fontSize: 11, color: semantic.error, fontFamily: 'Inter_500Medium' }}>Failed</Text>
+                    <Pressable
+                      onPress={() => retry(item.id)}
+                      hitSlop={8}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 4 }}
+                    >
+                      <Ionicons name="refresh-outline" size={13} color={purple[400]} />
+                      <Text style={{ fontSize: 11, color: purple[400], fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </MotiView>

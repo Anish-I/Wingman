@@ -6,11 +6,14 @@ export interface User {
   push_token?: string;
 }
 
+export type MessageStatus = 'sending' | 'sent' | 'failed';
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  status?: MessageStatus;
 }
 
 export interface ConnectedApp {
