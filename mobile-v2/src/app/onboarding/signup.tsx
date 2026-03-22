@@ -64,6 +64,7 @@ export default function SignupScreen() {
       // Validate token is a well-formed JWT (three base64url segments)
       if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-Up Failed', 'Authentication token was not generated. Please try again.');
+        setLoading(false);
         return;
       }
       signIn(data.token);

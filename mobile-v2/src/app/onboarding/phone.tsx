@@ -98,6 +98,9 @@ export default function PhoneScreen() {
       // Validate that a real token was returned (not a demo token or undefined)
       if (!data.token || data.token === 'demo-mock-token') {
         showAlert('Verification Failed', 'No valid authentication token received. Please try again.');
+        setCode(['', '', '', '', '', '']);
+        setActiveIdx(0);
+        inputs.current[0]?.focus();
         return;
       }
       signIn(data.token);

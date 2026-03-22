@@ -84,6 +84,9 @@ export default function LoginScreen() {
       // Validate token is a well-formed JWT (three base64url segments)
       if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-In Failed', 'No valid authentication token received. Please try again.');
+        setCode(['', '', '', '', '', '']);
+        setActiveIdx(0);
+        inputs.current[0]?.focus();
         return;
       }
       signIn(data.token);
