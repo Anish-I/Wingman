@@ -83,10 +83,10 @@ export const text = {
   primary: '#F0F0F5',
   /** Secondary — body text, longer content (high legibility) */
   secondary: '#B6B6C4',
-  /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
-  muted: '#B3B3C1',
-  /** Disabled / placeholder text — WCAG AA 4.5:1 on all dark surfaces */
-  disabled: '#B8B8C7',
+  /** Muted — labels, metadata, hints (WCAG AA on all dark surfaces incl. card) */
+  muted: '#C8C8D4',
+  /** Disabled / placeholder text — WCAG AA on all dark surfaces */
+  disabled: '#BFBFCD',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
 } as const;
@@ -148,7 +148,7 @@ export const typography = {
   },
   label: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
+    fontSize: 13,
     letterSpacing: 1.5,
     textTransform: 'uppercase' as const,
   },

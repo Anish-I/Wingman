@@ -186,7 +186,7 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-2 px-4"
         >
-          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Account</Text>
+          <Text className="text-[13px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Account</Text>
           <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
@@ -203,7 +203,7 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Preferences</Text>
+          <Text className="text-[13px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Preferences</Text>
           <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value="Dark" />
@@ -220,7 +220,7 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>About</Text>
+          <Text className="text-[13px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>About</Text>
           <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
             <SettingsRow icon="information-circle-outline" iconColor="#6B9BEF" label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />

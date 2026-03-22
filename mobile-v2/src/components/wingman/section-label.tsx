@@ -22,7 +22,7 @@ export default function SectionLabel({ text, color = purple[500] }: SectionLabel
       <Text
         style={{
           fontFamily: 'Inter_600SemiBold',
-          fontSize: 11,
+          fontSize: 13,
           letterSpacing: 1.6,
           color: t.muted,
           textTransform: 'uppercase',
