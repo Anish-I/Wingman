@@ -44,11 +44,11 @@ export function getItem<T>(key: string): T | null {
   return value ? JSON.parse(value) || null : null;
 }
 
-export async function setItem<T>(key: string, value: T) {
+export function setItem<T>(key: string, value: T): void {
   getStorage().set(key, JSON.stringify(value));
 }
 
-export async function removeItem(key: string) {
+export function removeItem(key: string): void {
   getStorage().remove(key);
 }
 
