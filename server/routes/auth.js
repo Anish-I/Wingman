@@ -326,10 +326,36 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
       return res.status(429).json({ error: { code: 'OTP_QUOTA_EXCEEDED', message: 'Too many codes requested for this number today. Try again tomorrow.' } });
     }
 
+    // If caller is already authenticated, record who requested the OTP so that
+    // verify-otp can enforce that only the same user may link this phone number.
+    let requestingUserId = null;
+    let reqToken = null;
+    const reqAuthHeader = req.headers.authorization;
+    if (reqAuthHeader && reqAuthHeader.startsWith('Bearer ')) {
+      reqToken = reqAuthHeader.slice(7);
+    } else if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
+      reqToken = req.cookies[AUTH_COOKIE_NAME];
+    }
+    if (reqToken) {
+      const payload = verifyToken(reqToken);
+      if (payload && payload.userId) {
+        requestingUserId = payload.userId;
+      }
+    }
+
     const otp = crypto.randomInt(100000, 1000000).toString();
     // Store HMAC hash instead of plaintext — prevents Redis read access from leaking OTPs
     const otpHash = crypto.createHmac('sha256', JWT_SECRET).update(otp).digest('hex');
     await redis.set(`otp:${phone}`, otpHash, 'EX', OTP_TTL);
+
+    // Track which user (if any) requested this OTP to prevent session fixation:
+    // an attacker with token A must not link a victim's phone by intercepting their OTP.
+    if (requestingUserId) {
+      await redis.set(`otp_requester:${phone}`, String(requestingUserId), 'EX', OTP_TTL);
+    } else {
+      // Ensure no stale requester tag from a previous authenticated request
+      await redis.del(`otp_requester:${phone}`);
+    }
 
     // Set 60-second cooldown
     await redis.set(cooldownKey, '1', 'EX', 60);
@@ -392,6 +418,20 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     let existingPayload = null;
     if (existingToken) {
       existingPayload = verifyToken(existingToken);
+    }
+
+    // Session-fixation guard: if the caller is authenticated and wants to link
+    // this phone, the OTP must have been requested by the SAME user. This prevents
+    // an attacker (token A) from intercepting a victim's OTP to steal their phone.
+    if (existingPayload && existingPayload.userId) {
+      const requesterKey = `otp_requester:${phone}`;
+      const requesterId = await redis.call('GETDEL', requesterKey);
+      if (!requesterId || String(requesterId) !== String(existingPayload.userId)) {
+        return res.status(403).json({ error: { code: 'SESSION_MISMATCH', message: 'OTP was not requested by this account. Please request a new code.' } });
+      }
+    } else {
+      // Unauthenticated login — clean up any requester tag
+      await redis.del(`otp_requester:${phone}`);
     }
 
     let user;
