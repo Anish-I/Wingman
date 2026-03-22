@@ -413,10 +413,12 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
 
 // Allowed redirect_uri origins for Google OAuth token exchange
 const ALLOWED_REDIRECT_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:8081',
   process.env.NEXT_PUBLIC_APP_URL,
   process.env.CORS_ORIGIN,
+  ...(process.env.NODE_ENV !== 'production' ? [
+    'http://localhost:3000',
+    'http://localhost:8081',
+  ] : []),
 ].filter(Boolean);
 
 function isAllowedRedirectUri(uri) {

@@ -69,16 +69,18 @@ if (process.env.TRUST_PROXY) {
 // Security headers
 app.use(helmet());
 
-// CORS — allow Expo web dev ports + env-configurable production origin
+// CORS — in production only allow CORS_ORIGIN; in dev also allow localhost
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:8081',
-  'http://localhost:8082',
-  'http://localhost:8098',
-  'http://127.0.0.1:8098',
-  'http://localhost:19006',
-  'http://127.0.0.1:19006',
   process.env.CORS_ORIGIN,
+  ...(process.env.NODE_ENV !== 'production' ? [
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'http://localhost:8082',
+    'http://localhost:8098',
+    'http://127.0.0.1:8098',
+    'http://localhost:19006',
+    'http://127.0.0.1:19006',
+  ] : []),
 ].filter(Boolean);
 
 if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
