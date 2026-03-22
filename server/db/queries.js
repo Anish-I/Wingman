@@ -233,11 +233,15 @@ async function updateUserZapierAccount(userId, zapierAccountId) {
 }
 
 async function updateUserPreferences(userId, preferences) {
-  const result = await query(
-    'UPDATE users SET preferences = preferences || $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *',
-    [JSON.stringify(preferences), userId]
-  );
-  return result.rows[0];
+  return withTransaction(async (txQuery) => {
+    // Lock the row to serialize concurrent preference merges
+    await txQuery('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const result = await txQuery(
+      'UPDATE users SET preferences = preferences || $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [JSON.stringify(preferences), userId]
+    );
+    return result.rows[0];
+  });
 }
 
 async function updateUserPin(userId, pinHash) {
