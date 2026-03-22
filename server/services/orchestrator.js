@@ -10,6 +10,7 @@ const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
 const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10);
+const LLM_ITERATION_TIMEOUT = parseInt(process.env.LLM_ITERATION_TIMEOUT || '45000', 10);
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
 const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
 
@@ -217,7 +218,10 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     throwIfAborted(abortController, 'LLM call');
-    response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
+    response = await withTimeout(
+      callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true }),
+      LLM_ITERATION_TIMEOUT, `LLM call (iteration ${iterations + 1})`
+    );
 
     throwIfAborted(abortController, 'tool execution');
 
