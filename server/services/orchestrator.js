@@ -38,13 +38,17 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
+  const abortController = { aborted: false };
   const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Request timed out')), PROCESS_MESSAGE_TIMEOUT)
+    setTimeout(() => {
+      abortController.aborted = true;
+      reject(new Error('Request timed out'));
+    }, PROCESS_MESSAGE_TIMEOUT)
   );
-  return Promise.race([_processMessageInner(user, messageText), timeout]);
+  return Promise.race([_processMessageInner(user, messageText, abortController), timeout]);
 }
 
-async function _processMessageInner(user, messageText) {
+async function _processMessageInner(user, messageText, abortController = { aborted: false }) {
   try {
   const userId = String(user.id);
 
@@ -73,11 +77,15 @@ async function _processMessageInner(user, messageText) {
 
   let response;
   let iterations = 0;
+  let completed = false;
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
 
-    if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) break;
+    if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) {
+      completed = true;
+      break;
+    }
 
     // Append assistant turn
     const assistantContent = [];
@@ -150,6 +158,14 @@ async function _processMessageInner(user, messageText) {
     const toolResults = await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
     messages.push({ role: 'user', content: toolResults });
     iterations++;
+  }
+
+  // Only persist to history if LLM completed normally and the outer
+  // timeout hasn't already fired (which would leave an orphaned promise).
+  if (!completed || abortController.aborted) {
+    const reason = abortController.aborted ? 'request timed out' : `hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS})`;
+    console.warn(`[user:${userId}] Skipping history append: ${reason}`);
+    return response?.text || "Sorry, I couldn't finish processing that. Please try again.";
   }
 
   const finalText = response?.text || 'Done! Let me know if you need anything else.';
