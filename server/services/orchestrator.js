@@ -7,6 +7,7 @@ const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse } = require('./llm-cache');
 
 const MAX_TOOL_ITERATIONS = 5;
+const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
 
 const LOCAL_TOOLS = [
   {
@@ -132,8 +133,8 @@ async function processMessage(user, messageText) {
     await setCachedResponse(messageText, finalText, userId);
   }
 
-  // Fire-and-forget: extract memory from conversation
-  extractAndSaveMemory(user, messages).catch(err => console.error('[async-task] Error:', err.message));
+  // Fire-and-forget: extract memory from conversation (best-effort, must never crash)
+  (async () => { try { await extractAndSaveMemory(user, messages); } catch (err) { console.error('[async-task] memory extraction failed:', err); } })();
 
   return finalText;
   } catch (err) {
