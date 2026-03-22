@@ -378,25 +378,31 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     let user;
 
     if (existingPayload && existingPayload.userId) {
-      // Caller is already signed in — link phone to their account
-      const authedUser = await getUserById(existingPayload.userId);
-      const phoneUser = await getUserByPhone(phone);
+      // Caller is already signed in — link phone to their account.
+      // Use a transaction with SELECT ... FOR UPDATE to prevent concurrent
+      // verify-otp requests from racing on the same merge operation.
+      user = await withTransaction(async (txQuery) => {
+        // Lock both user rows to serialize concurrent merge attempts
+        const authedRes = await txQuery('SELECT * FROM users WHERE id = $1 FOR UPDATE', [existingPayload.userId]);
+        const authedUser = authedRes.rows[0] || null;
+        const phoneRes = await txQuery('SELECT * FROM users WHERE phone = $1 FOR UPDATE', [phone]);
+        const phoneUser = phoneRes.rows[0] || null;
 
-      if (phoneUser && authedUser && phoneUser.id !== authedUser.id) {
-        // A separate phone-based account exists — merge it into the authenticated account
-        await withTransaction(async (txQuery) => {
+        if (phoneUser && authedUser && phoneUser.id !== authedUser.id) {
+          // A separate phone-based account exists — merge it into the authenticated account
           await mergeUserAccounts(authedUser.id, phoneUser.id, txQuery);
-        });
-      }
+        }
 
-      if (authedUser) {
-        // Set the real phone on the authenticated account
-        await linkUserIdentity(authedUser.id, { phone });
-        user = await getUserById(authedUser.id);
-      } else {
-        // Auth token references a deleted user — fall through to normal flow
-        user = phoneUser || await createUser(phone);
-      }
+        if (authedUser) {
+          // Set the real phone on the authenticated account
+          const setClauses = ['phone = $1', 'updated_at = NOW()'];
+          const setRes = await txQuery(`UPDATE users SET ${setClauses.join(', ')} WHERE id = $2 RETURNING *`, [phone, authedUser.id]);
+          return setRes.rows[0];
+        } else {
+          // Auth token references a deleted user — fall through to normal flow
+          return phoneUser || await createUser(phone);
+        }
+      });
     } else {
       // No existing session — normal phone-based login/signup
       user = await getUserByPhone(phone);
