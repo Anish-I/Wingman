@@ -8,27 +8,25 @@
 
 ## CRITICAL
 
-### C1. Plaintext Secrets Committed to Git History
+### ~~C1. Plaintext Secrets Committed to Git History~~ — FIXED (2026-03-22)
 
 **Files:** `.env`, `CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`
 
-The `.env` file is listed in `.gitignore` but is **not currently tracked**. Previously, multiple **committed markdown files** (`CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`) contained API keys in plaintext (now scrubbed from files, but still present in git history).
-
-Additionally, the `.env` file itself contains **every production secret in plaintext**:
-- Twilio auth token: `[REDACTED — rotate immediately]`
-- Together AI API key: `[REDACTED — rotate immediately]`
-- Composio API key: `[REDACTED — rotate immediately]`
-- Google OAuth client secret: `[REDACTED — rotate immediately]`
-- Supabase database URL with credentials: `[REDACTED — rotate immediately]`
-- n8n JWT token
-- Gemini API key: `[REDACTED — rotate immediately]`
+The `.env` file is listed in `.gitignore` but is **not currently tracked**. Previously, multiple **committed markdown files** (`CLAUDE_TASK.md`, `TASK_CICD.md`, `kanban/context/WING-003.md`) contained API keys in plaintext.
 
 **Impact:** Any contributor, fork, or git history leak exposes all API keys and database credentials.
 **Remediation:**
 1. Rotate ALL secrets immediately (Twilio, Together AI, Composio, Google OAuth, Supabase DB password, Gemini key).
-2. Remove hardcoded keys from committed markdown files.
-3. Use `git filter-repo` or BFG Repo-Cleaner to purge secrets from git history.
-4. Use a secrets manager (e.g., Doppler, AWS Secrets Manager, or at minimum environment-only injection in CI/CD).
+2. ~~Remove hardcoded keys from committed markdown files.~~ — DONE (redacted in 82063f9).
+3. ~~Remove live-credential `.env` files from workspace.~~ — DONE (2026-03-21).
+4. ~~Purge secrets from git history using `git filter-repo`.~~ — DONE (2026-03-22). All plaintext secrets replaced with `[REDACTED-*]` placeholders across entire git history via `git filter-repo --replace-text`.
+5. Use a secrets manager (e.g., Doppler, AWS Secrets Manager, or at minimum environment-only injection in CI/CD).
+
+**Mitigations added:**
+- `.gitleaks.toml` + CI gitleaks scan job — blocks future secret commits in PRs and pushes.
+- `.gitignore` hardened to catch all `.env` variants (`**/.env`, `**/.env.*`).
+- Live-credential `.env` files removed from workspace (2026-03-21).
+- Git history purged of all plaintext secrets via `git filter-repo` (2026-03-22).
 
 ---
 
