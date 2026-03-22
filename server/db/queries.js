@@ -72,6 +72,10 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
   await txQuery('UPDATE automation_rules SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
   await txQuery('UPDATE reminders SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
   await txQuery('UPDATE workflows SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  // Move pending replies BEFORE deleting workflow_runs, because
+  // workflow_pending_replies has a CASCADE FK to workflow_runs — deleting
+  // runs first would cascade-delete the pending replies we need to keep.
+  await txQuery('UPDATE workflow_pending_replies SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
   // workflow_runs and workflow_run_events have no user_id column; they are
   // linked to users through workflow_id → workflows(user_id).  Moving
   // workflows above reassociates them with the target user.  Explicitly
@@ -88,7 +92,6 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
        SELECT id FROM workflows WHERE user_id = $1)`,
     [sourceUserId]
   );
-  await txQuery('UPDATE workflow_pending_replies SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
 
   const updates = {};
   if (!target.email && source.email) updates.email = source.email;
