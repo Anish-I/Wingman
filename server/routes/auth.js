@@ -25,7 +25,12 @@ async function verifyAppleToken(token) {
   if (parts.length !== 3) {
     throw new Error('Invalid Apple token format.');
   }
-  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
+  let header;
+  try {
+    header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
+  } catch {
+    throw new Error('Apple token has malformed header.');
+  }
   if (!header.kid) {
     throw new Error('Apple token missing kid in header.');
   }
@@ -697,7 +702,13 @@ router.post('/exchange-code', async (req, res) => {
     if (!stored) {
       return res.status(401).json({ error: { code: 'INVALID_AUTH_CODE', message: 'Invalid or expired authorization code.' } });
     }
-    const data = JSON.parse(stored);
+    let data;
+    try {
+      data = JSON.parse(stored);
+    } catch {
+      console.error('Corrupt auth_code payload in Redis for key:', key);
+      return res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
+    }
     setAuthCookie(res, data.token);
     res.json(authResponse(req, data.token, { id: data.userId, name: data.name }));
   } catch (err) {

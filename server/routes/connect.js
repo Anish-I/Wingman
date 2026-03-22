@@ -96,7 +96,14 @@ router.get('/initiate', async (req, res) => {
     }
     // Delete immediately — single use
     await redis.del(key);
-    const { userId, app } = JSON.parse(stored);
+    let parsed;
+    try {
+      parsed = JSON.parse(stored);
+    } catch {
+      console.error('Corrupt connect_token payload in Redis for key:', key);
+      return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
+    }
+    const { userId, app } = parsed;
     const state = await generateOAuthState(userId, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(userId, app, redirectUrl);
