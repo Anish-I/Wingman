@@ -9,6 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
+import { useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -22,6 +23,7 @@ function showAlert(title: string, message: string) {
 }
 
 export default function PhoneScreen() {
+  const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
@@ -141,7 +143,7 @@ export default function PhoneScreen() {
   }, [code, step]);
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
+    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
       <ProgressBar step={5} />
       <ScrollView
         className="flex-1 w-full"
@@ -159,7 +161,7 @@ export default function PhoneScreen() {
             style={{
               fontFamily: 'Sora_700Bold',
               fontSize: 32,
-              color: '#FFFFFF',
+              color: t.primary,
               letterSpacing: -1.5,
               lineHeight: 32,
               textAlign: 'center',
@@ -171,7 +173,7 @@ export default function PhoneScreen() {
             style={{
               fontFamily: 'Inter_400Regular',
               fontSize: 14,
-              color: '#8A8A8A',
+              color: t.muted,
               textAlign: 'center',
             }}
           >
@@ -184,27 +186,27 @@ export default function PhoneScreen() {
           className="w-full flex-row items-center rounded-lg px-4"
           style={{
             height: 56,
-            backgroundColor: '#1A1A1A',
+            backgroundColor: surface.section,
             borderWidth: 1,
-            borderColor: '#3A3A3A',
+            borderColor: surface.borderStrong,
           }}
         >
           {/* US-only country indicator (static) */}
-          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#8A8A8A' }}>
+          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
             +1 (US)
           </Text>
           {/* Divider */}
-          <View style={{ width: 1, height: 32, backgroundColor: '#2A2A2A', marginHorizontal: 12 }} />
+          <View style={{ width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 }} />
           <TextInput
             className="flex-1"
             style={{
               fontFamily: 'Inter_400Regular',
               fontSize: 16,
-              color: '#FFFFFF',
+              color: t.primary,
               marginLeft: 8,
             }}
             placeholder="(555) 123-4567"
-            placeholderTextColor="#525252"
+            placeholderTextColor={t.disabled}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
@@ -237,7 +239,7 @@ export default function PhoneScreen() {
                 style={{
                   fontFamily: 'Inter_700Bold',
                   fontSize: 11,
-                  color: '#8A8A8A',
+                  color: t.muted,
                   letterSpacing: 2,
                 }}
               >
@@ -256,13 +258,13 @@ export default function PhoneScreen() {
                       width: 48,
                       height: 56,
                       borderRadius: 8,
-                      backgroundColor: '#1A1A1A',
+                      backgroundColor: surface.section,
                       borderWidth: activeIdx === i ? 2 : 1,
-                      borderColor: activeIdx === i ? '#4A7BD9' : '#3A3A3A',
+                      borderColor: activeIdx === i ? '#6B9BEF' : surface.borderStrong,
                       textAlign: 'center',
                       fontFamily: 'Sora_700Bold',
                       fontSize: 24,
-                      color: '#FFFFFF',
+                      color: t.primary,
                     }}
                     value={digit}
                     onChangeText={(t) => handleCodeChange(t, i)}
@@ -286,7 +288,7 @@ export default function PhoneScreen() {
 
               {/* Resend row */}
               <View className="flex-row items-center" style={{ gap: 4 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: '#525252' }}>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: t.disabled }}>
                   Didn't get it?
                 </Text>
                 <Pressable
@@ -297,7 +299,7 @@ export default function PhoneScreen() {
                   }}
                   style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
                 >
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#4A7BD9' }}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#6B9BEF' }}>
                     Resend
                   </Text>
                 </Pressable>
@@ -326,13 +328,13 @@ export default function PhoneScreen() {
                 style={{
                   fontFamily: 'Sora_700Bold',
                   fontSize: 22,
-                  color: '#FFFFFF',
+                  color: t.primary,
                   letterSpacing: -0.5,
                 }}
               >
                 Connected!
               </Text>
-              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#8A8A8A' }}>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
                 Your phone is verified
               </Text>
             </MotiView>

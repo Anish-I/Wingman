@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile } from '@/features/settings/api';
+import { useThemeColors } from '@/components/ui/tokens';
 import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -23,11 +24,12 @@ interface SettingsRowProps {
 }
 
 function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showChevron = true, isFirst, isLast }: SettingsRowProps) {
+  const { surface, text: t } = useThemeColors();
   const isInteractive = typeof onPress === 'function';
   const shouldShowChevron = showChevron && isInteractive;
   const containerStyle = [
     {
-      backgroundColor: '#1A1A1A',
+      backgroundColor: surface.section,
     },
     isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
     isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
@@ -43,11 +45,11 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
       <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
       <View className="flex-row items-center gap-1.5">
         {value ? (
-          <View className="bg-[#242424] rounded-lg px-2.5 py-1">
-            <Text className="text-[#8A8A8A] text-[12px] font-semibold">{value}</Text>
+          <View style={{ backgroundColor: surface.elevated, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ color: t.muted, fontSize: 12, fontWeight: '600' }}>{value}</Text>
           </View>
         ) : null}
-        {shouldShowChevron && <Ionicons name="chevron-forward" size={16} color="#3A3A3A" />}
+        {shouldShowChevron && <Ionicons name="chevron-forward" size={16} color={t.disabled} />}
       </View>
     </>
   );
@@ -64,7 +66,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
         >
           {content}
         </View>
-        {!isLast && <View className="h-px bg-[#242424] ml-14" />}
+        {!isLast && <View style={{ height: 1, backgroundColor: surface.border, marginLeft: 56 }} />}
       </>
     );
   }
@@ -82,7 +84,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
           webInteractive(),
           // Web hover: subtle lift and background change
           Platform.OS === 'web' && hovered && !pressed
-            ? { backgroundColor: '#232329', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' } as any
+            ? { backgroundColor: surface.elevated, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } as any
             : undefined,
           // Web focus ring
           Platform.OS === 'web' && focused
@@ -93,12 +95,13 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
       >
         {content}
       </Pressable>
-      {!isLast && <View className="h-px bg-[#242424] ml-14" />}
+      {!isLast && <View style={{ height: 1, backgroundColor: surface.border, marginLeft: 56 }} />}
     </>
   );
 }
 
 export default function SettingsScreen() {
+  const { surface, text: t } = useThemeColors();
   const reducedMotion = useReducedMotion();
   const router = useRouter();
   const { data: profile } = useProfile();
@@ -154,7 +157,7 @@ export default function SettingsScreen() {
           className="flex-row gap-3 px-4 mb-6"
         >
           {[
-            { num: String(stats.apps), label: 'Apps', color: '#4A7BD9' },
+            { num: String(stats.apps), label: 'Apps', color: '#6B9BEF' },
             { num: String(stats.workflows), label: 'Workflows', color: '#9B7EC8' },
             { num: String(stats.messages), label: 'Messages', color: '#6EC6B8' },
           ].map((stat, i) => (
@@ -165,10 +168,11 @@ export default function SettingsScreen() {
                 animate: { opacity: 1, scale: 1 },
                 transition: { type: 'spring' as const, damping: 12, delay: 300 + i * 80 },
               }, reducedMotion)}
-              className="flex-1 bg-[#1A1A1A] rounded-2xl py-3 items-center border border-[#2A2A2A]"
+              className="flex-1 rounded-2xl py-3 items-center"
+              style={{ backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border }}
             >
               <Text style={{ color: stat.color, fontSize: 22, fontWeight: '800' }}>{stat.num}</Text>
-              <Text className="text-[#8A8A8A] text-[10px] font-bold uppercase mt-0.5">{stat.label}</Text>
+              <Text style={{ color: t.muted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 }}>{stat.label}</Text>
             </MotiView>
           ))}
         </MotiView>
@@ -182,11 +186,11 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-2 px-4"
         >
-          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Account</Text>
-          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
+          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Account</Text>
+          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
-            <SettingsRow icon="apps-outline" iconColor="#4A7BD9" label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
+            <SettingsRow icon="apps-outline" iconColor="#6B9BEF" label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
           </View>
         </MotiView>
 
@@ -199,11 +203,11 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Preferences</Text>
-          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
+          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Preferences</Text>
+          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value="Dark" />
-            <SettingsRow icon="language-outline" iconColor="#4A7BD9" label="Language" value="English" isLast />
+            <SettingsRow icon="language-outline" iconColor="#6B9BEF" label="Language" value="English" isLast />
           </View>
         </MotiView>
 
@@ -216,9 +220,9 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">About</Text>
-          <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
-            <SettingsRow icon="information-circle-outline" iconColor="#4A7BD9" label="Version" value="1.0.0" showChevron={false} isFirst />
+          <Text className="text-[11px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>About</Text>
+          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
+            <SettingsRow icon="information-circle-outline" iconColor="#6B9BEF" label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />
             <SettingsRow icon="document-text-outline" iconColor="#8A8A8A" label="Terms" isLast />
           </View>

@@ -7,6 +7,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
+import { useThemeColors } from '@/components/ui/tokens';
 
 interface OnboardingApp {
   slug: string;
@@ -36,6 +37,7 @@ const ALL_APPS: OnboardingApp[] = [
 ];
 
 export default function ConnectScreen() {
+  const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const [search, setSearch] = useState('');
 
@@ -50,7 +52,7 @@ export default function ConnectScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: '#0C0C0C' }}>
+    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
       <ProgressBar step={6} />
       <View className="flex-1 w-full px-6" style={{ gap: 20 }}>
         {/* Header */}
@@ -60,7 +62,7 @@ export default function ConnectScreen() {
             style={{
               fontFamily: 'Sora_700Bold',
               fontSize: 32,
-              color: '#FFFFFF',
+              color: t.primary,
               letterSpacing: -1.5,
               lineHeight: 32,
               textAlign: 'center',
@@ -72,13 +74,13 @@ export default function ConnectScreen() {
           <View
             className="flex-row items-center rounded-lg px-3"
             style={{
-              backgroundColor: '#4A7BD915',
+              backgroundColor: '#6B9BEF15',
               paddingVertical: 8,
               gap: 6,
             }}
           >
-            <Ionicons name="information-circle-outline" size={16} color="#4A7BD9" />
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#8A8A8A' }}>
+            <Ionicons name="information-circle-outline" size={16} color="#6B9BEF" />
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: t.muted }}>
               You'll connect these after setup
             </Text>
           </View>
@@ -89,19 +91,19 @@ export default function ConnectScreen() {
           className="flex-row items-center rounded-lg"
           style={{
             height: 44,
-            backgroundColor: '#1A1A1A',
+            backgroundColor: surface.section,
             borderWidth: 1,
-            borderColor: '#2A2A2A',
+            borderColor: surface.border,
             paddingHorizontal: 14,
             gap: 10,
           }}
         >
-          <Ionicons name="search" size={18} color="#525252" />
+          <Ionicons name="search" size={18} color={t.disabled} />
           <TextInput
             className="flex-1"
-            style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#FFFFFF' }}
+            style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.primary }}
             placeholder="Search apps..."
-            placeholderTextColor="#525252"
+            placeholderTextColor={t.disabled}
             value={search}
             onChangeText={setSearch}
           />
@@ -117,15 +119,15 @@ export default function ConnectScreen() {
                   className="flex-1 items-center justify-center rounded-xl"
                   style={{
                     height: 80,
-                    backgroundColor: '#1A1A1A',
+                    backgroundColor: surface.section,
                     borderWidth: 1,
-                    borderColor: '#2A2A2A',
+                    borderColor: surface.border,
                     gap: 6,
                   }}
                 >
                   <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={24} color={app.color} />
                   <Text
-                    style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: '#FFFFFF' }}
+                    style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: t.primary }}
                     numberOfLines={1}
                   >
                     {app.name}

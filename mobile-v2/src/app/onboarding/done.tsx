@@ -8,10 +8,11 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
+import { useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance } from '@/lib/motion';
 
-const CONFETTI_COLORS = ['#4A7BD9', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
+const CONFETTI_COLORS = ['#6B9BEF', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -43,6 +44,7 @@ const CONFETTI_PIECES: ConfettiPiece[] = [
 // No hardcoded chips — user hasn't connected any apps yet during onboarding
 
 export default function DoneScreen() {
+  const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const [_, setIsFirstTime] = useIsFirstTime();
 
@@ -146,7 +148,7 @@ export default function DoneScreen() {
               gap: 8,
             }}
           >
-            <Ionicons name="apps-outline" size={14} color="#4A7BD9" />
+            <Ionicons name="apps-outline" size={14} color="#6B9BEF" />
             <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#8A8A8A' }}>
               Connect your apps from the Apps tab
             </Text>

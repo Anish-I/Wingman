@@ -64,6 +64,19 @@ export const surface = {
   glow: 'rgba(124, 92, 252, 0.03)',
 } as const;
 
+// ── Surfaces (light theme) ────────────────────────────────────
+export const surfaceLight = {
+  bg: '#FFFFFF',
+  card: '#F5F5F7',
+  cardAlt: '#EFEFF2',
+  section: '#E8E8ED',
+  elevated: '#FFFFFF',
+  border: '#D1D1D6',
+  borderStrong: '#B0B0BA',
+  overlay: 'rgba(0, 0, 0, 0.35)',
+  glow: 'rgba(124, 92, 252, 0.06)',
+} as const;
+
 // ── Text ──────────────────────────────────────────────────────
 export const text = {
   /** High-contrast primary — intentionally warm-white, approachable */
@@ -73,9 +86,18 @@ export const text = {
   /** Muted — labels, metadata, hints (WCAG AA 4.5:1 on dark bg) */
   muted: '#B3B3C1',
   /** Disabled / placeholder text — WCAG AA 4.5:1 on all dark surfaces */
-  disabled: '#A8A8B8',
+  disabled: '#B8B8C7',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
+} as const;
+
+// ── Text (light theme) ───────────────────────────────────────
+export const textLight = {
+  primary: '#1C1C1E',
+  secondary: '#3C3C43',
+  muted: '#6B6B7A',
+  disabled: '#AEAEB2',
+  inverse: '#F0F0F5',
 } as const;
 
 // ── Semantic ──────────────────────────────────────────────────
@@ -83,15 +105,15 @@ export const semantic = {
   success: '#32D74B',
   error: '#FF453A',
   warning: '#FFD60A',
-  info: '#4A7BD9',
+  info: '#6B9BEF',
 } as const;
 
 // ── Legacy blue (demoted to info / link) ──────────────────────
 export const blue = {
-  400: '#4A7BD9',
+  400: '#6B9BEF',
   500: '#3B5998',
   600: '#2D4474',
-  muted: 'rgba(74, 123, 217, 0.12)',
+  muted: 'rgba(107, 155, 239, 0.12)',
 } as const;
 
 // ── Typography ────────────────────────────────────────────────
@@ -292,12 +314,32 @@ export const presets = {
   },
 } as const;
 
+// ── Theme-aware hook ─────────────────────────────────────────
+import { useUniwind } from 'uniwind';
+
+/**
+ * Returns surface + text tokens that match the active theme.
+ * Use this in components instead of importing `surface` / `text` directly
+ * so that light mode renders correctly.
+ */
+export function useThemeColors() {
+  const { theme } = useUniwind();
+  const isDark = theme === 'dark';
+  return {
+    surface: isDark ? surface : surfaceLight,
+    text: isDark ? text : textLight,
+    isDark,
+  } as const;
+}
+
 // ── Convenience re-export for inline styles ───────────────────
 const tokens = {
   purple,
   teal,
   surface,
+  surfaceLight,
   text,
+  textLight,
   semantic,
   blue,
   typography,

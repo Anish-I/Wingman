@@ -23,7 +23,7 @@
   --color-pip-accent-muted: #6EC6B81F;
 
   /* ── Blue (info / links — demoted) ────────────────────────── */
-  --color-pip-blue: #4A7BD9;
+  --color-pip-blue: #6B9BEF;
   --color-pip-blue-dark: #3B5998;
 
   /* ── Surfaces — dark theme depth ──────────────────────────── */
@@ -49,8 +49,8 @@
   --color-pip-primary: #7C5CFC;
   --color-pip-primary-light: #9171F5;
   --color-pip-primary-dark: #6545DB;
-  --color-pip-accent-blue: #4A7BD9;
-  --color-pip-accent-blue-soft: #4A7BD920;
+  --color-pip-accent-blue: #6B9BEF;
+  --color-pip-accent-blue-soft: #6B9BEF20;
 
   /* Charcoal palette (kept for compatibility) */
   --color-charcoal-50: #F2F2F2;
@@ -126,7 +126,7 @@
   --color-danger-800: #991B1B;
   --color-danger-900: #7F1D1D;
 
-  /* Semantic colors — Premium dark theme */
+  /* Semantic colors — defaults (dark theme) */
   --color-background: #0A0A0C;
   --color-foreground: #F0F0F5;
 
@@ -142,6 +142,23 @@
 
   --color-destructive: #FF453A;
   --color-destructive-foreground: #ffffff;
+}
+
+/* Light mode overrides — applied when root does NOT have .dark class */
+@layer base {
+  :root:not(.dark) {
+    --color-background: #FFFFFF;
+    --color-foreground: #1C1C1E;
+    --color-card: #F5F5F7;
+    --color-card-foreground: #1C1C1E;
+    --color-muted: #E8E8ED;
+    --color-muted-foreground: #3C3C43;
+    --color-border: #D1D1D6;
+    --color-input: #FFFFFF;
+    --color-ring: #7C5CFC;
+    --color-destructive: #DC2626;
+    --color-destructive-foreground: #ffffff;
+  }
 }
 
 /* Custom utilities */

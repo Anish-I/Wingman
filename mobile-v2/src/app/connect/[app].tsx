@@ -72,7 +72,7 @@ export default function ConnectAppScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0A0A0C', alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator color="#4A7BD9" size="large" />
+      <ActivityIndicator color="#6B9BEF" size="large" />
     </View>
   );
 }
