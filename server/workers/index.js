@@ -7,7 +7,8 @@ const { startAlertsWorker } = require('./alerts');
 
 // Workflow worker is defined in workflow-worker.js — import it instead of
 // duplicating a second Worker('workflows') on the same queue.
-require('./workflow-worker');
+const { startWorker: startWorkflowWorker } = require('./workflow-worker');
+startWorkflowWorker().catch(err => console.error('[worker] Workflow worker failed to start:', err.message));
 
 // Reminder poller: fire due reminders every 60 seconds
 async function pollReminders() {
