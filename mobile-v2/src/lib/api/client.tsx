@@ -1,5 +1,6 @@
 import axios from 'axios';
 import Env from 'env';
+import { showMessage } from 'react-native-flash-message';
 import { getToken } from '@/lib/auth/utils';
 import { signOut } from '@/features/auth/use-auth-store';
 
@@ -19,11 +20,17 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-logout on 401
+// Auto-logout on 401 with user notification
 client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      showMessage({
+        message: 'Session expired',
+        description: 'Please sign in again to continue.',
+        type: 'warning',
+        duration: 4000,
+      });
       signOut();
     }
     return Promise.reject(error);
