@@ -7,9 +7,23 @@ const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, createUserByEmail, updateUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
+const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, getOrCreateUserByPhone, createUserByEmail, updateUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
 const { withTransaction } = require('../db/index');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
+
+// Synthetic phone prefixes — must match the list in db/queries.js
+const SYNTHETIC_PREFIXES = ['email:', 'google:', 'apple:'];
+
+/**
+ * Reject identifiers that could produce nested or ambiguous synthetic keys.
+ * E.g. an email of "google:attackerId" would create phone "email:google:attackerId".
+ */
+function assertCleanIdentifier(value, label) {
+  if (!value || typeof value !== 'string') return;
+  if (SYNTHETIC_PREFIXES.some(p => value.startsWith(p)) || /^\+[1-9]\d{1,14}$/.test(value)) {
+    throw new Error(`${label} looks like a synthetic key or phone number`);
+  }
+}
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -208,6 +222,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
+    assertCleanIdentifier(normalizedEmail, 'email');
     let user = await findAndLinkUser({ email: normalizedEmail });
     if (user && user.pin_hash) {
       return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
@@ -404,15 +419,17 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
           return setRes.rows[0];
         } else {
           // Auth token references a deleted user — fall through to normal flow
-          return phoneUser || await createUser(phone);
+          if (phoneUser) return phoneUser;
+          const { user: newUser } = await getOrCreateUserByPhone(phone);
+          return newUser;
         }
       });
     } else {
-      // No existing session — normal phone-based login/signup
-      user = await getUserByPhone(phone);
-      if (!user) {
-        user = await createUser(phone);
-      }
+      // No existing session — normal phone-based login/signup.
+      // Use atomic getOrCreateUserByPhone to prevent race where concurrent
+      // OTP verifications for the same phone both create separate accounts.
+      const result = await getOrCreateUserByPhone(phone);
+      user = result.user;
     }
 
     const token = signToken({ userId: user.id, phone: user.phone });
@@ -507,6 +524,8 @@ router.post('/google', async (req, res) => {
     }
 
     const googleEmail = googleUser.email.toLowerCase();
+    assertCleanIdentifier(googleEmail, 'email');
+    assertCleanIdentifier(googleUser.id, 'google_id');
     let user = await findAndLinkUser({ email: googleEmail, google_id: googleUser.id });
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
@@ -664,6 +683,8 @@ router.get('/google/callback', async (req, res) => {
     }
 
     const googleEmail = googleUser.email.toLowerCase();
+    assertCleanIdentifier(googleEmail, 'email');
+    assertCleanIdentifier(googleUser.id, 'google_id');
     let user = await findAndLinkUser({ email: googleEmail, google_id: googleUser.id });
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
@@ -759,6 +780,8 @@ router.post('/social', async (req, res) => {
     }
 
     const normalizedSocialEmail = socialEmail ? socialEmail.toLowerCase() : undefined;
+    if (normalizedSocialEmail) assertCleanIdentifier(normalizedSocialEmail, 'email');
+    assertCleanIdentifier(socialId, 'social_id');
     const identifiers = { email: normalizedSocialEmail };
     if (authProvider === 'google') identifiers.google_id = socialId;
     if (authProvider === 'apple') identifiers.apple_id = socialId;

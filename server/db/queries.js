@@ -1,5 +1,24 @@
 const { query, withTransaction } = require('./index');
 
+// Recognized synthetic phone prefixes used as identity keys for non-phone signups.
+// Real E.164 phones always start with '+', so they can never collide with these.
+const SYNTHETIC_PREFIXES = ['email:', 'google:', 'apple:'];
+
+/**
+ * Returns true if the value looks like a synthetic phone key (e.g. 'email:foo@bar.com').
+ */
+function isSyntheticPhone(value) {
+  if (typeof value !== 'string') return false;
+  return SYNTHETIC_PREFIXES.some(p => value.startsWith(p));
+}
+
+/**
+ * Returns true if the value is a valid E.164 phone number.
+ */
+function isRealPhone(value) {
+  return typeof value === 'string' && /^\+[1-9]\d{1,14}$/.test(value);
+}
+
 async function getUserByPhone(phone) {
   const result = await query('SELECT * FROM users WHERE phone = $1', [phone]);
   return result.rows[0] || null;
@@ -157,6 +176,10 @@ async function createUser(phone, name) {
  * Returns { user, created } so callers know whether this is a new user.
  */
 async function getOrCreateUserByPhone(phone) {
+  // Only accept real E.164 phone numbers — synthetic keys must use dedicated functions
+  if (!isRealPhone(phone)) {
+    throw new Error(`getOrCreateUserByPhone: refusing non-E.164 value "${phone.slice(0, 30)}"`);
+  }
   // Attempt insert; DO NOTHING if phone already exists
   const ins = await query(
     'INSERT INTO users (phone) VALUES ($1) ON CONFLICT (phone) DO NOTHING RETURNING *',
@@ -177,6 +200,10 @@ async function getOrCreateUserByPhone(phone) {
  * Returns { user, created } — created=false means an existing user was found.
  */
 async function createUserByEmail(email, name) {
+  // Reject emails that would produce a nested synthetic key (e.g. 'email:google:attacker')
+  if (isSyntheticPhone(email) || isRealPhone(email)) {
+    throw new Error('createUserByEmail: email looks like a synthetic key or phone number');
+  }
   const phone = `email:${email}`;
   try {
     const result = await query(
@@ -608,4 +635,6 @@ module.exports = {
   getPendingReplyForUser,
   resolvePendingReply,
   mergeUserAccounts,
+  isSyntheticPhone,
+  isRealPhone,
 };
