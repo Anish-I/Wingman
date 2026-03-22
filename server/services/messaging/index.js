@@ -27,4 +27,4 @@ if (PROVIDER === 'stub') {
 }
 
 console.log(`[messaging] provider: ${PROVIDER}`);
-module.exports = { provider };
+module.exports = { provider, PROVIDER };

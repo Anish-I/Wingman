@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { provider } = require('../services/messaging');
+const { provider, PROVIDER } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, deduplicateMessage } = require('../services/redis');
 
@@ -24,9 +24,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
 
     if (isTwilio) {
       // --- Twilio path ---
-      if (process.env.NODE_ENV !== 'production' && !req.headers['x-twilio-signature']) {
-        console.warn('[security] WARNING: Twilio signature check skipped in development mode — do NOT use in production');
-      } else {
+      if (PROVIDER !== 'stub') {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
@@ -62,9 +60,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
       // --- Telnyx path ---
-      if (process.env.NODE_ENV !== 'production' && !req.headers['telnyx-signature-ed25519-signature']) {
-        console.warn('[security] WARNING: Telnyx signature check skipped in development mode — do NOT use in production');
-      } else {
+      if (PROVIDER !== 'stub') {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
