@@ -150,6 +150,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       }
 
       const MAX_RETRIES = 3;
+      const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
       let lastErr;
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -178,9 +179,10 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
         } catch (err) {
           lastErr = err;
-          if ((err.status === 429 || err.status === 503) && attempt < MAX_RETRIES) {
+          const isTransient = TRANSIENT_STATUSES.has(err.status) || !err.status;
+          if (isTransient && attempt < MAX_RETRIES) {
             const delay = Math.pow(2, attempt - 1) * 1000;
-            console.warn(`[llm] ${provider.name} ${err.status} on attempt ${attempt}, retrying in ${delay}ms`);
+            console.warn(`[llm] ${provider.name} ${err.status || 'connection error'} on attempt ${attempt}, retrying in ${delay}ms`);
             await new Promise(r => setTimeout(r, delay));
             continue;
           }
@@ -188,19 +190,20 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         }
       }
 
-      // If rate limited / unavailable after retries, try next provider
-      if (lastErr?.status === 429 || lastErr?.status === 503) {
-        console.log(`[llm] Primary (${provider.name}) rate limited, falling back to ${providers[i + 1]?.name || 'none'}`);
+      // If transient error (including connection errors) after retries, try next provider
+      const isTransient = TRANSIENT_STATUSES.has(lastErr?.status) || !lastErr?.status;
+      if (isTransient) {
+        console.log(`[llm] ${provider.name} failed (${lastErr?.status || 'connection error'}), falling back to ${providers[i + 1]?.name || 'none'}`);
         continue;
       }
 
-      // Real error (not rate limit), don't try other providers
+      // Non-transient error (e.g. 401, 403), don't try other providers
       console.error('[llm] Call failed:', lastErr?.message || lastErr);
       throw new Error('Failed to process your message. Please try again.');
     }
 
     // All providers exhausted
-    console.error('[llm] All providers rate limited');
+    console.error('[llm] All providers failed');
     throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
   });
 }
