@@ -39,11 +39,10 @@ async function verifyAppleToken(token) {
     algorithms: ['RS256'],
     issuer: 'https://appleid.apple.com',
   };
-  if (process.env.APPLE_CLIENT_ID) {
-    verifyOptions.audience = process.env.APPLE_CLIENT_ID;
-  } else {
-    console.warn('APPLE_CLIENT_ID not set — skipping audience check for Apple token verification');
+  if (!process.env.APPLE_CLIENT_ID) {
+    throw new Error('APPLE_CLIENT_ID environment variable is required for Apple token verification');
   }
+  verifyOptions.audience = process.env.APPLE_CLIENT_ID;
   return jwt.verify(token, signingKey.getPublicKey(), verifyOptions);
 }
 
