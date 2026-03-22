@@ -115,26 +115,7 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
     return await fn();
   } finally {
     clearInterval(extendTimer);
-    let released = false;
-    for (let attempt = 0; attempt < 3 && !released; attempt++) {
-      try {
-        await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue);
-        released = true;
-      } catch (err) {
-        console.warn(`[workflow-agent] Lock release attempt ${attempt + 1} failed for ${lockKey}:`, err.message);
-        if (attempt < 2) await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
-      }
-    }
-    if (!released) {
-      // Lua release failed after retries — set a short TTL so the lock
-      // auto-expires instead of being held forever.
-      try {
-        await redis.expire(lockKey, 30);
-        console.warn(`[workflow-agent] Set 30s fallback TTL on ${lockKey} after release failure`);
-      } catch (expErr) {
-        console.error(`[workflow-agent] Failed to set fallback TTL on ${lockKey}:`, expErr.message);
-      }
-    }
+    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(() => {});
   }
 }
 
