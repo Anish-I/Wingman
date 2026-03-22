@@ -139,11 +139,16 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   if (pendingReply) {
     await resolvePendingReply(pendingReply.id, messageText);
     const { resumeWorkflowRun } = require('../services/workflow-agent');
-    resumeWorkflowRun(pendingReply.run_id, messageText).catch(err => {
-      console.error('[sms] Workflow resume error:', err.message);
-    });
     await provider.sendMessage(phone, 'Got it! Processing your reply...');
     await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
+    try {
+      await resumeWorkflowRun(pendingReply.run_id, messageText);
+    } catch (err) {
+      console.error('[sms] Workflow resume error:', err.message);
+      const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';
+      await provider.sendMessage(phone, failMsg);
+      await appendMessage(user.id, 'assistant', failMsg);
+    }
     return respond(200);
   }
 
