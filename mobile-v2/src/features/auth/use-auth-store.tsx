@@ -1,6 +1,7 @@
 import type { TokenType } from '@/lib/auth/utils';
 
 import { create } from 'zustand';
+import Env from 'env';
 import { getToken, removeToken, setToken } from '@/lib/auth/utils';
 import { createSelectors } from '@/lib/utils';
 
@@ -20,8 +21,16 @@ const _useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'signIn', token });
   },
   signOut: () => {
+    const token = getToken();
     removeToken();
     set({ status: 'signOut', token: null });
+    // Fire-and-forget: tell server to blacklist the token in Redis
+    if (token) {
+      fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
   },
   hydrate: () => {
     try {
