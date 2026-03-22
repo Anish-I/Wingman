@@ -276,14 +276,15 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (!user || !user.pin_hash) {
       // Increment counter even for non-existent accounts to prevent user enumeration timing
       await redis.incr(attemptKey);
-      await redis.expire(attemptKey, 15 * 60);
+      // Only set TTL when key is first created (TTL -1) to prevent sliding window lockout
+      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
     const valid = await bcrypt.compare(password, user.pin_hash);
     if (!valid) {
       await redis.incr(attemptKey);
-      await redis.expire(attemptKey, 15 * 60);
+      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
@@ -396,9 +397,9 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     // Compare HMAC of submitted code against stored hash (constant-time)
     const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
     if (!storedHash || storedHash.length !== submittedHash.length || !crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(submittedHash))) {
-      // Increment per-phone attempt counter with sliding TTL matching OTP lifetime
+      // Increment per-phone attempt counter; only set TTL on first failure to prevent sliding window lockout
       await redis.incr(attemptKey);
-      await redis.expire(attemptKey, OTP_TTL);
+      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, OTP_TTL);
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
@@ -977,9 +978,9 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
 
     if (!valid) {
       await redis.incr(attemptKey);
-      // Always refresh TTL on each failure to create a proper sliding window,
-      // preventing attackers from waiting out a stale TTL and retrying
-      await redis.expire(attemptKey, 15 * 60);
+      // Only set TTL on first failure to use a fixed window, preventing
+      // sliding window attacks that cause permanent account lockout
+      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
     } else {
       await redis.del(attemptKey);
     }
