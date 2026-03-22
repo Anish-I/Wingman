@@ -1,6 +1,6 @@
 const { callLLM } = require('./llm');
 const { buildContext } = require('./context');
-const { getConversationHistory, appendMessage } = require('./redis');
+const { getConversationHistory, appendMessage, acquireConversationLock } = require('./redis');
 const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
@@ -126,13 +126,30 @@ async function processMessage(user, messageText) {
 }
 
 async function _processMessageInner(user, messageText, abortController = { aborted: false }) {
-  try {
   const userId = String(user.id);
 
+  // Acquire per-user lock to serialize concurrent requests.
+  // Retry a few times with back-off before rejecting.
+  let releaseLock;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    releaseLock = await acquireConversationLock(user.id);
+    if (releaseLock) break;
+    if (attempt < 3) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+  }
+  if (!releaseLock) {
+    console.warn(`[user:${userId}] Could not acquire conversation lock — concurrent request in progress`);
+    return "I'm still working on your previous message — please wait a moment.";
+  }
+
+  try {
   const [history, allTools] = await Promise.all([
     getConversationHistory(user.id),
     getTools(userId),
   ]);
+
+  // Append user message immediately so it's sequenced before any LLM work.
+  // This ensures cache path and main path both have the message persisted atomically.
+  await appendMessage(user.id, 'user', messageText);
 
   const selectedTools = selectToolsForMessage(allTools, messageText);
   const tools = [...LOCAL_TOOLS, ...selectedTools];
@@ -144,8 +161,6 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (shouldCache(messageText)) {
     const cached = await getCachedResponse(messageText, userId);
     if (cached) {
-      if (abortController.aborted) return cached;
-      await appendMessage(user.id, 'user', messageText);
       await appendMessage(user.id, 'assistant', cached);
       return cached;
     }
@@ -309,13 +324,14 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), persisting history anyway`);
   }
 
-  // Check abort immediately before persisting to close the TOCTOU window.
-  // If the timeout fired between the loop exit and here, skip persistence.
+  // User message was already appended before the LLM call — only persist
+  // the assistant reply. On timeout, fire-and-forget so the caller isn't blocked.
   if (abortController.aborted) {
-    console.warn(`[user:${userId}] Skipping history append: request timed out`);
+    console.warn(`[user:${userId}] Request timed out — persisting assistant reply in background`);
+    appendMessage(user.id, 'assistant', finalText)
+      .catch(e => console.error(`[user:${userId}] Background history persist failed:`, e.message));
     return finalText;
   }
-  await appendMessage(user.id, 'user', messageText);
   await appendMessage(user.id, 'assistant', finalText);
 
   // Cache the response if eligible
@@ -336,6 +352,9 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // stop immediately and let the orphaned-promise tracker handle cleanup.
     if (err.name === 'AbortError') {
       console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
+      // User message was already persisted — append timeout assistant reply
+      appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
+        .catch(e => console.error(`[user:${userId}] Abort history persist failed:`, e.message));
       return "Sorry, that took too long. Please try again.";
     }
     // Friendly message for rate limit errors
@@ -343,9 +362,14 @@ async function _processMessageInner(user, messageText, abortController = { abort
       return "One sec — juggling a few things. Try again in a moment.";
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
+      // User message was already persisted — append timeout assistant reply
+      appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
+        .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
       return "Sorry, that took too long. Please try again.";
     }
     throw err;
+  } finally {
+    await releaseLock().catch(() => {});
   }
 }
 
