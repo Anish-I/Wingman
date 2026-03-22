@@ -1,6 +1,6 @@
 'use strict';
 
-const { redis } = require('../services/redis');
+const { redis, registerCloseable } = require('../services/redis');
 
 let workflowWorker = null;
 
@@ -19,19 +19,32 @@ async function startWorker() {
 
     const { Worker } = require('bullmq');
     workflowWorker = new Worker('workflows', async (job) => {
-      const { workflowId, userId } = job.data;
-      console.log(`[workflow-worker] Running workflow ${workflowId} for user ${userId}`);
+      const { workflowId, userId, runId, replyText, resumeAttempt } = job.data;
+
+      // Resume a delayed workflow run — no need to re-check active/steps
+      if (job.name === 'resume-delayed') {
+        console.log(`[workflow-worker] Resuming delayed run ${runId} for workflow ${workflowId}`);
+        const { resumeWorkflowRun } = require('../services/workflow-agent');
+        return resumeWorkflowRun(runId, replyText ?? null, { retryAttempt: resumeAttempt || 0 });
+      }
+
+      console.log(`[workflow-worker] Running workflow ${workflowId} for user ${userId}${runId ? ` (run ${runId})` : ''}`);
 
       const db = require('../db');
-      const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1', [workflowId]);
+      const result = await db.query('SELECT active, steps, actions FROM workflows WHERE id = $1', [workflowId]);
       const workflow = result.rows[0];
 
-      if (workflow && workflow.steps && workflow.steps.length > 0) {
+      if (!workflow || workflow.active === false) {
+        console.log(`[workflow-worker] Skipping workflow ${workflowId} — inactive or not found`);
+        return null;
+      }
+
+      if (workflow.steps && workflow.steps.length > 0) {
         const { executeWorkflowAgent } = require('../services/workflow-agent');
-        return executeWorkflowAgent(workflowId, userId);
+        return executeWorkflowAgent(workflowId, userId, { runId });
       } else {
         const { runWorkflow } = require('../services/workflows');
-        return runWorkflow(workflowId, userId);
+        return runWorkflow(workflowId, userId, { runId });
       }
     }, { connection: redis });
 
@@ -45,6 +58,7 @@ async function startWorker() {
       console.error('[workflow-worker] Worker error:', err.message);
     });
 
+    registerCloseable(workflowWorker);
     console.log(`[workflow-worker] Started (Redis ${version})`);
     return workflowWorker;
   } catch (err) {
