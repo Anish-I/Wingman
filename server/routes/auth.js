@@ -142,6 +142,7 @@ function signToken(payload, expiresInSeconds = 86400) {
     expiresIn: expiresInSeconds,
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
+    jwtid: crypto.randomUUID(),
   });
 }
 
