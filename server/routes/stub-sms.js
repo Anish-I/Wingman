@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, createUser } = require('../db/queries');
+const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, redis } = require('../services/redis');
 
 const router = express.Router();
@@ -36,12 +36,8 @@ router.post('/sms', async (req, res) => {
     await redis.rpush(`stub:messages:${from}`, JSON.stringify(inboundMsg));
     await redis.expire(`stub:messages:${from}`, 86400);
 
-    // Look up or create user
-    let user = await getUserByPhone(from);
-    const isNewUser = !user;
-    if (!user) {
-      user = await createUser(from);
-    }
+    // Look up or create user (atomic to avoid TOCTOU race)
+    const { user, created: isNewUser } = await getOrCreateUserByPhone(from);
 
     // Store incoming message in conversation history
     await appendMessage(user.id, 'user', body);

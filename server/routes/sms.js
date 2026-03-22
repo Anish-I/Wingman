@@ -1,7 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, createUser } = require('../db/queries');
+const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, redis } = require('../services/redis');
 
 const router = express.Router();
@@ -125,11 +125,7 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     return res.status(status).json({});
   };
 
-  let user = await getUserByPhone(phone);
-  const isNewUser = !user;
-  if (!user) {
-    user = await createUser(phone);
-  }
+  const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
   await appendMessage(user.id, 'user', messageText);
 

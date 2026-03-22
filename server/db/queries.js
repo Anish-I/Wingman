@@ -125,6 +125,25 @@ async function createUser(phone, name) {
 }
 
 /**
+ * Atomically get or create a user by phone number.
+ * Uses INSERT ... ON CONFLICT DO NOTHING to avoid TOCTOU races.
+ * Returns { user, created } so callers know whether this is a new user.
+ */
+async function getOrCreateUserByPhone(phone) {
+  // Attempt insert; DO NOTHING if phone already exists
+  const ins = await query(
+    'INSERT INTO users (phone) VALUES ($1) ON CONFLICT (phone) DO NOTHING RETURNING *',
+    [phone]
+  );
+  if (ins.rows[0]) {
+    return { user: ins.rows[0], created: true };
+  }
+  // Row already existed — fetch it
+  const existing = await query('SELECT * FROM users WHERE phone = $1', [phone]);
+  return { user: existing.rows[0], created: false };
+}
+
+/**
  * Atomically create a user with email set at insert time.
  * Prevents the TOCTOU race where concurrent signups both see no user
  * and both create separate accounts for the same email.
@@ -519,6 +538,7 @@ module.exports = {
   getUserByAppleId,
   getUserById,
   createUser,
+  getOrCreateUserByPhone,
   createUserByEmail,
   linkUserIdentity,
   deleteUser,
