@@ -61,13 +61,13 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       const { data } = await client.post('/auth/signup', { email, password });
-      // Validate that a real token was returned (not a demo token or undefined)
-      if (!data.token || data.token === 'demo-mock-token') {
+      // Validate token is a well-formed JWT (three base64url segments)
+      if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-Up Failed', 'Authentication token was not generated. Please try again.');
         return;
       }
       signIn(data.token);
-      setTimeout(() => router.push('/onboarding/permissions'), 0);
+      router.push('/onboarding/permissions');
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Sign-up failed. Please try again.';
       showAlert('Sign-Up Error', message);
@@ -81,9 +81,10 @@ export default function SignupScreen() {
     try {
       const res = await client.post('/auth/exchange-code', { code });
       const { token } = res.data;
-      if (token) {
+      // Validate token is a well-formed JWT (three base64url segments)
+      if (token && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
         signIn(token);
-        setTimeout(() => router.push('/onboarding/permissions'), 0);
+        router.push('/onboarding/permissions');
         return true;
       }
     } catch (err) {

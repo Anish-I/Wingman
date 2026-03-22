@@ -81,13 +81,13 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
-      // Validate that a real token was returned (not a demo token or undefined)
-      if (!data.token || data.token === 'demo-mock-token') {
+      // Validate token is a well-formed JWT (three base64url segments)
+      if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-In Failed', 'No valid authentication token received. Please try again.');
         return;
       }
       signIn(data.token);
-      setTimeout(() => router.replace('/(app)/chat'), 0);
+      router.replace('/(app)/chat');
     }
     catch (err: any) {
       const message = err?.response?.data?.error || 'The code you entered is incorrect. Please try again.';
