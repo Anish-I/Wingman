@@ -757,14 +757,25 @@ router.post('/social', async (req, res) => {
   }
 });
 
-// GET /auth/me — current user info
+// GET /auth/me — current user info + stats
 router.get('/me', requireAuth, async (req, res) => {
   try {
+    const { query: dbQuery } = require('../db');
+    const [appsResult, workflowsResult, messagesResult] = await Promise.all([
+      dbQuery('SELECT COUNT(*) FROM connected_apps WHERE user_id = $1', [req.user.id]),
+      dbQuery('SELECT COUNT(*) FROM workflows WHERE user_id = $1 AND active = true', [req.user.id]),
+      dbQuery('SELECT COUNT(*) FROM conversation_history WHERE user_id = $1 AND role = $2', [req.user.id, 'user']),
+    ]);
     res.json({
       id: req.user.id,
       phone: req.user.phone,
       name: req.user.name,
       preferences: req.user.preferences || {},
+      stats: {
+        apps: parseInt(appsResult.rows[0].count, 10),
+        workflows: parseInt(workflowsResult.rows[0].count, 10),
+        messages: parseInt(messagesResult.rows[0].count, 10),
+      },
     });
   } catch (err) {
     console.error('Auth me error:', err);

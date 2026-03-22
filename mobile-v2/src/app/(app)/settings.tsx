@@ -3,8 +3,10 @@ import { View, Text, Pressable, ScrollView, Alert, Platform } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
+import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
+import { useProfile } from '@/features/settings/api';
 import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -98,6 +100,12 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
 
 export default function SettingsScreen() {
   const reducedMotion = useReducedMotion();
+  const router = useRouter();
+  const { data: profile } = useProfile();
+
+  const displayName = profile?.name || profile?.phone || 'User';
+  const displayPhone = profile?.phone ?? '—';
+  const stats = profile?.stats ?? { apps: 0, workflows: 0, messages: 0 };
 
   function handleLogout() {
     if (Platform.OS === 'web') {
@@ -129,7 +137,7 @@ export default function SettingsScreen() {
           className="items-center pt-6 pb-4"
         >
           <PipCard expression="happy" size="medium" className="mb-0" />
-          <Text className="text-foreground text-xl font-extrabold mt-2">Pip User</Text>
+          <Text className="text-foreground text-xl font-extrabold mt-2">{displayName}</Text>
           <View className="flex-row items-center gap-1.5 mt-1">
             <View className="w-2 h-2 rounded-full bg-[#32D74B]" />
             <Text className="text-[#32D74B] text-xs font-semibold">Active</Text>
@@ -146,9 +154,9 @@ export default function SettingsScreen() {
           className="flex-row gap-3 px-4 mb-6"
         >
           {[
-            { num: '0', label: 'Apps', color: '#4A7BD9' },
-            { num: '0', label: 'Workflows', color: '#9B7EC8' },
-            { num: '0', label: 'Messages', color: '#6EC6B8' },
+            { num: String(stats.apps), label: 'Apps', color: '#4A7BD9' },
+            { num: String(stats.workflows), label: 'Workflows', color: '#9B7EC8' },
+            { num: String(stats.messages), label: 'Messages', color: '#6EC6B8' },
           ].map((stat, i) => (
             <MotiView
               key={stat.label}
@@ -177,8 +185,8 @@ export default function SettingsScreen() {
           <Text className="text-[#525252] text-[11px] font-bold uppercase tracking-widest mb-2 ml-1">Account</Text>
           <View className="rounded-2xl overflow-hidden border border-[#2A2A2A]">
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
-            <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" />
-            <SettingsRow icon="apps-outline" iconColor="#4A7BD9" label="Connected Apps" value="0 apps" isLast />
+            <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
+            <SettingsRow icon="apps-outline" iconColor="#4A7BD9" label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
           </View>
         </MotiView>
 
