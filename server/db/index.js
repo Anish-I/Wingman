@@ -110,16 +110,7 @@ async function withTransaction(fn) {
   try {
     await client.query('BEGIN');
     const txQuery = async (text, params) => {
-      try {
-        return await client.query(text, params);
-      } catch (err) {
-        if (isConnectionError(err)) {
-          logger.warn({ err: err.message, code: err.code }, 'Transaction query failed with connection error, retrying in 1s');
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          return await client.query(text, params);
-        }
-        throw err;
-      }
+      return await client.query(text, params);
     };
     const result = await fn(txQuery);
     await client.query('COMMIT');
