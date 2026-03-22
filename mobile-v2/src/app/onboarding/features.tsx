@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { blue, purple, semantic, surface, text as t, teal } from '@/components/ui/tokens';
+import { blue, semantic, surface, text as t, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
-import { entrance, chipPressStyle, webInteractive } from '@/lib/motion';
+import { entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const FEATURES = [
   { icon: 'calendar-outline' as const, title: 'Schedule meetings', accent: blue[400] },
@@ -21,11 +21,12 @@ const FEATURES = [
 
 export default function FeaturesScreen() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       <ProgressBar step={2} />
-      <View className="flex-1 px-6">
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}>
         <PipCard expression="thumbsup" size="tiny" />
 
         <View className="mt-4">
@@ -58,25 +59,22 @@ export default function FeaturesScreen() {
           {FEATURES.map((feat, i) => (
             <MotiView
               key={i}
-              {...entrance(i, 180)}
+              {...maybeReduce(entrance(i, 180), reducedMotion)}
             >
-              <Pressable
-                style={({ pressed, hovered }) => [
-                  {
-                    height: 56,
-                    borderRadius: 14,
-                    backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
-                    borderWidth: 1,
-                    borderColor: surface.border,
-                    paddingHorizontal: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                  },
-                  ...chipPressStyle({ pressed }),
-                  webInteractive(),
-                  hovered && !pressed ? { backgroundColor: i % 2 === 0 ? surface.cardAlt : surface.card, opacity: 0.95 } : undefined,
-                ]}
+              <View
+                accessible
+                accessibilityLabel={feat.title}
+                style={{
+                  height: 56,
+                  borderRadius: 14,
+                  backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
+                  borderWidth: 1,
+                  borderColor: surface.border,
+                  paddingHorizontal: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
               >
                 <View
                   style={{
@@ -102,12 +100,11 @@ export default function FeaturesScreen() {
                 >
                   {feat.title}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={purple[400]} />
-              </Pressable>
+              </View>
             </MotiView>
           ))}
         </View>
-      </View>
+      </ScrollView>
 
       <View className="px-6 pb-8">
         <GradientButton
