@@ -81,4 +81,25 @@ async function query(text, params) {
   }
 }
 
-module.exports = { pool, query, getPoolStats };
+/**
+ * Executes `fn(txQuery)` inside a single database transaction.
+ * `txQuery` has the same signature as `query` but runs on the
+ * checked-out client so every statement shares the transaction.
+ */
+async function withTransaction(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const txQuery = (text, params) => client.query(text, params);
+    const result = await fn(txQuery);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { pool, query, getPoolStats, withTransaction };
