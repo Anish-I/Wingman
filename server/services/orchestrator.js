@@ -13,9 +13,22 @@ const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10)
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
 const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
 
-// Global counter for orphaned (post-timeout) promises still running in background
-let _orphanedCount = 0;
-function getOrphanedCount() { return _orphanedCount; }
+// Per-user orphaned promise tracking — prevents one user's hung requests from blocking others
+const _orphanedByUser = new Map(); // userId -> count
+function _getUserOrphanCount(userId) { return _orphanedByUser.get(userId) || 0; }
+function _incrUserOrphanCount(userId) {
+  _orphanedByUser.set(userId, _getUserOrphanCount(userId) + 1);
+}
+function _decrUserOrphanCount(userId) {
+  const count = _getUserOrphanCount(userId) - 1;
+  if (count <= 0) _orphanedByUser.delete(userId);
+  else _orphanedByUser.set(userId, count);
+}
+function getOrphanedCount() {
+  let total = 0;
+  for (const c of _orphanedByUser.values()) total += c;
+  return total;
+}
 
 function withTimeout(promise, ms, label) {
   let timerId;
@@ -88,9 +101,11 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
-  // Reject early if too many orphaned promises are already running
-  if (_orphanedCount >= MAX_ORPHANED_PROMISES) {
-    console.warn(`[user:${user.id}] Rejecting request: ${_orphanedCount} orphaned promises already in-flight (limit ${MAX_ORPHANED_PROMISES})`);
+  // Reject early if this user has too many orphaned promises already running
+  const userId = String(user.id);
+  const userOrphanCount = _getUserOrphanCount(userId);
+  if (userOrphanCount >= MAX_ORPHANED_PROMISES) {
+    console.warn(`[user:${userId}] Rejecting request: ${userOrphanCount} orphaned promises already in-flight for this user (limit ${MAX_ORPHANED_PROMISES})`);
     return "I'm currently overloaded — please try again in a moment.";
   }
 
@@ -120,14 +135,14 @@ async function processMessage(user, messageText) {
         lockHolder.released = true;
         lockHolder.releaseLock().catch(() => {});
       }
-      _orphanedCount++;
-      console.warn(`[user:${user.id}] Request timed out, orphaned promise tracked (count: ${_orphanedCount})`);
+      _incrUserOrphanCount(userId);
+      console.warn(`[user:${userId}] Request timed out, orphaned promise tracked (user count: ${_getUserOrphanCount(userId)}, global: ${getOrphanedCount()})`);
       let reaped = false;
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          _orphanedCount = Math.max(0, _orphanedCount - 1);
-          console.warn(`[user:${user.id}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (remaining: ${_orphanedCount})`);
+          _decrUserOrphanCount(userId);
+          console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (user remaining: ${_getUserOrphanCount(userId)})`);
         }
       }, ORPHAN_REAP_TIMEOUT);
       if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
@@ -137,8 +152,8 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            _orphanedCount = Math.max(0, _orphanedCount - 1);
-            console.log(`[user:${user.id}] Orphaned promise settled (remaining: ${_orphanedCount})`);
+            _decrUserOrphanCount(userId);
+            console.log(`[user:${userId}] Orphaned promise settled (user remaining: ${_getUserOrphanCount(userId)})`);
           }
         });
     }
