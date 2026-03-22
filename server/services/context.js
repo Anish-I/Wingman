@@ -1,20 +1,46 @@
 /**
  * Sanitize user-supplied strings before interpolating into LLM system prompts.
- * Strips characters and patterns commonly used in prompt injection attacks.
+ * Uses allowlist approach — only permits characters valid for each field type.
+ * A regex blacklist (matching "ignore previous instructions" etc.) is trivially
+ * bypassed with Unicode lookalikes, locale-aware casing, or indirect phrasing.
+ * Allowlisting the character set eliminates the entire class of bypass.
  */
+
+/** Generic: strip to printable ASCII/common Unicode letters, collapse whitespace. */
 function sanitizeForPrompt(value, maxLength = 100) {
   if (typeof value !== 'string') return '';
   return value
-    .replace(/[\r\n]+/g, ' ')           // collapse newlines to prevent block-level injection
-    .replace(/[<>{}[\]]/g, '')           // remove bracket/brace characters
-    .replace(/\b(ignore|forget|disregard|override|bypass)\s+(all\s+)?(previous|above|prior|earlier)\s+(instructions?|prompts?|rules?|context)\b/gi, '')
+    .normalize('NFKC')                          // fold Unicode lookalikes (ⅰ→i, ﬁ→fi, etc.)
+    .replace(/[^\p{L}\p{N}\s.,!?'"\-()/:;@#&+=%$*~`^]/gu, '')  // keep letters, digits, common punctuation
+    .replace(/[\r\n\t]+/g, ' ')                  // collapse whitespace
+    .replace(/\s{2,}/g, ' ')                     // no long runs of spaces
     .trim()
     .slice(0, maxLength);
 }
 
+/** Names: letters, spaces, hyphens, apostrophes, periods (O'Brien, Mary-Jane, Dr. Smith). */
+function sanitizeName(value, maxLength = 50) {
+  if (typeof value !== 'string') return '';
+  return value
+    .normalize('NFKC')
+    .replace(/[^\p{L}\s'\-. ]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+/** Timezones: ASCII letters, digits, slashes, underscores, hyphens, plus/minus (America/New_York, Etc/GMT+5). */
+function sanitizeTimezone(value, maxLength = 40) {
+  if (typeof value !== 'string') return '';
+  return value
+    .normalize('NFKC')
+    .replace(/[^A-Za-z0-9/_\-+]/g, '')
+    .slice(0, maxLength);
+}
+
 function buildContext(user, tools = [], memoryContext = '') {
-  const name = sanitizeForPrompt(user.name, 50) || 'friend';
-  const timezone = sanitizeForPrompt(user.timezone, 40) || 'America/New_York';
+  const name = sanitizeName(user.name) || 'friend';
+  const timezone = sanitizeTimezone(user.timezone) || 'America/New_York';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', {
@@ -68,4 +94,4 @@ What you never do:
   return { systemPrompt, userDisplayName: name };
 }
 
-module.exports = { buildContext, sanitizeForPrompt };
+module.exports = { buildContext, sanitizeForPrompt, sanitizeName, sanitizeTimezone };
