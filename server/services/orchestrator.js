@@ -359,7 +359,10 @@ async function _processMessageInner(user, messageText, abortController = { abort
     }
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
-      return "One sec — juggling a few things. Try again in a moment.";
+      const rateLimitMsg = "One sec — juggling a few things. Try again in a moment.";
+      appendMessage(user.id, 'assistant', rateLimitMsg)
+        .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
+      return rateLimitMsg;
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
       // User message was already persisted — append timeout assistant reply
@@ -367,7 +370,13 @@ async function _processMessageInner(user, messageText, abortController = { abort
         .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
       return "Sorry, that took too long. Please try again.";
     }
-    throw err;
+    // Any other LLM/service failure — persist error response so the user's
+    // message doesn't appear unanswered on retry or app restart.
+    console.error(`[user:${userId}] Unhandled LLM error:`, err.message);
+    const errorMsg = "Something went wrong on my end. Please try again.";
+    appendMessage(user.id, 'assistant', errorMsg)
+      .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
+    return errorMsg;
   } finally {
     await releaseLock().catch(() => {});
   }
