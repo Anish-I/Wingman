@@ -344,7 +344,9 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     }
 
     const otpKey = `otp:${phone}`;
-    const storedHash = await redis.get(otpKey);
+    // Atomically retrieve AND delete the OTP in one step to prevent race conditions
+    // where concurrent requests both read the same OTP before either deletes it.
+    const storedHash = await redis.getDel(otpKey);
     const codeStr = String(code);
     // Compare HMAC of submitted code against stored hash (constant-time)
     const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
@@ -355,8 +357,8 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
-    // Success — atomically delete OTP to prevent reuse, clear attempt counter
-    await redis.del(otpKey, attemptKey);
+    // OTP already consumed by getDel above — clear attempt counter
+    await redis.del(attemptKey);
 
     // If the caller is already authenticated (e.g. signed up via email/Google),
     // link the phone to their existing account instead of creating a second one.
