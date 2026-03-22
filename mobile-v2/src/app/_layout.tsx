@@ -3,7 +3,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -68,30 +68,42 @@ export default function RootLayout() {
   if (Platform.OS === 'web') {
     return (
       <Providers>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: '#0A0A0C',
-            alignItems: 'center',
-            minHeight: '100vh' as any,
-          }}
-        >
-          <View
-            style={{
-              width: '100%',
-              maxWidth: 430,
-              flex: 1,
-              overflow: 'hidden' as any,
-            }}
-          >
-            {content}
-          </View>
-        </View>
+        <ResponsiveWebShell>{content}</ResponsiveWebShell>
       </Providers>
     );
   }
 
   return <Providers>{content}</Providers>;
+}
+
+function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
+  const { width } = useWindowDimensions();
+  // Phone (<768): full width, capped at 430px centered
+  // Tablet (768–1024): 720px max
+  // Desktop (>1024): 960px max
+  const maxWidth = width < 768 ? 430 : width < 1024 ? 720 : 960;
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#0A0A0C',
+        alignItems: 'center',
+        minHeight: '100vh' as any,
+      }}
+    >
+      <View
+        style={{
+          width: '100%',
+          maxWidth,
+          flex: 1,
+          overflow: 'hidden' as any,
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
 }
 
 function Providers({ children }: { children: React.ReactNode }) {
