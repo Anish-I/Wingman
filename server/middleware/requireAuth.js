@@ -1,11 +1,11 @@
 'use strict';
-const { verifyToken } = require('../routes/auth');
+const { verifyToken, isTokenRevoked } = require('../routes/auth');
 const { getUserById } = require('../db/queries');
 
 /**
  * Express middleware: validates Bearer JWT and loads the full user from DB.
  * Attaches `req.user` (DB row) and `req.tokenPayload` (JWT claims).
- * Rejects with 401 if token is missing, invalid, expired, or user no longer exists.
+ * Rejects with 401 if token is missing, invalid, expired, revoked, or user no longer exists.
  */
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -16,6 +16,11 @@ async function requireAuth(req, res, next) {
   const payload = verifyToken(authHeader.slice(7));
   if (!payload) {
     return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token.' } });
+  }
+
+  // Check if token has been revoked (e.g. via logout)
+  if (await isTokenRevoked(payload.jti)) {
+    return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
   }
 
   const user = await getUserById(payload.userId).catch(() => null);

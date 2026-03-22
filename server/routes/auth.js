@@ -858,12 +858,49 @@ router.delete('/account', requireAuth, async (req, res) => {
   }
 });
 
-// POST /auth/logout — clear the httpOnly auth cookie
-router.post('/logout', (req, res) => {
-  clearAuthCookie(res);
-  res.json({ success: true });
+// POST /auth/logout — revoke JWT and clear the httpOnly auth cookie
+router.post('/logout', async (req, res) => {
+  try {
+    // Extract token from Authorization header or cookie
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
+      token = req.cookies[AUTH_COOKIE_NAME];
+    }
+
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload && payload.jti) {
+        // Blacklist this token for its remaining lifetime
+        const ttl = payload.exp - Math.floor(Date.now() / 1000);
+        if (ttl > 0) {
+          await redis.set(`blacklist:${payload.jti}`, '1', 'EX', ttl);
+        }
+      }
+    }
+
+    clearAuthCookie(res);
+    res.json({ success: true });
+  } catch (err) {
+    // Still clear cookie even if blacklisting fails
+    clearAuthCookie(res);
+    res.json({ success: true });
+  }
 });
+
+/**
+ * Check if a token has been revoked (blacklisted in Redis).
+ * Returns true if the token's jti is in the blacklist.
+ */
+async function isTokenRevoked(jti) {
+  if (!jti) return false;
+  const result = await redis.get(`blacklist:${jti}`);
+  return result === '1';
+}
 
 module.exports = router;
 module.exports.verifyToken = verifyToken;
+module.exports.isTokenRevoked = isTokenRevoked;
 module.exports.AUTH_COOKIE_NAME = AUTH_COOKIE_NAME;
