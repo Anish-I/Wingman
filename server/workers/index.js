@@ -1,46 +1,13 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { Worker } = require('bullmq');
-const { redis } = require('../services/redis');
-const { runWorkflow } = require('../services/workflows');
 const { getPendingReminders, markReminderFired, getUserById } = require('../db/queries');
 const { provider } = require('../services/messaging');
 const { startBriefingWorker } = require('./briefing');
 const { startAlertsWorker } = require('./alerts');
 
-// BullMQ worker: execute scheduled/manual workflow runs
-// Wrapped in try/catch because local Redis 3.x is too old for BullMQ (needs >=5.0).
-// In production (docker-compose Redis 7), this runs normally.
-// BullMQ requires Redis >=5.0. On older local Redis, log a warning and skip.
-const workflowWorker = new Worker('workflows', async (job) => {
-  const { workflowId, userId } = job.data;
-  console.log(`[worker] Running workflow ${workflowId} for user ${userId}`);
-
-  // Check if this is a v2 agent workflow (has steps) or legacy (has actions)
-  const db = require('../db');
-  const result = await db.query('SELECT steps, actions FROM workflows WHERE id = $1', [workflowId]);
-  const workflow = result.rows[0];
-
-  if (workflow && workflow.steps && workflow.steps.length > 0) {
-    // v2: use agent executor
-    const { executeWorkflowAgent } = require('../services/workflow-agent');
-    return executeWorkflowAgent(workflowId, userId);
-  } else {
-    // Legacy: use flat action executor
-    return runWorkflow(workflowId, userId);
-  }
-}, { connection: redis });
-
-workflowWorker.on('error', (err) => {
-  if (err.message.includes('Redis version')) {
-    console.warn('[worker] BullMQ skipped — Redis >=5.0 required (run docker-compose up for Redis 7)');
-  } else {
-    console.error('[worker] Workflow worker error:', err.message);
-  }
-});
-workflowWorker.on('failed', (job, err) => {
-  console.error(`[worker] Workflow ${job?.data?.workflowId} failed:`, err.message);
-});
+// Workflow worker is defined in workflow-worker.js — import it instead of
+// duplicating a second Worker('workflows') on the same queue.
+require('./workflow-worker');
 
 // Reminder poller: fire due reminders every 60 seconds
 async function pollReminders() {
