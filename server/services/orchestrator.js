@@ -27,6 +27,13 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timed out')), PROCESS_MESSAGE_TIMEOUT)
+  );
+  return Promise.race([_processMessageInner(user, messageText), timeout]);
+}
+
+async function _processMessageInner(user, messageText) {
   try {
   const userId = String(user.id);
 
@@ -141,6 +148,9 @@ async function processMessage(user, messageText) {
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       return "One sec — juggling a few things. Try again in a moment.";
+    }
+    if (err.message && /timed? ?out|abort/i.test(err.message)) {
+      return "Sorry, that took too long. Please try again.";
     }
     throw err;
   }

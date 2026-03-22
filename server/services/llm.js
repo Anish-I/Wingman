@@ -62,6 +62,7 @@ if (providers.length === 0) {
 const MODEL_DEFAULT = providers[0]?.model || 'gemini-2.5-flash';
 const MODEL_COMPLEX = providers[0]?.modelComplex || 'gemini-2.5-flash';
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '2048', 10);
+const LLM_CALL_TIMEOUT = parseInt(process.env.LLM_CALL_TIMEOUT || '60000', 10);
 
 console.log(`[llm] Provider chain: ${providers.map(p => p.name).join(' → ')} | Primary model: ${MODEL_DEFAULT}`);
 
@@ -155,7 +156,9 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const response = await provider.client.chat.completions.create(params);
+          const response = await provider.client.chat.completions.create(params, {
+            signal: AbortSignal.timeout(LLM_CALL_TIMEOUT),
+          });
           const choice = response.choices[0];
           const message = choice.message;
           const text = message.content || '';
