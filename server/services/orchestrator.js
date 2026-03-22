@@ -82,37 +82,34 @@ async function processMessage(user, messageText) {
           if (result && result.successful === false) {
             const errMsg = result.error || 'Tool execution failed';
 
-            // Detect not-connected errors and return an auth link
+            // Detect not-connected errors — feed back into LLM loop
+            // instead of returning early, so original intent is preserved
             if (/not connected|no connected account|connection not found/i.test(errMsg)) {
               const app = appFromToolName(block.name);
               const link = await getConnectionLink(userId, app).catch(() => null);
-              const reply = link
-                ? `To use ${app}, connect your account first: ${link}\n\nReply once you've connected and I'll complete your request.`
-                : `Please connect ${app} at composio.dev to use this feature.`;
-              await appendMessage(user.id, 'user', messageText);
-              await appendMessage(user.id, 'assistant', reply);
-              return reply;
+              const connectMsg = link
+                ? `[${app} is not connected. Auth link: ${link}]`
+                : `[${app} is not connected. User should connect at composio.dev]`;
+              result = { error: connectMsg };
+            } else {
+              result = { error: errMsg };
             }
-
-            result = { error: errMsg };
           }
         }
       } catch (err) {
         console.error(`[user:${userId}] Tool failed [${block.name}]:`, err.message);
 
-        // Auth errors → send connection link
+        // Auth errors — feed back into LLM loop so intent is preserved
         if (/not connected|no connected account|unauthorized|401/i.test(err.message)) {
           const app = appFromToolName(block.name);
           const link = await getConnectionLink(userId, app).catch(() => null);
-          const reply = link
-            ? `To use ${app}, connect your account: ${link}\n\nReply once you've connected.`
-            : `Please connect ${app} at composio.dev first.`;
-          await appendMessage(user.id, 'user', messageText);
-          await appendMessage(user.id, 'assistant', reply);
-          return reply;
+          const connectMsg = link
+            ? `[${app} is not connected. Auth link: ${link}]`
+            : `[${app} is not connected. User should connect at composio.dev]`;
+          result = { error: connectMsg };
+        } else {
+          result = { error: err.message };
         }
-
-        result = { error: err.message };
       }
 
       toolResults.push({
