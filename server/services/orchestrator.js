@@ -382,10 +382,16 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // Fire-and-forget: extract memory with timeout guard (best-effort, must never crash)
   const MEMORY_EXTRACTION_TIMEOUT = 30000;
+  let memoryTimer;
   Promise.race([
     extractAndSaveMemory(user, messages),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('memory extraction timed out')), MEMORY_EXTRACTION_TIMEOUT))
-  ]).catch(err => { console.error('[async-task] memory extraction failed:', err.message); });
+    new Promise((_, reject) => {
+      memoryTimer = setTimeout(() => reject(new Error('memory extraction timed out')), MEMORY_EXTRACTION_TIMEOUT);
+      if (memoryTimer.unref) memoryTimer.unref();
+    })
+  ])
+    .finally(() => clearTimeout(memoryTimer))
+    .catch(err => { console.error(`[user:${userId}] memory extraction failed:`, err.message); });
 
   return finalText;
   } catch (err) {
