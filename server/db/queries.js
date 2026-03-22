@@ -52,6 +52,19 @@ async function linkUserIdentity(userId, fields) {
  * Must run inside a transaction.
  */
 async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
+  // Acquire advisory locks to serialize any concurrent merge involving these users.
+  // pg_advisory_xact_lock is automatically released when the transaction ends.
+  const lockId1 = Math.min(targetUserId, sourceUserId);
+  const lockId2 = Math.max(targetUserId, sourceUserId);
+  await txQuery('SELECT pg_advisory_xact_lock($1, $2)', [lockId1, lockId2]);
+
+  // Lock and verify both users exist before moving any child rows.
+  // SELECT ... FOR UPDATE prevents concurrent modifications even if the
+  // caller didn't lock the rows (makes the function self-protecting).
+  const [target] = (await txQuery('SELECT * FROM users WHERE id = $1 FOR UPDATE', [targetUserId])).rows;
+  const [source] = (await txQuery('SELECT * FROM users WHERE id = $1 FOR UPDATE', [sourceUserId])).rows;
+  if (!target || !source) return;
+
   // Move child rows from source → target
   await txQuery('UPDATE connected_apps SET user_id = $1 WHERE user_id = $2 AND app_slug NOT IN (SELECT app_slug FROM connected_apps WHERE user_id = $1)', [targetUserId, sourceUserId]);
   await txQuery('DELETE FROM connected_apps WHERE user_id = $1', [sourceUserId]);
@@ -60,11 +73,6 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
   await txQuery('UPDATE reminders SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
   await txQuery('UPDATE workflows SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
   await txQuery('UPDATE workflow_pending_replies SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
-
-  // Copy identity fields that target lacks from source
-  const [target] = (await txQuery('SELECT * FROM users WHERE id = $1', [targetUserId])).rows;
-  const [source] = (await txQuery('SELECT * FROM users WHERE id = $1', [sourceUserId])).rows;
-  if (!target || !source) return;
 
   const updates = {};
   if (!target.email && source.email) updates.email = source.email;
