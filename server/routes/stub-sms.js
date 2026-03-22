@@ -7,6 +7,16 @@ const { appendMessage, redis } = require('../services/redis');
 
 const router = express.Router();
 
+// Guard: only allow requests from localhost (defense-in-depth)
+router.use((req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const localhost = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+  if (!localhost.includes(ip)) {
+    return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Stub endpoints are only accessible from localhost.' } });
+  }
+  next();
+});
+
 // POST /stub/sms — simulate an incoming SMS (same flow as Telnyx webhook, no signature validation)
 router.post('/sms', async (req, res) => {
   try {

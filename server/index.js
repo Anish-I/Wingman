@@ -124,11 +124,11 @@ app.use('/auth', authRoutes);
 app.use('/connect', connectRoutes);
 app.use('/api', require('./routes/api'));
 
-// Mount stub SMS routes when using stub provider
+// Mount stub SMS routes only in non-production environments with stub provider
 const msgProvider = (process.env.MESSAGING_PROVIDER || '').toLowerCase();
-if (msgProvider === 'stub' || !process.env.TELNYX_API_KEY) {
+if ((msgProvider === 'stub' || !process.env.TELNYX_API_KEY) && process.env.NODE_ENV !== 'production') {
   app.use('/stub', stubSmsRoutes);
-  console.log('[server] Stub SMS routes mounted at /stub');
+  console.log('[server] Stub SMS routes mounted at /stub (dev only)');
 }
 
 // Add route for root URL
