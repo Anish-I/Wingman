@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
 import { useThemeColors } from '@/components/ui/tokens';
-import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -38,6 +38,7 @@ const TEMPLATES = [
 
 export default function WorkflowsScreen() {
   const { surface, text: t } = useThemeColors();
+  const reduced = useReducedMotion();
   const { data, isLoading, error: fetchError, refetch } = useWorkflows();
   const createMutation = useCreateWorkflow();
   const planMutation = usePlanWorkflow();
@@ -150,9 +151,9 @@ export default function WorkflowsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center">
         <MotiView
-          from={{ rotate: '0deg' }}
-          animate={{ rotate: '360deg' }}
-          transition={{ type: 'timing', duration: 1000, loop: true }}
+          from={reduced ? undefined : { rotate: '0deg' }}
+          animate={reduced ? undefined : { rotate: '360deg' }}
+          transition={reduced ? undefined : { type: 'timing', duration: 1000, loop: true }}
         >
           <Ionicons name="sync" size={32} color="#7C5CFC" />
         </MotiView>
@@ -165,7 +166,7 @@ export default function WorkflowsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <MotiView
-        {...headerEntrance}
+        {...maybeReduce(headerEntrance, reduced)}
         className="px-6 pt-6 pb-2"
       >
         <View className="flex-row items-center justify-between">
@@ -174,7 +175,7 @@ export default function WorkflowsScreen() {
             <Text style={{ color: t.muted }} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
-            {...popIn(0, 200)}
+            {...maybeReduce(popIn(0, 200), reduced)}
           >
             <View className="bg-[#7C5CFC]/15 rounded-2xl px-4 py-2 items-center">
               <Text className="text-[#7C5CFC] text-[20px] font-extrabold">{workflows.length}</Text>
@@ -193,7 +194,7 @@ export default function WorkflowsScreen() {
             <View className="mt-4 mb-2">
               {/* Empty state with templates */}
               <MotiView
-                {...popIn(0, 200)}
+                {...maybeReduce(popIn(0, 200), reduced)}
                 className="items-center mb-6"
               >
                 <PipCard expression="thinking" size="small" />
@@ -208,7 +209,7 @@ export default function WorkflowsScreen() {
                 {TEMPLATES.map((t, i) => (
                   <MotiView
                     key={t.title}
-                    {...slideIn(i, 350)}
+                    {...maybeReduce(slideIn(i, 350), reduced)}
                   >
                     <Pressable
                       accessibilityRole="button"
@@ -243,7 +244,7 @@ export default function WorkflowsScreen() {
           const trigger = getTriggerIcon(item.trigger_type);
           return (
             <MotiView
-              {...entrance(index, 100)}
+              {...maybeReduce(entrance(index, 100), reduced)}
             >
               <View className="rounded-2xl p-4 gap-3" style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}>
                 <View className="flex-row items-center gap-3">
@@ -292,9 +293,11 @@ export default function WorkflowsScreen() {
 
       {/* FAB */}
       <MotiView
-        from={{ opacity: 0, scale: 0, rotate: '45deg' }}
-        animate={{ opacity: 1, scale: 1, rotate: '0deg' }}
-        transition={{ ...springs.bouncy, delay: 500 }}
+        {...maybeReduce({
+          from: { opacity: 0, scale: 0, rotate: '45deg' },
+          animate: { opacity: 1, scale: 1, rotate: '0deg' },
+          transition: { ...springs.bouncy, delay: 500 },
+        }, reduced)}
         className="absolute bottom-6 right-6"
       >
         <Pressable

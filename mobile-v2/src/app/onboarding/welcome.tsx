@@ -8,25 +8,26 @@ import { useThemeColors, purple, presets } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
-import { popIn, entrance, gentleFloat } from '@/lib/motion';
+import { popIn, entrance, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { surface, text: t } = useThemeColors();
+  const reduced = useReducedMotion();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
       <ProgressBar step={1} />
       <View className="flex-1 items-center justify-center px-6">
         {/* Pip avatar with floating animation */}
-        <MotiView {...popIn(0, 50)}>
-          <MotiView {...gentleFloat(300)}>
+        <MotiView {...maybeReduce(popIn(0, 50), reduced)}>
+          <MotiView {...maybeReduce(gentleFloat(300), reduced)}>
             <PipCard expression="wave" size="large" />
           </MotiView>
         </MotiView>
 
         {/* Welcome card with smooth entrance and micro-delay */}
-        <MotiView {...entrance(0, 250)} style={{ width: '100%', gap: 16 }}>
+        <MotiView {...maybeReduce(entrance(0, 250), reduced)} style={{ width: '100%', gap: 16 }}>
           <View
             style={{
               backgroundColor: surface.card,

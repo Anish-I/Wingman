@@ -4,6 +4,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 import { purple, surface } from '@/components/ui/tokens';
+import { useReducedMotion } from '@/lib/motion';
 
 const pipImages: Record<string, ImageSourcePropType> = {
   // Sheet 1 (4x3)
@@ -65,8 +66,9 @@ export default function PipCard({ expression = 'happy', size = 'large', classNam
   const imageSize = sizeMap[size];
   const scaledSize = Math.round(imageSize * 1.25);
   const showBorder = size === 'large' || size === 'medium';
+  const reduced = useReducedMotion();
 
-  const shouldBreathe = size === 'large' || size === 'medium';
+  const shouldBreathe = (size === 'large' || size === 'medium') && !reduced;
 
   return (
     <View className={`items-center ${className ?? ''}`}>

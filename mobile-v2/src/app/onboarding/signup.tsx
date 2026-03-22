@@ -16,7 +16,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
-import { entrance, pressStyle, webInteractive } from '@/lib/motion';
+import { entrance, pressStyle, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -48,6 +48,7 @@ function AppleIcon() {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const reduced = useReducedMotion();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -259,7 +260,7 @@ export default function SignupScreen() {
           </View>
 
           {/* Social buttons */}
-          <MotiView {...entrance(0, 280)} style={{ gap: 12, width: '100%' }}>
+          <MotiView {...maybeReduce(entrance(0, 280), reduced)} style={{ gap: 12, width: '100%' }}>
             <Pressable
               style={({ pressed, hovered }) => [
                 {

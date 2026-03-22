@@ -11,7 +11,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
-import { entrance, chipPressStyle, springs, webInteractive } from '@/lib/motion';
+import { entrance, chipPressStyle, springs, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type PermissionItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -55,6 +55,7 @@ const PERMISSIONS: PermissionItem[] = [
 export default function PermissionsScreen() {
   const router = useRouter();
   const { surface, text: t } = useThemeColors();
+  const reduced = useReducedMotion();
   const [notificationsGranted, setNotificationsGranted] = useState(false);
 
   // Check existing notification permission on mount
@@ -123,7 +124,7 @@ export default function PermissionsScreen() {
             return (
               <MotiView
                 key={i}
-                {...entrance(i, 100)}
+                {...maybeReduce(entrance(i, 100), reduced)}
               >
                 <View
                   style={{
@@ -202,9 +203,11 @@ export default function PermissionsScreen() {
                       {isGranted
                         ? (
                             <MotiView
-                              from={{ scale: 0.6 }}
-                              animate={{ scale: 1 }}
-                              transition={springs.bouncy}
+                              {...maybeReduce({
+                                from: { scale: 0.6 },
+                                animate: { scale: 1 },
+                                transition: springs.bouncy,
+                              }, reduced)}
                               style={{
                                 backgroundColor: semantic.success,
                                 borderRadius: 8,

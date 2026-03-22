@@ -3,7 +3,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, Pressable, Text } from 'react-native';
 import { purple, radii, semantic, shadows } from '@/components/ui/tokens';
-import { actionPressStyle, springs, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { actionPressStyle, springs, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type GradientButtonProps = {
   title: string;
@@ -25,13 +25,16 @@ export default function GradientButton({
   const isPrimary = variant === 'primary';
   const bgColor = isPrimary ? purple[500] : semantic.success;
   const glowColor = isPrimary ? purple[500] : semantic.success;
+  const reduced = useReducedMotion();
 
   return (
     <MotiView
       className="w-full"
-      from={{ opacity: 0, translateY: 12 }}
-      animate={{ opacity: disabled ? 0.5 : 1, translateY: 0 }}
-      transition={{ ...springs.snappy, delay: 80 }}
+      {...maybeReduce({
+        from: { opacity: 0, translateY: 12 },
+        animate: { opacity: disabled ? 0.5 : 1, translateY: 0 },
+        transition: { ...springs.snappy, delay: 80 },
+      }, reduced)}
     >
       <Pressable
         accessibilityRole="button"

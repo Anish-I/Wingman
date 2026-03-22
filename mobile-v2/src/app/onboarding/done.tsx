@@ -10,7 +10,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
-import { popIn, entrance } from '@/lib/motion';
+import { popIn, entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const CONFETTI_COLORS = ['#6B9BEF', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
 
@@ -47,6 +47,7 @@ export default function DoneScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const [_, setIsFirstTime] = useIsFirstTime();
+  const reduced = useReducedMotion();
 
   function handleStart() {
     setIsFirstTime(false);
@@ -58,44 +59,46 @@ export default function DoneScreen() {
       <ProgressBar step={7} variant="green" />
 
       {/* Confetti layer */}
-      <View className="absolute w-full" style={{ height: 80, zIndex: 10 }}>
-        {CONFETTI_PIECES.map((piece, i) => (
-          <MotiView
-            key={i}
-            from={{ translateY: 0, rotate: piece.rotate, opacity: 0.5 }}
-            animate={{
-              translateY: [0, 8 + (i % 4) * 3, 0],
-              rotate: piece.rotate,
-              opacity: [0.5, 1, 0.5],
-            }}
-            transition={{
-              type: 'timing',
-              duration: 1800 + i * 150,
-              loop: true,
-              repeatReverse: true,
-            }}
-            style={{
-              position: 'absolute',
-              width: piece.width,
-              height: piece.height,
-              borderRadius: piece.borderRadius,
-              backgroundColor: piece.color,
-              top: piece.top,
-              left: (piece.leftPct / 100) * SCREEN_WIDTH,
-            }}
-          />
-        ))}
-      </View>
+      {!reduced && (
+        <View className="absolute w-full" style={{ height: 80, zIndex: 10 }}>
+          {CONFETTI_PIECES.map((piece, i) => (
+            <MotiView
+              key={i}
+              from={{ translateY: 0, rotate: piece.rotate, opacity: 0.5 }}
+              animate={{
+                translateY: [0, 8 + (i % 4) * 3, 0],
+                rotate: piece.rotate,
+                opacity: [0.5, 1, 0.5],
+              }}
+              transition={{
+                type: 'timing',
+                duration: 1800 + i * 150,
+                loop: true,
+                repeatReverse: true,
+              }}
+              style={{
+                position: 'absolute',
+                width: piece.width,
+                height: piece.height,
+                borderRadius: piece.borderRadius,
+                backgroundColor: piece.color,
+                top: piece.top,
+                left: (piece.leftPct / 100) * SCREEN_WIDTH,
+              }}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Content */}
       <View className="flex-1 items-center justify-center px-6" style={{ gap: 24 }}>
         {/* Pip */}
-        <MotiView {...popIn(0, 200)}>
+        <MotiView {...maybeReduce(popIn(0, 200), reduced)}>
           <PipCard expression="clap" size="large" className="" />
         </MotiView>
 
         {/* Header */}
-        <MotiView {...entrance(0, 400)} className="items-center" style={{ gap: 12 }}>
+        <MotiView {...maybeReduce(entrance(0, 400), reduced)} className="items-center" style={{ gap: 12 }}>
           {/* Section label with lines on both sides */}
           <View className="flex-row items-center" style={{ gap: 12 }}>
             <View style={{ width: 24, height: 2, backgroundColor: '#32D74B', borderRadius: 1 }} />
@@ -137,7 +140,7 @@ export default function DoneScreen() {
         </MotiView>
 
         {/* Hint to connect apps */}
-        <MotiView {...popIn(0, 600)}>
+        <MotiView {...maybeReduce(popIn(0, 600), reduced)}>
           <View
             className="flex-row items-center rounded-lg px-4"
             style={{

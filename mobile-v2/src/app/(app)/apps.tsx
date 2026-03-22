@@ -21,7 +21,7 @@ import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
 import { useThemeColors } from '@/components/ui/tokens';
-import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
 // Category mapping
@@ -421,6 +421,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
 
 export default function AppsScreen() {
   const { surface, text: t } = useThemeColors();
+  const reduced = useReducedMotion();
   const { data, isLoading, error: fetchError, refetch } = useApps();
   const [connected, setConnected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -606,9 +607,9 @@ export default function AppsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center">
         <MotiView
-          from={{ rotate: '0deg' }}
-          animate={{ rotate: '360deg' }}
-          transition={{ type: 'timing', duration: 1000, loop: true }}
+          from={reduced ? undefined : { rotate: '0deg' }}
+          animate={reduced ? undefined : { rotate: '360deg' }}
+          transition={reduced ? undefined : { type: 'timing', duration: 1000, loop: true }}
         >
           <Ionicons name="sync" size={32} color="#7C5CFC" />
         </MotiView>
@@ -625,7 +626,7 @@ export default function AppsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <MotiView
-        {...headerEntrance}
+        {...maybeReduce(headerEntrance, reduced)}
         className="px-6 pt-6 pb-4"
       >
         <View className="flex-row items-center justify-between">
@@ -638,9 +639,11 @@ export default function AppsScreen() {
             </Text>
           </View>
           <MotiView
-            from={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 10, stiffness: 100, delay: 300 }}
+            {...maybeReduce({
+              from: { opacity: 0, scale: 0.7 },
+              animate: { opacity: 1, scale: 1 },
+              transition: { type: 'spring', damping: 10, stiffness: 100, delay: 300 },
+            }, reduced)}
           >
             <View className="bg-[#32D74B]/15 rounded-2xl px-4 py-2 items-center">
               <Text className="text-[#32D74B] text-[20px] font-extrabold">
@@ -656,7 +659,7 @@ export default function AppsScreen() {
 
       {/* Search */}
       <MotiView
-        {...entrance(0, 100)}
+        {...maybeReduce(entrance(0, 100), reduced)}
         className="flex-row items-center rounded-2xl mx-6 mb-3 px-4"
         style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}
       >
