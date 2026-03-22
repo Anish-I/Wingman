@@ -131,6 +131,25 @@ async function deduplicateMessage(msgId, phone, messageText) {
   return result === 'OK';
 }
 
+/**
+ * Per-user conversation lock using Redis SET NX EX.
+ * Prevents concurrent requests for the same user from interleaving
+ * history reads, LLM calls, and message appends.
+ *
+ * Returns a release function on success, or null if the lock is held.
+ */
+async function acquireConversationLock(userId, ttlSeconds = 120) {
+  const key = `conv:lock:${userId}`;
+  const token = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const acquired = await redis.set(key, token, 'NX', 'EX', ttlSeconds);
+  if (acquired !== 'OK') return null;
+  return async function release() {
+    // Only release if we still hold the lock (compare token)
+    const current = await redis.get(key);
+    if (current === token) await redis.del(key);
+  };
+}
+
 module.exports = {
   redis,
   createRedisClient,
@@ -141,4 +160,5 @@ module.exports = {
   deleteSession,
   cleanupStaleConversations,
   deduplicateMessage,
+  acquireConversationLock,
 };

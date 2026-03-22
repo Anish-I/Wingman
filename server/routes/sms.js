@@ -118,14 +118,13 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
-  await appendMessage(user.id, 'user', messageText);
-
   // Check for pending workflow replies
   const { getPendingReplyForUser, resolvePendingReply } = require('../db/queries');
   const pendingReply = await getPendingReplyForUser(user.id);
   if (pendingReply) {
     await resolvePendingReply(pendingReply.id, messageText);
     const { resumeWorkflowRun } = require('../services/workflow-agent');
+    await appendMessage(user.id, 'user', messageText);
     await provider.sendMessage(phone, 'Got it! Processing your reply...');
     await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
     try {
@@ -141,6 +140,7 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   // New user discovery
   if (isNewUser || !user.preferences?.onboarded) {
+    await appendMessage(user.id, 'user', messageText);
     const discoveryMsg =
       'Hey! I\'m Wingman 🐦 — your personal AI.\n' +
       'Get set up in 30 seconds:\n' +
@@ -161,9 +161,12 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   } catch (err) {
     console.error('Orchestrator error:', err);
     responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
+    // Orchestrator failed before persisting — save messages here
+    await appendMessage(user.id, 'user', messageText).catch(() => {});
+    await appendMessage(user.id, 'assistant', responseText).catch(() => {});
   }
 
-  await appendMessage(user.id, 'assistant', responseText);
+  // Orchestrator already persists user + assistant messages atomically
   await provider.sendMessage(phone, responseText);
   return respond(200);
 }
