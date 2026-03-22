@@ -1010,6 +1010,12 @@ router.delete('/account', requireAuth, async (req, res) => {
     }
 
     await deleteUser(req.user.id);
+
+    // Blacklist ALL tokens for this user (not just the current session).
+    // TTL matches JWT max lifetime (24h) so the key auto-expires once all
+    // tokens issued before deletion are naturally invalid.
+    await redis.set(`user_deleted:${req.user.id}`, '1', 'EX', 86400);
+
     clearAuthCookie(res);
     res.json({ success: true });
   } catch (err) {
@@ -1054,10 +1060,13 @@ router.post('/logout', async (req, res) => {
  * Check if a token has been revoked (blacklisted in Redis).
  * Returns true if the token's jti is in the blacklist.
  */
-async function isTokenRevoked(jti) {
+async function isTokenRevoked(jti, userId) {
   if (!jti) return false;
-  const result = await redis.get(`blacklist:${jti}`);
-  return result === '1';
+  // Check per-token blacklist (logout) and per-user blacklist (account deletion)
+  const checks = [redis.get(`blacklist:${jti}`)];
+  if (userId) checks.push(redis.get(`user_deleted:${userId}`));
+  const results = await Promise.all(checks);
+  return results.some(r => r === '1');
 }
 
 module.exports = router;
