@@ -95,15 +95,41 @@ async function query(text, params) {
  * checked-out client so every statement shares the transaction.
  */
 async function withTransaction(fn) {
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (err) {
+    if (isConnectionError(err)) {
+      logger.warn({ err: err.message, code: err.code }, 'Transaction connect failed with connection error, retrying in 1s');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      client = await pool.connect();
+    } else {
+      throw err;
+    }
+  }
   try {
     await client.query('BEGIN');
-    const txQuery = (text, params) => client.query(text, params);
+    const txQuery = async (text, params) => {
+      try {
+        return await client.query(text, params);
+      } catch (err) {
+        if (isConnectionError(err)) {
+          logger.warn({ err: err.message, code: err.code }, 'Transaction query failed with connection error, retrying in 1s');
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return await client.query(text, params);
+        }
+        throw err;
+      }
+    };
     const result = await fn(txQuery);
     await client.query('COMMIT');
     return result;
   } catch (err) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      logger.error({ err: rollbackErr.message }, 'ROLLBACK failed after transaction error');
+    }
     throw err;
   } finally {
     client.release();
