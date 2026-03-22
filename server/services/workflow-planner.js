@@ -2,6 +2,7 @@
 const { callLLM } = require('./llm');
 const { createAndScheduleWorkflow } = require('./workflows');
 const { getCachedWorkflowPlan, setCachedWorkflowPlan } = require('./llm-cache');
+const { isValidCron } = require('../lib/validate-cron');
 
 const ALLOWED_TRIGGER_TYPES = new Set(['schedule', 'manual', 'event']);
 const MAX_PLANS = 10;
@@ -49,9 +50,10 @@ function validatePlan(raw) {
     ? raw.trigger_type
     : 'manual';
 
-  const cronExpression = (triggerType === 'schedule' && typeof raw.cron_expression === 'string')
+  const rawCron = (triggerType === 'schedule' && typeof raw.cron_expression === 'string')
     ? raw.cron_expression
     : null;
+  const cronExpression = (rawCron && isValidCron(rawCron)) ? rawCron : null;
 
   // Validate steps: must be array of { instruction: string }
   let steps = [];

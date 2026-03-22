@@ -1,5 +1,6 @@
 'use strict';
 const { createTemplate, searchTemplates, getTemplateById, incrementTemplateUsage, createWorkflow } = require('../db/queries');
+const { isValidCron } = require('../lib/validate-cron');
 
 const STARTER_TEMPLATES = [
   {
@@ -105,7 +106,7 @@ async function instantiate(templateId, userId, overrides = {}) {
     name: overrides.name || tmpl.name,
     description: tmpl.description,
     trigger_type: overrides.trigger_type || 'manual',
-    cron_expression: overrides.cron_expression || variables.schedule || null,
+    cron_expression: (() => { const c = overrides.cron_expression || variables.schedule || null; return c && isValidCron(c) ? c : null; })(),
     trigger_config: null,
     actions: [], // Agent-based workflows don't use flat actions
   });

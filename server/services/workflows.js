@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { createWorkflow, listWorkflows, cancelWorkflow, createWorkflowRun, updateWorkflowRun } = require('../db/queries');
 const { executeTool } = require('./composio');
+const { isValidCron } = require('../lib/validate-cron');
 
 // Queue reference — initialized lazily to avoid circular deps
 let workflowQueue = null;
@@ -16,6 +17,10 @@ function getQueue() {
 }
 
 async function createAndScheduleWorkflow(userId, { name, description, trigger_type, cron_expression, trigger_config, actions }) {
+  if (trigger_type === 'schedule' && cron_expression && !isValidCron(cron_expression)) {
+    throw new Error(`Invalid cron expression: "${cron_expression}". Expected 5-field format: min hour dom month dow`);
+  }
+
   const workflow = await createWorkflow(userId, { name, description, trigger_type, cron_expression, trigger_config, actions });
 
   if (trigger_type === 'schedule' && cron_expression) {

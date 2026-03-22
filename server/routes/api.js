@@ -8,6 +8,7 @@ const { processMessage } = require('../services/orchestrator');
 const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
 const { updateUserPreferences } = require('../db/queries');
+const { isValidCron } = require('../lib/validate-cron');
 
 // Parse pagination query params with sane defaults and bounds
 function parsePagination(query) {
@@ -139,6 +140,9 @@ router.post('/workflows', requireAuth, async (req, res) => {
     const { name, trigger_type, cron_expression, trigger_config, actions, description } = req.body;
     if (!name || !trigger_type || !actions) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
+    }
+    if (trigger_type === 'schedule' && cron_expression && !isValidCron(cron_expression)) {
+      return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
     }
     if (!Array.isArray(actions)) {
       return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be an array' } });
