@@ -25,20 +25,20 @@ function detectBucket(text) {
   return null;
 }
 
-function cacheKey(bucket, text) {
+function cacheKey(bucket, text, userId) {
   const hash = crypto.createHash('sha256').update(normalize(text)).digest('hex').slice(0, 16);
-  return `llm:cache:${bucket.name}:${hash}`;
+  return `llm:cache:${bucket.name}:u${userId}:${hash}`;
 }
 
 function shouldCache(messageText) {
   return detectBucket(messageText) !== null;
 }
 
-async function getCachedResponse(messageText) {
+async function getCachedResponse(messageText, userId) {
   const bucket = detectBucket(messageText);
   if (!bucket) return null;
 
-  const key = cacheKey(bucket, messageText);
+  const key = cacheKey(bucket, messageText, userId);
   try {
     const cached = await redis.get(key);
     if (cached) {
@@ -70,11 +70,11 @@ async function getCachedResponse(messageText) {
   return null;
 }
 
-async function setCachedResponse(messageText, response) {
+async function setCachedResponse(messageText, response, userId) {
   const bucket = detectBucket(messageText);
   if (!bucket) return;
 
-  const key = cacheKey(bucket, messageText);
+  const key = cacheKey(bucket, messageText, userId);
   try {
     await redis.set(key, response, 'EX', bucket.ttl);
     // Release stampede lock now that cache is populated
@@ -95,14 +95,14 @@ function shouldCacheWorkflowPlan(description) {
   return true;
 }
 
-function workflowPlanKey(description) {
+function workflowPlanKey(description, userId) {
   const hash = crypto.createHash('sha256').update(normalize(description)).digest('hex').slice(0, 16);
-  return `llm:cache:workflow_plan:${hash}`;
+  return `llm:cache:workflow_plan:u${userId}:${hash}`;
 }
 
-async function getCachedWorkflowPlan(description) {
+async function getCachedWorkflowPlan(description, userId) {
   if (!shouldCacheWorkflowPlan(description)) return null;
-  const key = workflowPlanKey(description);
+  const key = workflowPlanKey(description, userId);
   try {
     const cached = await redis.get(key);
     if (cached) {
@@ -115,9 +115,9 @@ async function getCachedWorkflowPlan(description) {
   return null;
 }
 
-async function setCachedWorkflowPlan(description, plans) {
+async function setCachedWorkflowPlan(description, plans, userId) {
   if (!shouldCacheWorkflowPlan(description)) return;
-  const key = workflowPlanKey(description);
+  const key = workflowPlanKey(description, userId);
   try {
     await redis.set(key, JSON.stringify(plans), 'EX', WORKFLOW_PLAN_TTL);
     console.log(`[llm-cache] SET workflow_plan key=${key} ttl=${WORKFLOW_PLAN_TTL}s`);

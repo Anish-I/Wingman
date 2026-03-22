@@ -20,9 +20,9 @@ For recurring tasks, parse the schedule into a cron expression.
 
 RESPOND WITH ONLY THE JSON ARRAY — no markdown, no explanation.`;
 
-async function planWorkflows(userMessage) {
+async function planWorkflows(userMessage, userId) {
   // Check cache first
-  const cached = await getCachedWorkflowPlan(userMessage);
+  const cached = await getCachedWorkflowPlan(userMessage, userId);
   if (cached) return cached;
 
   const messages = [{ role: 'user', content: userMessage }];
@@ -43,13 +43,13 @@ async function planWorkflows(userMessage) {
   }
 
   // Cache the plan
-  await setCachedWorkflowPlan(userMessage, plans);
+  await setCachedWorkflowPlan(userMessage, plans, userId);
 
   return plans;
 }
 
 async function planAndCreateWorkflows(user, description) {
-  const plans = await planWorkflows(description);
+  const plans = await planWorkflows(description, String(user.id));
   const created = [];
 
   for (const plan of plans) {

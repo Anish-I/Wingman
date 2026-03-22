@@ -40,7 +40,7 @@ async function processMessage(user, messageText) {
 
   // Check semantic cache before doing any LLM work
   if (shouldCache(messageText)) {
-    const cached = await getCachedResponse(messageText);
+    const cached = await getCachedResponse(messageText, userId);
     if (cached) {
       await appendMessage(user.id, 'user', messageText);
       await appendMessage(user.id, 'assistant', cached);
@@ -129,7 +129,7 @@ async function processMessage(user, messageText) {
 
   // Cache the response if eligible
   if (shouldCache(messageText) && finalText) {
-    await setCachedResponse(messageText, finalText);
+    await setCachedResponse(messageText, finalText, userId);
   }
 
   // Fire-and-forget: extract memory from conversation
