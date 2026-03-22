@@ -208,6 +208,8 @@ const AppCard = React.memo(function AppCard({
   const { surface } = useThemeColors();
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
       className="w-[90px] rounded-2xl p-3 items-center relative mr-2.5"
       style={({ pressed, hovered, focused }: any) => [
         {
@@ -363,6 +365,9 @@ const CategoryTabs = React.memo(function CategoryTabs({
           : (counts[cat] ?? 0);
         return (
           <Pressable
+            accessibilityRole="tab"
+            accessibilityLabel={`${cat} category, ${count} apps`}
+            accessibilityState={{ selected: active }}
             onPress={() => onSelect(isAll ? null : cat)}
             className="rounded-full px-3 py-1.5 flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
@@ -586,6 +591,8 @@ export default function AppsScreen() {
             : 'This is taking longer than expected. Check your connection and try again.'}
         </Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading apps"
           className="mt-5 bg-[#7C5CFC] rounded-xl px-6 py-3"
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
@@ -667,7 +674,7 @@ export default function AppsScreen() {
           onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} style={webInteractive()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setSearch('')} style={webInteractive()}>
             <Ionicons name="close-circle" size={18} color="#B3B3C1" />
           </Pressable>
         )}

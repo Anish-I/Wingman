@@ -135,6 +135,8 @@ export default function WorkflowsScreen() {
             : 'This is taking longer than expected. Check your connection and try again.'}
         </Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading workflows"
           className="mt-5 bg-[#7C5CFC] rounded-xl px-6 py-3"
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
@@ -209,6 +211,8 @@ export default function WorkflowsScreen() {
                     {...slideIn(i, 350)}
                   >
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Create automation: ${t.title}`}
                       className="flex-row items-center rounded-2xl p-4 gap-3"
                       onPress={() => createWorkflow(t.title)}
                       style={({ pressed, hovered }: any) => [
@@ -294,6 +298,8 @@ export default function WorkflowsScreen() {
         className="absolute bottom-6 right-6"
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Create new automation"
           className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden"
           onPress={() => setModalVisible(true)}
           style={({ pressed }) => [
@@ -336,6 +342,8 @@ export default function WorkflowsScreen() {
               autoFocus
             />
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isPending ? 'Creating automation' : 'Create automation'}
               className="rounded-2xl py-4 items-center mb-2 overflow-hidden"
               onPress={() => createWorkflow()}
               disabled={isPending || !nlInput.trim()}
@@ -356,6 +364,8 @@ export default function WorkflowsScreen() {
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
               className="py-3 items-center"
               onPress={() => setModalVisible(false)}
               style={({ pressed }) => [

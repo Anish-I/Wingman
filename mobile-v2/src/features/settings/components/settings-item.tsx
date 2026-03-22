@@ -15,6 +15,8 @@ export function SettingsItem({ text, value, icon, onPress }: ItemProps) {
   const isPressable = onPress !== undefined;
   return (
     <Pressable
+      accessibilityRole={isPressable ? 'button' : undefined}
+      accessibilityLabel={typeof text === 'string' ? text : undefined}
       onPress={onPress}
       pointerEvents={isPressable ? 'auto' : 'none'}
       className="flex-1 flex-row items-center justify-between px-4 py-2"

@@ -171,6 +171,8 @@ export default function LoginScreen() {
 
             {/* Send button */}
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={loading ? 'Sending verification code' : 'Send verification code'}
               style={[
                 {
                   height: 52,
@@ -226,6 +228,8 @@ export default function LoginScreen() {
 
             {/* Verify button */}
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={loading ? 'Verifying code' : 'Verify code'}
               style={[
                 {
                   height: 52,
@@ -248,6 +252,8 @@ export default function LoginScreen() {
             {/* Resend / Back */}
             <View className="flex-row items-center justify-between">
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change phone number"
                 onPress={() => {
                   setStep('phone');
                   setCode(['', '', '', '', '', '']);
@@ -260,6 +266,8 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Resend verification code"
                 onPress={() => {
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);
@@ -280,6 +288,8 @@ export default function LoginScreen() {
             Don't have an account?{' '}
           </Text>
           <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Sign up for a new account"
             onPress={() => router.push('/onboarding/signup')}
             style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
           >

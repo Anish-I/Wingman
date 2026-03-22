@@ -34,6 +34,9 @@ export default function GradientButton({
       transition={{ ...springs.snappy, delay: 80 }}
     >
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: !!disabled }}
         onPress={onPress}
         disabled={disabled}
         style={({ pressed, hovered, focused }: any) => [

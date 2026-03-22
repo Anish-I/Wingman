@@ -15,6 +15,8 @@ type AppCardProps = {
 export default function AppCard({ emoji, name, connected, onPress, color }: AppCardProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${connected ? 'connected' : 'not connected'}`}
       style={({ pressed, hovered }) => [
         {
           width: 88,

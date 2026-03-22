@@ -237,6 +237,8 @@ export default function SettingsScreen() {
           }, reducedMotion)}
         >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
             className="flex-row items-center justify-center gap-2 py-4 mt-8 mx-4 bg-[#FF3B30]/10 rounded-2xl"
             onPress={handleLogout}
             style={({ pressed, hovered, focused }: any) => [

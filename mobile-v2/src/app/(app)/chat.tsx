@@ -272,6 +272,8 @@ export default function ChatScreen() {
                     <Ionicons name="alert-circle-outline" size={13} color={semantic.error} />
                     <Text style={{ fontSize: 11, color: semantic.error, fontFamily: 'Inter_500Medium' }}>Failed</Text>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Retry sending message"
                       onPress={() => retry(item.id)}
                       hitSlop={8}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 4 }}
@@ -400,6 +402,8 @@ export default function ChatScreen() {
                       {...maybeReduce(popIn(i, 650), reducedMotion)}
                     >
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={prompt.text}
                         style={({ pressed, hovered, focused }: any) => [
                           {
                             flexDirection: 'row',
@@ -493,6 +497,9 @@ export default function ChatScreen() {
               {...maybeReduce(sendButtonAnimate(canSend), reducedMotion)}
             >
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+                accessibilityState={{ disabled: !canSend }}
                 style={({ pressed, hovered, focused }: any) => [
                   {
                     width: 36,
