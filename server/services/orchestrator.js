@@ -94,6 +94,9 @@ async function processMessage(user, messageText) {
   }
 
   const abortController = { aborted: false };
+  // Shared holder so we can force-release the lock on timeout even if the
+  // orphaned inner promise is still running.
+  const lockHolder = { releaseLock: null, released: false };
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -102,7 +105,7 @@ async function processMessage(user, messageText) {
     }, PROCESS_MESSAGE_TIMEOUT);
   });
 
-  const innerPromise = _processMessageInner(user, messageText, abortController);
+  const innerPromise = _processMessageInner(user, messageText, abortController, lockHolder);
 
   try {
     const result = await Promise.race([innerPromise, timeout]);
@@ -110,6 +113,12 @@ async function processMessage(user, messageText) {
   } catch (err) {
     // On timeout, the inner promise is now orphaned — track it
     if (abortController.aborted) {
+      // Force-release the lock immediately so subsequent messages aren't blocked
+      // waiting for the orphaned inner promise to settle.
+      if (lockHolder.releaseLock && !lockHolder.released) {
+        lockHolder.released = true;
+        lockHolder.releaseLock().catch(() => {});
+      }
       _orphanedCount++;
       console.warn(`[user:${user.id}] Request timed out, orphaned promise tracked (count: ${_orphanedCount})`);
       innerPromise
@@ -125,7 +134,7 @@ async function processMessage(user, messageText) {
   }
 }
 
-async function _processMessageInner(user, messageText, abortController = { aborted: false }) {
+async function _processMessageInner(user, messageText, abortController = { aborted: false }, lockHolder = { releaseLock: null, released: false }) {
   const userId = String(user.id);
 
   // Acquire per-user lock to serialize concurrent requests.
@@ -140,6 +149,9 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.warn(`[user:${userId}] Could not acquire conversation lock — concurrent request in progress`);
     return "I'm still working on your previous message — please wait a moment.";
   }
+
+  // Expose lock to caller so it can force-release on outer timeout
+  lockHolder.releaseLock = releaseLock;
 
   try {
   const [history, allTools] = await Promise.all([
@@ -378,7 +390,10 @@ async function _processMessageInner(user, messageText, abortController = { abort
       .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
     return errorMsg;
   } finally {
-    await releaseLock().catch(() => {});
+    if (!lockHolder.released) {
+      lockHolder.released = true;
+      await releaseLock().catch(() => {});
+    }
   }
 }
 
