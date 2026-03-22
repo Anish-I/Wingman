@@ -112,7 +112,7 @@ async function main() {
   const isSupabase = (process.env.DATABASE_URL || '').includes('supabase.co');
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: isSupabase ? { rejectUnauthorized: false } : false,
+    ssl: isSupabase ? { rejectUnauthorized: true } : false,
   });
 
   try {

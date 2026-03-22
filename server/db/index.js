@@ -2,15 +2,23 @@ const { Pool } = require('pg');
 const logger = require('../services/logger');
 
 const isSupabase = (process.env.DATABASE_URL || '').includes('supabase.co');
+const requiresSsl = isSupabase || process.env.NODE_ENV === 'production';
+
+function buildSslConfig() {
+  if (!requiresSsl) return false;
+  const sslConfig = { rejectUnauthorized: true };
+  if (process.env.DATABASE_CA_CERT) {
+    sslConfig.ca = process.env.DATABASE_CA_CERT;
+  }
+  return sslConfig;
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  ssl: isSupabase || process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: buildSslConfig(),
 });
 
 // Pool event handlers for monitoring and reconnection
