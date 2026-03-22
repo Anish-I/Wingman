@@ -262,8 +262,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
     await setCachedResponse(messageText, finalText, userId);
   }
 
-  // Fire-and-forget: extract memory from conversation (best-effort, must never crash)
-  (async () => { try { await extractAndSaveMemory(user, messages); } catch (err) { console.error('[async-task] memory extraction failed:', err); } })();
+  // Fire-and-forget: extract memory with timeout guard (best-effort, must never crash)
+  const MEMORY_EXTRACTION_TIMEOUT = 30000;
+  Promise.race([
+    extractAndSaveMemory(user, messages),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('memory extraction timed out')), MEMORY_EXTRACTION_TIMEOUT))
+  ]).catch(err => { console.error('[async-task] memory extraction failed:', err.message); });
 
   return finalText;
   } catch (err) {
