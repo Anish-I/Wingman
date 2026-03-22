@@ -187,14 +187,13 @@ async function _processMessageInner(user, messageText, abortController = { abort
     iterations++;
   }
 
-  // Only persist to history if LLM completed normally and the outer
-  // timeout hasn't already fired (which would leave an orphaned promise).
-  if (!completed) {
-    console.warn(`[user:${userId}] Skipping history append: hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS})`);
-    return response?.text || "Sorry, I couldn't finish processing that. Please try again.";
-  }
+  const finalText = response?.text || (completed
+    ? 'Done! Let me know if you need anything else.'
+    : "Sorry, I couldn't finish processing that. Please try again.");
 
-  const finalText = response?.text || 'Done! Let me know if you need anything else.';
+  if (!completed) {
+    console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), persisting history anyway`);
+  }
 
   // Check abort immediately before persisting to close the TOCTOU window.
   // If the timeout fired between the loop exit and here, skip persistence.
