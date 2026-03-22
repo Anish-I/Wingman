@@ -109,8 +109,8 @@ bash scripts/codex-bot-builder.sh "description of what the bot should do"
 
 ## Security Audit
 See `SECURITY-AUDIT.md` for full report. Priority fixes:
-- **Done**: H1 (OTP rate limiting), H5 (generic error messages)
-- **TODO**: C2/H3 (use jsonwebtoken properly), H2 (crypto.randomInt for OTP), H4 (OAuth callback IDOR), C3 (bcrypt for PINs)
+- **Done**: H1 (OTP rate limiting), H5 (generic error messages), H4 (OAuth callback IDOR)
+- **TODO**: C2/H3 (use jsonwebtoken properly), H2 (crypto.randomInt for OTP), C3 (bcrypt for PINs)
 
 ## Git
 - Remote: `https://github.com/Anish-I/Wingman.git`

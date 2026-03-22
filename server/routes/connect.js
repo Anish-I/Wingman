@@ -29,7 +29,8 @@ const OAUTH_COOKIE_OPTS = {
 // Includes a random nonce stored in Redis to tie the token to a server-side session (CSRF protection).
 async function generateOAuthState(userId, app) {
   const nonce = crypto.randomBytes(32).toString('hex');
-  await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 600); // 10-minute TTL matching JWT expiry
+  // Store userId alongside nonce so callback can verify the state token wasn't forged for a different user
+  await redis.set(`oauth_nonce:${nonce}`, String(userId), 'EX', 600); // 10-minute TTL matching JWT expiry
   return jwt.sign({ userId, app, nonce }, JWT_SECRET, { expiresIn: '10m' });
 }
 
@@ -39,8 +40,10 @@ async function verifyOAuthState(stateToken) {
     const payload = jwt.verify(stateToken, JWT_SECRET);
     if (!payload.nonce) return null;
     // Atomically fetch and delete nonce — prevents replay
-    const nonceExists = await redis.call('GETDEL', `oauth_nonce:${payload.nonce}`);
-    if (!nonceExists) return null;
+    const storedUserId = await redis.call('GETDEL', `oauth_nonce:${payload.nonce}`);
+    if (!storedUserId) return null;
+    // Validate that the userId in the JWT matches the server-side record (IDOR protection)
+    if (String(payload.userId) !== storedUserId) return null;
     return payload;
   } catch {
     return null;
