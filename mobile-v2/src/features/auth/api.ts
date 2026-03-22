@@ -15,7 +15,7 @@ export const useVerifyOtp = createMutation<{ token: string }, { phone: string; c
   },
 });
 
-export const useGoogleAuth = createMutation<{ token: string }, { idToken: string }>({
+export const useGoogleAuth = createMutation<{ token: string }, { code: string }>({
   mutationFn: async (variables) => {
     const { data } = await client.post('/auth/google', variables);
     return data;

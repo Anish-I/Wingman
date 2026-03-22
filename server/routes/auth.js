@@ -437,8 +437,8 @@ function isAllowedRedirectUri(uri) {
 // POST /auth/google
 router.post('/google', async (req, res) => {
   try {
-    const { idToken } = req.body;
-    if (!idToken) {
+    const { code } = req.body;
+    if (!code) {
       return res.status(400).json({ error: { code: 'AUTH_CODE_REQUIRED', message: 'Authorization code is required.' } });
     }
 
@@ -468,7 +468,7 @@ router.post('/google', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        code: idToken,
+        code: code,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         redirect_uri: finalRedirectUri,
