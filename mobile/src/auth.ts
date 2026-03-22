@@ -4,6 +4,13 @@ const TOKEN_KEY = 'wingman_jwt';
 
 const isWeb = Platform.OS === 'web';
 
+function isSessionToken(token: string): boolean {
+  if (token.startsWith('demo.')) return false;
+
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((part) => part.length > 0);
+}
+
 async function getSecureStore() {
   return await import('expo-secure-store');
 }
@@ -36,5 +43,5 @@ export async function clearToken(): Promise<void> {
 
 export async function isAuthenticated(): Promise<boolean> {
   const token = await getToken();
-  return token !== null;
+  return token !== null && isSessionToken(token);
 }
