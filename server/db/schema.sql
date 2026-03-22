@@ -2,7 +2,10 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id                SERIAL PRIMARY KEY,
-  phone             VARCHAR(20) UNIQUE NOT NULL,
+  phone             VARCHAR(255) UNIQUE,
+  email             VARCHAR(255),
+  google_id         VARCHAR(255),
+  apple_id          VARCHAR(255),
   name              VARCHAR(255),
   pin_hash          VARCHAR(255),
   zapier_account_id VARCHAR(255),
@@ -119,6 +122,26 @@ CREATE TABLE IF NOT EXISTS workflow_pending_replies (
   resolved_at TIMESTAMPTZ,
   reply_text TEXT
 );
+
+-- Append-only event log for workflow runs.
+-- Replaces the ever-growing messages/step_log JSONB arrays on workflow_runs
+-- with cheap INSERT-only rows, eliminating O(n²) write amplification.
+CREATE TABLE IF NOT EXISTS workflow_run_events (
+  id        BIGSERIAL PRIMARY KEY,
+  run_id    UUID NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  seq       INTEGER NOT NULL,
+  ev_type   TEXT NOT NULL,           -- 'message' or 'step_log'
+  data      JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wf_run_events_run_id ON workflow_run_events(run_id, seq);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wf_run_events_run_seq ON workflow_run_events(run_id, seq);
+
+-- Unique indexes on identity columns (partial: only non-null values)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_apple_id ON users(apple_id) WHERE apple_id IS NOT NULL;
 
 -- Indexes on user_id foreign keys for faster joins and lookups
 CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);

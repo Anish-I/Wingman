@@ -1,4 +1,4 @@
-const { query } = require('./index');
+const { query, withTransaction } = require('./index');
 
 async function getUserByPhone(phone) {
   const result = await query('SELECT * FROM users WHERE phone = $1', [phone]);
@@ -10,12 +10,118 @@ async function getUserById(id) {
   return result.rows[0] || null;
 }
 
-async function createUser(phone, name) {
+async function getUserByEmail(email) {
+  const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+  return result.rows[0] || null;
+}
+
+async function getUserByGoogleId(googleId) {
+  const result = await query('SELECT * FROM users WHERE google_id = $1', [googleId]);
+  return result.rows[0] || null;
+}
+
+async function getUserByAppleId(appleId) {
+  const result = await query('SELECT * FROM users WHERE apple_id = $1', [appleId]);
+  return result.rows[0] || null;
+}
+
+async function linkUserIdentity(userId, fields) {
+  const allowed = ['email', 'google_id', 'apple_id', 'phone'];
+  const setClauses = [];
+  const values = [];
+  let idx = 1;
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && allowed.includes(key)) {
+      setClauses.push(`${key} = $${idx++}`);
+      values.push(value);
+    }
+  }
+  if (setClauses.length === 0) return null;
+  setClauses.push('updated_at = NOW()');
+  values.push(userId);
   const result = await query(
-    'INSERT INTO users (phone, name) VALUES ($1, $2) RETURNING *',
-    [phone, name || null]
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+    values
   );
   return result.rows[0];
+}
+
+/**
+ * Merge sourceUserId into targetUserId: move all data, copy identity
+ * fields that target lacks, then delete the source account.
+ * Must run inside a transaction.
+ */
+async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
+  // Move child rows from source → target
+  await txQuery('UPDATE connected_apps SET user_id = $1 WHERE user_id = $2 AND app_slug NOT IN (SELECT app_slug FROM connected_apps WHERE user_id = $1)', [targetUserId, sourceUserId]);
+  await txQuery('DELETE FROM connected_apps WHERE user_id = $1', [sourceUserId]);
+  await txQuery('UPDATE conversation_history SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  await txQuery('UPDATE automation_rules SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  await txQuery('UPDATE reminders SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  await txQuery('UPDATE workflows SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  await txQuery('UPDATE workflow_pending_replies SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+
+  // Copy identity fields that target lacks from source
+  const [target] = (await txQuery('SELECT * FROM users WHERE id = $1', [targetUserId])).rows;
+  const [source] = (await txQuery('SELECT * FROM users WHERE id = $1', [sourceUserId])).rows;
+  if (!target || !source) return;
+
+  const updates = {};
+  if (!target.email && source.email) updates.email = source.email;
+  if (!target.google_id && source.google_id) updates.google_id = source.google_id;
+  if (!target.apple_id && source.apple_id) updates.apple_id = source.apple_id;
+  if (!target.name && source.name) updates.name = source.name;
+  if (!target.pin_hash && source.pin_hash) updates.pin_hash = source.pin_hash;
+  // Prefer a real phone over a synthetic one
+  if (source.phone && /^\+[1-9]\d{1,14}$/.test(source.phone)) {
+    if (!target.phone || !(/^\+[1-9]\d{1,14}$/.test(target.phone))) {
+      updates.phone = source.phone;
+    }
+  }
+  // Merge preferences (target wins on conflicts)
+  if (source.preferences && Object.keys(source.preferences).length > 0) {
+    const merged = { ...source.preferences, ...target.preferences };
+    updates.preferences = JSON.stringify(merged);
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const setClauses = [];
+    const values = [];
+    let idx = 1;
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === 'preferences') {
+        setClauses.push(`preferences = $${idx++}::jsonb`);
+      } else {
+        setClauses.push(`${key} = $${idx++}`);
+      }
+      values.push(value);
+    }
+    setClauses.push('updated_at = NOW()');
+    values.push(targetUserId);
+    await txQuery(`UPDATE users SET ${setClauses.join(', ')} WHERE id = $${idx}`, values);
+  }
+
+  // Clear source identity columns to avoid unique constraint violations, then delete
+  await txQuery('UPDATE users SET phone = NULL, email = NULL, google_id = NULL, apple_id = NULL WHERE id = $1', [sourceUserId]);
+  await txQuery('DELETE FROM users WHERE id = $1', [sourceUserId]);
+}
+
+async function createUser(phone, name) {
+  try {
+    const result = await query(
+      'INSERT INTO users (phone, name) VALUES ($1, $2) RETURNING *',
+      [phone, name || null]
+    );
+    return result.rows[0];
+  } catch (err) {
+    // Handle TOCTOU race: concurrent insert for the same phone hits unique constraint.
+    // Return the existing row instead of throwing (PostgreSQL error code 23505).
+    if (err.code === '23505' && phone) {
+      const existing = await query('SELECT * FROM users WHERE phone = $1', [phone]);
+      if (existing.rows[0]) return existing.rows[0];
+    }
+    throw err;
+  }
 }
 
 async function updateUserZapierAccount(userId, zapierAccountId) {
@@ -100,11 +206,11 @@ async function markReminderFired(id) {
   await query('UPDATE reminders SET fired = true WHERE id = $1', [id]);
 }
 
-async function createWorkflow(userId, { name, description, trigger_type, cron_expression, trigger_config, actions }) {
+async function createWorkflow(userId, { name, description, trigger_type, cron_expression, trigger_config, actions, steps, variables }) {
   const result = await query(
-    `INSERT INTO workflows (user_id, name, description, trigger_type, cron_expression, trigger_config, actions)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [userId, name, description || null, trigger_type, cron_expression || null, trigger_config ? JSON.stringify(trigger_config) : null, JSON.stringify(actions || [])]
+    `INSERT INTO workflows (user_id, name, description, trigger_type, cron_expression, trigger_config, actions, steps, variables)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [userId, name, description || null, trigger_type, cron_expression || null, trigger_config ? JSON.stringify(trigger_config) : null, JSON.stringify(actions || []), JSON.stringify(steps || []), JSON.stringify(variables || {})]
   );
   return result.rows[0];
 }
@@ -166,6 +272,10 @@ async function updateWorkflowRun(runId, { status, result: runResult, error, star
   return res.rows[0];
 }
 
+async function deleteUser(userId) {
+  await query('DELETE FROM users WHERE id = $1', [userId]);
+}
+
 async function updatePushToken(userId, token) {
   // Only update (and bump updated_at) when the token actually changes
   const result = await query(
@@ -201,6 +311,86 @@ async function updateWorkflowRunMessages(runId, { messages, step_log, context, s
   return res.rows[0];
 }
 
+/**
+ * Append-only update for workflow run state.
+ * Messages and step_log entries are INSERTed into the workflow_run_events table
+ * (cheap, constant-size writes) instead of rewriting ever-growing JSONB arrays.
+ * Context is shallow-merged on the run row (stays small).
+ */
+async function appendWorkflowRunState(runId, { newMessages, newStepLogs, contextPatch, status }) {
+  await withTransaction(async (txQuery) => {
+    // Serialize appends per run so seq allocation and context/status updates stay ordered.
+    await txQuery('SELECT id FROM workflow_runs WHERE id = $1 FOR UPDATE', [runId]);
+
+    const eventRows = [];
+    if ((newMessages && newMessages.length > 0) || (newStepLogs && newStepLogs.length > 0)) {
+      const seqRes = await txQuery(
+        'SELECT COALESCE(MAX(seq), -1) AS max_seq FROM workflow_run_events WHERE run_id = $1',
+        [runId]
+      );
+      let seq = seqRes.rows[0].max_seq + 1;
+
+      if (newMessages && newMessages.length > 0) {
+        for (const msg of newMessages) {
+          eventRows.push({ seq: seq++, ev_type: 'message', data: msg });
+        }
+      }
+      if (newStepLogs && newStepLogs.length > 0) {
+        for (const entry of newStepLogs) {
+          eventRows.push({ seq: seq++, ev_type: 'step_log', data: entry });
+        }
+      }
+    }
+
+    if (eventRows.length > 0) {
+      const valParts = [];
+      const vals = [runId];
+      let idx = 2;
+      for (const row of eventRows) {
+        valParts.push(`($1, $${idx++}, $${idx++}, $${idx++}::jsonb)`);
+        vals.push(row.seq, row.ev_type, JSON.stringify(row.data));
+      }
+      await txQuery(
+        `INSERT INTO workflow_run_events (run_id, seq, ev_type, data) VALUES ${valParts.join(', ')}`,
+        vals
+      );
+    }
+
+    const fields = [];
+    const values = [];
+    let fieldIdx = 1;
+    if (contextPatch && Object.keys(contextPatch).length > 0) {
+      fields.push(`context = COALESCE(context, '{}'::jsonb) || $${fieldIdx++}::jsonb`);
+      values.push(JSON.stringify(contextPatch));
+    }
+    if (status !== undefined) {
+      fields.push(`status = $${fieldIdx++}`);
+      values.push(status);
+    }
+    if (fields.length > 0) {
+      values.push(runId);
+      await txQuery(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = $${fieldIdx}`, values);
+    }
+  });
+}
+
+/**
+ * Reconstruct messages and step_log arrays from the workflow_run_events table.
+ */
+async function loadWorkflowRunEvents(runId) {
+  const res = await query(
+    'SELECT ev_type, data FROM workflow_run_events WHERE run_id = $1 ORDER BY seq',
+    [runId]
+  );
+  const messages = [];
+  const stepLog = [];
+  for (const row of res.rows) {
+    if (row.ev_type === 'message') messages.push(row.data);
+    else if (row.ev_type === 'step_log') stepLog.push(row.data);
+  }
+  return { messages, stepLog };
+}
+
 async function getWorkflowRun(runId) {
   const result = await query('SELECT * FROM workflow_runs WHERE id = $1', [runId]);
   return result.rows[0] || null;
@@ -225,13 +415,21 @@ async function createTemplate({ name, description, category, steps, variables, s
   return result.rows[0];
 }
 
-async function searchTemplates(searchTerm, category, { limit, offset } = {}) {
-  let whereSql = ' WHERE 1=1';
+async function searchTemplates(searchTerm, category, { limit, offset, userId } = {}) {
+  // Only return system templates and the current user's own templates
+  let whereSql = ' WHERE (is_system = true';
   const values = [];
   let idx = 1;
+  if (userId) {
+    whereSql += ` OR author_user_id = $${idx}`;
+    values.push(userId);
+    idx++;
+  }
+  whereSql += ')';
   if (searchTerm) {
-    whereSql += ` AND (name ILIKE $${idx} OR description ILIKE $${idx})`;
-    values.push(`%${searchTerm}%`);
+    const escaped = searchTerm.replace(/[%_\\]/g, '\\$&');
+    whereSql += ` AND (name ILIKE $${idx} ESCAPE '\\' OR description ILIKE $${idx} ESCAPE '\\')`;
+    values.push(`%${escaped}%`);
     idx++;
   }
   if (category) {
@@ -289,8 +487,13 @@ async function resolvePendingReply(replyId, replyText) {
 
 module.exports = {
   getUserByPhone,
+  getUserByEmail,
+  getUserByGoogleId,
+  getUserByAppleId,
   getUserById,
   createUser,
+  linkUserIdentity,
+  deleteUser,
   updateUserZapierAccount,
   updateUserPreferences,
   updateUserPin,
@@ -309,6 +512,8 @@ module.exports = {
   updatePushToken,
   getWorkflowById,
   updateWorkflowRunMessages,
+  appendWorkflowRunState,
+  loadWorkflowRunEvents,
   getWorkflowRun,
   getLastWorkflowRunContext,
   createTemplate,
@@ -318,4 +523,5 @@ module.exports = {
   createPendingReply,
   getPendingReplyForUser,
   resolvePendingReply,
+  mergeUserAccounts,
 };
