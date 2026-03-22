@@ -166,11 +166,18 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
 
           if (message.tool_calls) {
             for (const tc of message.tool_calls) {
+              let parsedArgs;
+              try {
+                parsedArgs = JSON.parse(tc.function.arguments);
+              } catch (parseErr) {
+                console.warn(`[llm] Malformed JSON in tool_call arguments for ${tc.function.name}: ${parseErr.message}`);
+                continue;
+              }
               toolUseBlocks.push({
                 type: 'tool_use',
                 id: tc.id,
                 name: tc.function.name,
-                input: JSON.parse(tc.function.arguments),
+                input: parsedArgs,
               });
             }
           }
