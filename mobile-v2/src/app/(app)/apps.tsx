@@ -385,7 +385,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
           >
             <Text
               style={{
-                color: active ? '#7C5CFC' : '#8E8E9A',
+                color: active ? '#7C5CFC' : '#ADADBB',
                 fontSize: 12,
                 fontWeight: '600',
               }}
@@ -394,7 +394,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             </Text>
             <Text
               style={{
-                color: active ? '#7C5CFC' : '#55556A',
+                color: active ? '#7C5CFC' : '#ADADBB',
                 fontSize: 10,
                 fontWeight: '700',
                 marginLeft: 4,
@@ -556,11 +556,11 @@ export default function AppsScreen() {
   if (fetchError || (isLoading && loadingTimedOut)) {
     return (
       <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
-        <Ionicons name="cloud-offline-outline" size={40} color="#8E8E9A" />
+        <Ionicons name="cloud-offline-outline" size={40} color="#ADADBB" />
         <Text className="text-foreground text-base font-bold mt-4">
           Failed to load
         </Text>
-        <Text className="text-[#8E8E9A] text-sm text-center mt-1">
+        <Text className="text-[#ADADBB] text-sm text-center mt-1">
           {fetchError
             ? 'Could not load your apps. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -606,7 +606,7 @@ export default function AppsScreen() {
             <Text className="text-foreground text-[28px] font-extrabold">
               Your Apps
             </Text>
-            <Text className="text-[#8E8E9A] text-sm mt-1">
+            <Text className="text-[#ADADBB] text-sm mt-1">
               {ALL_APPS.length} apps available
             </Text>
           </View>
@@ -635,19 +635,19 @@ export default function AppsScreen() {
         <Ionicons
           name="search-outline"
           size={18}
-          color="#55556A"
+          color="#ADADBB"
           style={{ marginRight: 8 }}
         />
         <TextInput
           className="flex-1 py-3.5 text-foreground text-[15px]"
           placeholder={`Search ${ALL_APPS.length} apps...`}
-          placeholderTextColor="#55556A"
+          placeholderTextColor="#ADADBB"
           value={search}
           onChangeText={setSearch}
         />
         {search.length > 0 && (
           <Pressable onPress={() => setSearch('')} style={webInteractive()}>
-            <Ionicons name="close-circle" size={18} color="#55556A" />
+            <Ionicons name="close-circle" size={18} color="#ADADBB" />
           </Pressable>
         )}
       </MotiView>
