@@ -21,45 +21,75 @@ interface SettingsRowProps {
 }
 
 function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showChevron = true, isFirst, isLast }: SettingsRowProps) {
+  const isInteractive = typeof onPress === 'function';
+  const shouldShowChevron = showChevron && isInteractive;
+  const containerStyle = [
+    {
+      backgroundColor: '#1A1A1A',
+    },
+    isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+    isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+  ];
+  const content = (
+    <>
+      <View
+        className="w-9 h-9 rounded-xl justify-center items-center"
+        style={{ backgroundColor: iconColor + '18' }}
+      >
+        <Ionicons name={icon} size={18} color={iconColor} />
+      </View>
+      <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
+      <View className="flex-row items-center gap-1.5">
+        {value ? (
+          <View className="bg-[#242424] rounded-lg px-2.5 py-1">
+            <Text className="text-[#8A8A8A] text-[12px] font-semibold">{value}</Text>
+          </View>
+        ) : null}
+        {shouldShowChevron && <Ionicons name="chevron-forward" size={16} color="#3A3A3A" />}
+      </View>
+    </>
+  );
+
+  if (!isInteractive) {
+    return (
+      <>
+        <View
+          className="flex-row items-center py-4 px-4 gap-3"
+          accessible
+          accessibilityLabel={label}
+          accessibilityHint={value ? `Current value: ${value}` : undefined}
+          style={containerStyle}
+        >
+          {content}
+        </View>
+        {!isLast && <View className="h-px bg-[#242424] ml-14" />}
+      </>
+    );
+  }
+
   return (
     <>
       <Pressable
         className="flex-row items-center py-4 px-4 gap-3"
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={value ? `Current value: ${value}` : undefined}
         style={({ pressed, hovered, focused }: any) => [
-          {
-            backgroundColor: '#1A1A1A',
-          },
-          isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
-          isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+          ...containerStyle,
           ...cardPressStyle({ pressed }),
-          webInteractive(!onPress),
+          webInteractive(),
           // Web hover: subtle lift and background change
-          Platform.OS === 'web' && hovered && !pressed && onPress
+          Platform.OS === 'web' && hovered && !pressed
             ? { backgroundColor: '#232329', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' } as any
             : undefined,
           // Web focus ring
-          Platform.OS === 'web' && focused && onPress
+          Platform.OS === 'web' && focused
             ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
             : undefined,
         ]}
         onPress={onPress}
-        disabled={!onPress}
       >
-        <View
-          className="w-9 h-9 rounded-xl justify-center items-center"
-          style={{ backgroundColor: iconColor + '18' }}
-        >
-          <Ionicons name={icon} size={18} color={iconColor} />
-        </View>
-        <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
-        <View className="flex-row items-center gap-1.5">
-          {value ? (
-            <View className="bg-[#242424] rounded-lg px-2.5 py-1">
-              <Text className="text-[#8A8A8A] text-[12px] font-semibold">{value}</Text>
-            </View>
-          ) : null}
-          {showChevron && <Ionicons name="chevron-forward" size={16} color="#3A3A3A" />}
-        </View>
+        {content}
       </Pressable>
       {!isLast && <View className="h-px bg-[#242424] ml-14" />}
     </>
