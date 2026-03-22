@@ -42,6 +42,50 @@ const workflowLimiter = rateLimit({
 // Max chat message length (chars) — prevents LLM cost abuse
 const MAX_CHAT_MESSAGE_LENGTH = 4000;
 
+// --- Workflow action input sanitization ---
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const MAX_INPUT_DEPTH = 5;
+const MAX_INPUT_KEYS = 50;
+const MAX_STRING_LENGTH = 10000;
+
+/**
+ * Validate a workflow action input object.
+ * Returns { valid: true } or { valid: false, reason: string }.
+ */
+function validateActionInput(obj, depth = 0) {
+  if (depth > MAX_INPUT_DEPTH) return { valid: false, reason: 'input exceeds maximum nesting depth' };
+  if (obj === null || obj === undefined) return { valid: true };
+
+  const type = typeof obj;
+  if (type === 'boolean' || type === 'number') {
+    if (!Number.isFinite(obj) && type === 'number') return { valid: false, reason: 'non-finite numbers are not allowed' };
+    return { valid: true };
+  }
+  if (type === 'string') {
+    if (obj.length > MAX_STRING_LENGTH) return { valid: false, reason: `string value exceeds maximum length (${MAX_STRING_LENGTH})` };
+    return { valid: true };
+  }
+  if (Array.isArray(obj)) {
+    if (obj.length > MAX_INPUT_KEYS) return { valid: false, reason: `array exceeds maximum length (${MAX_INPUT_KEYS})` };
+    for (let i = 0; i < obj.length; i++) {
+      const r = validateActionInput(obj[i], depth + 1);
+      if (!r.valid) return r;
+    }
+    return { valid: true };
+  }
+  if (type === 'object') {
+    const keys = Object.keys(obj);
+    if (keys.length > MAX_INPUT_KEYS) return { valid: false, reason: `object exceeds maximum number of keys (${MAX_INPUT_KEYS})` };
+    for (const key of keys) {
+      if (FORBIDDEN_KEYS.has(key)) return { valid: false, reason: `forbidden key "${key}" in input` };
+      const r = validateActionInput(obj[key], depth + 1);
+      if (!r.valid) return r;
+    }
+    return { valid: true };
+  }
+  return { valid: false, reason: `unsupported value type "${type}" in input` };
+}
+
 // UUID v4 format validation
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -95,6 +139,21 @@ router.post('/workflows', requireAuth, async (req, res) => {
     const { name, trigger_type, cron_expression, trigger_config, actions, description } = req.body;
     if (!name || !trigger_type || !actions) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
+    }
+    if (!Array.isArray(actions)) {
+      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be an array' } });
+    }
+    for (let i = 0; i < actions.length; i++) {
+      const a = actions[i];
+      if (a && a.input !== undefined) {
+        if (typeof a.input !== 'object' || Array.isArray(a.input) || a.input === null) {
+          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input must be a plain object` } });
+        }
+        const v = validateActionInput(a.input);
+        if (!v.valid) {
+          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input rejected: ${v.reason}` } });
+        }
+      }
     }
     const workflow = await createAndScheduleWorkflow(req.user.id, {
       name, description, trigger_type, cron_expression, trigger_config, actions,
@@ -234,6 +293,10 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
       if (typeof action.name !== 'string' || action.name.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} is missing a name` } });
       if (!/^[A-Z][A-Z0-9_]*$/.test(action.name)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} has an invalid name format` } });
       if (action.input !== undefined && (typeof action.input !== 'object' || Array.isArray(action.input) || action.input === null)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input must be a plain object` } });
+      if (action.input !== undefined) {
+        const v = validateActionInput(action.input);
+        if (!v.valid) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input rejected: ${v.reason}` } });
+      }
     }
 
     let runResult;
