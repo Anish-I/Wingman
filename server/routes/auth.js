@@ -529,6 +529,12 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     // so there is no separate key that can be independently lost or raced.
     if (existingPayload && existingPayload.userId) {
       if (!otpRequester || String(otpRequester) !== String(existingPayload.userId)) {
+        // Restore the OTP so the legitimate user can still verify.
+        // GETDEL already consumed it — put it back with full OTP_TTL so the
+        // rightful requester isn't locked out by this mismatched attempt.
+        if (storedRaw) {
+          await redis.set(otpKey, storedRaw, 'EX', OTP_TTL);
+        }
         return res.status(403).json({ error: { code: 'SESSION_MISMATCH', message: 'OTP was not requested by this account. Please request a new code.' } });
       }
     }
