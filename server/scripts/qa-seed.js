@@ -33,7 +33,7 @@ async function seed() {
     let userId;
     if (existingUser.rows.length > 0) {
       userId = existingUser.rows[0].id;
-      console.log(`✓ Test user already exists (ID: ${userId})`);
+      console.log('✓ Test user already exists');
     } else {
       // Create test user
       const createUserQuery = `
@@ -49,13 +49,13 @@ async function seed() {
       ]);
 
       userId = result.rows[0].id;
-      console.log(`✓ Created test user (ID: ${userId})`);
+      console.log('✓ Created test user');
     }
 
     // Store OTP in Redis with 10-minute TTL
     const otpKey = `otp:${TEST_PHONE}`;
     await redis.set(otpKey, TEST_OTP, 'EX', 600);
-    console.log(`✓ Stored OTP in Redis for test user (TTL: 600s)`);
+    console.log('✓ Stored OTP in Redis for test user (TTL: 600s)');
 
     // Generate JWT token for testing (using hardcoded secret for QA)
     const jwt = require('jsonwebtoken');
@@ -75,13 +75,12 @@ async function seed() {
       }
     );
 
-    console.log(`✓ Generated JWT token for user ID: ${userId}`);
+    console.log('✓ Generated JWT token for test user');
 
     console.log('\n✅ QA Seed Complete! Test user is ready.');
     console.log('  1. Navigate to http://localhost:8081');
-    console.log('  2. Use the seeded test phone and OTP to log in');
-    console.log('  3. Continue through onboarding flow');
-    console.log('  (Credentials are defined in qa-seed.js constants)\n');
+    console.log('  2. See qa-seed.js constants for test credentials');
+    console.log('  3. Continue through onboarding flow\n');
 
     process.exit(0);
   } catch (err) {

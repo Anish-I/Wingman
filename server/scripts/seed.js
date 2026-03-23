@@ -67,7 +67,7 @@ async function seed(pool, reset) {
   );
 
   if (userResult.rowCount > 0) {
-    created.push(`User: ${SEED_USER.name} (${SEED_USER.phone})`);
+    created.push(`User: ${SEED_USER.name}`);
   } else {
     skipped.push(`User: ${SEED_USER.name} (already exists)`);
   }
