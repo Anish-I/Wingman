@@ -246,10 +246,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
   };
 
   // Acquire per-user lock to serialize concurrent requests.
-  // Retry a few times with back-off before rejecting.
+  // The lock TTL must exceed PROCESS_MESSAGE_TIMEOUT + the longest sub-operation
+  // timeout (LLM_ITERATION_TIMEOUT) so that the Redis key does not auto-expire
+  // while _processMessageInner is still winding down after an outer abort.
+  // Without this margin the lock disappears, a second request acquires it, and
+  // both call appendMessage() concurrently — producing duplicate/out-of-order messages.
+  const LOCK_TTL_SECONDS = Math.ceil((PROCESS_MESSAGE_TIMEOUT + LLM_ITERATION_TIMEOUT + 30000) / 1000);
   let releaseLock;
   for (let attempt = 0; attempt < 4; attempt++) {
-    releaseLock = await acquireConversationLock(user.id);
+    releaseLock = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
     if (releaseLock) break;
     if (attempt < 3) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
   }
