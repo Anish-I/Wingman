@@ -540,6 +540,12 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
       // Use a transaction with SELECT ... FOR UPDATE to prevent concurrent
       // verify-otp requests from racing on the same merge operation.
       user = await withTransaction(async (txQuery) => {
+        // Advisory lock on the phone number to serialize all concurrent link
+        // attempts for the same number. FOR UPDATE alone doesn't help when no
+        // row with this phone exists yet — both transactions see zero rows and
+        // proceed to UPDATE, causing a unique-constraint failure.
+        await txQuery('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+
         // Lock both user rows to serialize concurrent merge attempts
         const authedRes = await txQuery('SELECT * FROM users WHERE id = $1 FOR UPDATE', [existingPayload.userId]);
         const authedUser = authedRes.rows[0] || null;
@@ -576,6 +582,11 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
 
     res.json(authResponse(req, token, { id: user.id, phone: user.phone, name: user.name }));
   } catch (err) {
+    // Unique-constraint on phone (code 23505) means another request linked
+    // this number first. Return a clear 409 instead of a generic 500.
+    if (err.code === '23505' && err.constraint && /phone/i.test(err.constraint)) {
+      return res.status(409).json({ error: { code: 'PHONE_ALREADY_LINKED', message: 'This phone number was just linked to another account. Please try again.' } });
+    }
     console.error('OTP verify error:', err);
     res.status(500).json({ error: { code: 'OTP_VERIFY_ERROR', message: 'Failed to verify OTP.' } });
   }
