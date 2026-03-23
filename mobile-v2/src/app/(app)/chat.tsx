@@ -502,9 +502,9 @@ export default function ChatScreen() {
                 accessibilityState={{ disabled: !canSend }}
                 style={({ pressed, hovered, focused }: any) => [
                   {
-                    width: 36,
-                    height: 36,
-                    borderRadius: 12,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: canSend ? purple[500] : surface.elevated,
