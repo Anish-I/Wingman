@@ -37,7 +37,7 @@ export const teal = {
   400: '#5AAE9F',
   500: '#48968A', // depth tone
   600: '#377A6F',
-  muted: 'rgba(110, 198, 184, 0.12)',
+  muted: 'rgba(110, 198, 184, 0.22)',
   /** Subtle glow for teal accents */
   glow: 'rgba(110, 198, 184, 0.06)',
 } as const;
@@ -83,8 +83,8 @@ export const text = {
   primary: '#F0F0F5',
   /** Secondary — body text, longer content (high legibility) */
   secondary: '#D2D2DE',
-  /** Muted — labels, metadata, hints (WCAG AA on all dark surfaces incl. card) */
-  muted: '#D0D0DC',
+  /** Muted — labels, metadata, hints (WCAG AA on all dark surfaces incl. card, ~9:1 on #131315) */
+  muted: '#B0B0BE',
   /** Disabled / placeholder text — visually distinct from secondary, WCAG AA on dark surfaces */
   disabled: '#8E8E9D',
   /** Inverse for light/elevated surfaces */
@@ -121,7 +121,7 @@ export const blue = {
   400: '#6B9BEF',
   500: '#3B5998',
   600: '#2D4474',
-  muted: 'rgba(107, 155, 239, 0.12)',
+  muted: 'rgba(107, 155, 239, 0.22)',
 } as const;
 
 // ── Typography ────────────────────────────────────────────────

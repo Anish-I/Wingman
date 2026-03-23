@@ -20,7 +20,7 @@
   /* ── Teal (secondary / assistant status) ──────────────────── */
   --color-pip-accent: #6EC6B8;
   --color-pip-accent-dark: #5AAE9F;
-  --color-pip-accent-muted: #6EC6B838;
+  --color-pip-accent-muted: #6EC6B838;  /* 22% opacity — visible on dark surfaces */
 
   /* ── Blue (info / links — demoted) ────────────────────────── */
   --color-pip-blue: #6B9BEF;
@@ -37,7 +37,8 @@
   /* ── Text ──────────────────────────────────────────────────── */
   --color-pip-text: #F0F0F5;
   --color-pip-text-secondary: #D2D2DE;
-  --color-pip-text-muted: #D0D0DC;
+  --color-pip-text-muted: #B0B0BE;
+  --color-pip-text-disabled: #8E8E9D;
 
   /* ── Semantic ─────────────────────────────────────────────── */
   --color-pip-success: #32D74B;
@@ -171,6 +172,7 @@
     --color-pip-text: #1C1C1E;
     --color-pip-text-secondary: #3C3C43;
     --color-pip-text-muted: #6B6B7A;
+    --color-pip-text-disabled: #AEAEB2;
 
     /* ── Semantic overrides for light-on-white contrast ────────── */
     --color-pip-success: #16A34A;
