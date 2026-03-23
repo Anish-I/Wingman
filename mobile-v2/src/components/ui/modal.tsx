@@ -74,14 +74,22 @@ function useFocusTrap(active: boolean) {
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      // If focus escaped the modal container, pull it back
+      if (!el!.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
 
       if (e.shiftKey) {
-        if (document.activeElement === first) {
+        if (active === first) {
           e.preventDefault();
           last.focus();
         }
       } else {
-        if (document.activeElement === last) {
+        if (active === last) {
           e.preventDefault();
           first.focus();
         }
@@ -97,9 +105,10 @@ function useFocusTrap(active: boolean) {
       el.focus();
     }
 
-    el.addEventListener('keydown', handleKeyDown);
+    // Attach to document so Tab presses are caught before focus moves away
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
-      el.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [active]);
 

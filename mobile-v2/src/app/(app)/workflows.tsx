@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +45,63 @@ export default function WorkflowsScreen() {
   const updateMutation = useUpdateWorkflow();
   const [modalVisible, setModalVisible] = useState(false);
   const [nlInput, setNlInput] = useState('');
+  const modalContentRef = useRef<View>(null);
+
+  // Trap keyboard focus within the modal on web
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !modalVisible) return;
+    const el = modalContentRef.current as unknown as HTMLElement | null;
+    if (!el) return;
+
+    function getFocusable(root: HTMLElement): HTMLElement[] {
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setModalVisible(false);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const focusable = getFocusable(el!);
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (!el!.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+
+      if (e.shiftKey) {
+        if (active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modalVisible]);
 
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
@@ -324,7 +381,11 @@ export default function WorkflowsScreen() {
       {/* NL Input Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/70 justify-end">
-          <View style={{ backgroundColor: surface.card, borderTopWidth: 1, borderTopColor: surface.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 }}>
+          <View
+            ref={modalContentRef}
+            style={{ backgroundColor: surface.card, borderTopWidth: 1, borderTopColor: surface.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 }}
+            {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'New Automation' } as any : {})}
+          >
             <View className="flex-row items-center gap-3 mb-5">
               <View className="w-10 h-10 rounded-xl bg-[#7C5CFC]/20 items-center justify-center">
                 <Ionicons name="sparkles" size={20} color="#7C5CFC" />
