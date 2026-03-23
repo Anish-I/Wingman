@@ -263,20 +263,32 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Guarded append — skips the write once the lock has been released
   // (i.e. after the finally block runs), preventing concurrent appendMessage
   // calls from two requests.
-  // Tracks the in-flight promise so the finally block can drain it before unlocking.
+  // Appends are serialized through a promise chain so the released/TTL check
+  // and the Redis write happen in the same microtask, closing the TOCTOU window
+  // where the lock could be released between the check and the actual write.
+  let appendChain = Promise.resolve();
   const safeAppend = (role, text) => {
     if (lockHolder.released) {
       console.warn(`[user:${userId}] Lock released — skipping appendMessage(${role})`);
       return Promise.resolve();
     }
-    // If the Redis lock TTL is about to expire (or already has), another request
-    // may have acquired a new lock.  Refuse the write to prevent interleaving.
-    if (lockHolder.lockExpiry && Date.now() > lockHolder.lockExpiry - LOCK_SAFETY_MARGIN_MS) {
-      console.warn(`[user:${userId}] Lock TTL expired or near expiry — skipping appendMessage(${role})`);
-      lockHolder.released = true; // mark so subsequent calls short-circuit immediately
-      return Promise.resolve();
-    }
-    const p = appendMessage(user.id, role, text);
+    // Chain the append so it waits for any prior write to complete, then
+    // re-checks the lock state in the same microtask as the Redis call.
+    const p = appendChain.then(() => {
+      // Re-check after preceding append completes — the lock may have been
+      // released or TTL-expired while the previous write was in flight.
+      if (lockHolder.released) {
+        console.warn(`[user:${userId}] Lock released (chain) — skipping appendMessage(${role})`);
+        return;
+      }
+      if (lockHolder.lockExpiry && Date.now() > lockHolder.lockExpiry - LOCK_SAFETY_MARGIN_MS) {
+        console.warn(`[user:${userId}] Lock TTL expired (chain) — skipping appendMessage(${role})`);
+        lockHolder.released = true;
+        return;
+      }
+      return appendMessage(user.id, role, text);
+    });
+    appendChain = p.catch(() => {}); // don't let errors break the chain
     lockHolder.inflightAppend = p;
     p.finally(() => {
       if (lockHolder.inflightAppend === p) lockHolder.inflightAppend = null;
@@ -566,13 +578,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
       .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
     return errorMsg;
   } finally {
+    // Always drain in-flight appends regardless of who set `released`.
+    // Without this, when the reap timer or orphan settlement sets released=true
+    // while an append is mid-flight, the finally block would skip draining,
+    // leaving a Redis write racing with the next request's writes after TTL expiry.
+    if (lockHolder.inflightAppend) {
+      await lockHolder.inflightAppend.catch(e => console.error(`[user:${userId}] Inflight append failed:`, e.message));
+    }
     if (releaseLock && !lockHolder.released) {
       lockHolder.released = true;
-      // Drain any in-flight fire-and-forget appendMessage before releasing
-      // the lock — prevents a new request from interleaving writes.
-      if (lockHolder.inflightAppend) {
-        await lockHolder.inflightAppend.catch(e => console.error(`[user:${userId}] Inflight append failed:`, e.message));
-      }
       // Only explicitly release if the TTL hasn't expired — if it has,
       // Redis already removed the key and a new request may hold the lock.
       // Calling release on an expired lock could delete the NEW lock key.
