@@ -11,7 +11,7 @@ function sanitizeForPrompt(value, maxLength = 100) {
   if (typeof value !== 'string') return '';
   return value
     .normalize('NFKC')                          // fold Unicode lookalikes (ⅰ→i, ﬁ→fi, etc.)
-    .replace(/[^\p{L}\p{N}\s.,!?'"\-()/:;@#&+=%$*~`^]/gu, '')  // keep letters, digits, common punctuation
+    .replace(/[^\p{L}\p{N}\s.,!?'"\-()/:;@#&+=%$*~^]/gu, '')  // keep letters, digits, common punctuation
     .replace(/[\r\n\t]+/g, ' ')                  // collapse whitespace
     .replace(/\s{2,}/g, ' ')                     // no long runs of spaces
     .trim()
