@@ -98,7 +98,7 @@ describe('POST /auth/signup + POST /auth/login', () => {
 
     expect(signupRes.status).toBe(200);
 
-    await redis.set(`otp:${phone}`, require('crypto').createHmac('sha256', process.env.OTP_SECRET || process.env.JWT_SECRET).update('123456').digest('hex'), 'EX', 600);
+    await redis.set(`otp:${phone}`, require('crypto').createHmac('sha256', process.env.OTP_SECRET).update('123456').digest('hex'), 'EX', 600);
 
     const verifyRes = await supertest(app)
       .post('/auth/verify-otp')

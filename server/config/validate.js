@@ -11,6 +11,7 @@ function validateEnv() {
   // Always required
   const required = [
     'JWT_SECRET',
+    'OTP_SECRET',
     'DATABASE_URL',
     'REDIS_URL',
     'COMPOSIO_API_KEY',
@@ -66,6 +67,24 @@ function validateEnv() {
     } else {
       console.warn(`[env-validate] WARN: ${msg}`);
     }
+  }
+
+  // Enforce minimum length for OTP_SECRET to prevent brute-force OTP precomputation
+  const otpSecret = process.env.OTP_SECRET;
+  if (otpSecret && otpSecret.length < 32) {
+    const msg = 'OTP_SECRET must be at least 32 characters long to prevent OTP precomputation attacks';
+    if (isProduction) {
+      console.error(`[env-validate] ERROR: ${msg}`);
+      process.exit(1);
+    } else {
+      console.warn(`[env-validate] WARN: ${msg}`);
+    }
+  }
+
+  // Warn if OTP_SECRET and JWT_SECRET are the same — defeats the purpose of separation
+  if (otpSecret && jwtSecret && otpSecret === jwtSecret) {
+    const msg = 'OTP_SECRET should differ from JWT_SECRET for proper secret isolation';
+    console.warn(`[env-validate] WARN: ${msg}`);
   }
 
   if (missing.length === 0) {
