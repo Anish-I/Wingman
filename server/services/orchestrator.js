@@ -227,21 +227,37 @@ async function processMessage(user, messageText) {
     const result = await Promise.race([innerPromise, timeout]);
     return result;
   } catch (err) {
-    // On timeout, the inner promise is now orphaned — track it
+    // On timeout, the inner promise is now orphaned — block its writes,
+    // drain any in-flight append, then release the lock so a retry can
+    // safely acquire it without interleaving messages.
     if (abortController.aborted) {
-      // Do NOT force-release the lock here.  _processMessageInner will
-      // detect the abort at its next throwIfAborted checkpoint, bail out,
-      // and release the lock in its own finally block.  Force-releasing
-      // while the inner function is still running allows a second request
-      // to acquire the lock and call appendMessage concurrently, creating
-      // out-of-order or duplicate messages in conversation history.
+      // Block all further safeAppend calls from the orphaned inner promise.
+      // This must happen BEFORE draining/releasing so no new writes can
+      // start between the drain and the lock release.
+      lockHolder.released = true;
+
+      // Drain any in-flight append so it completes before we release the lock.
+      if (lockHolder.inflightAppend) {
+        await lockHolder.inflightAppend.catch(e =>
+          console.error(`[user:${userId}] Inflight append drain failed:`, e.message));
+      }
+
+      // Explicitly release the lock now that no more writes can happen.
+      if (lockHolder.releaseLock) {
+        if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
+          await lockHolder.releaseLock().catch(e =>
+            console.error(`[user:${userId}] Failed to release lock after timeout:`, e.message));
+        }
+      }
+
+      // Track the orphan — it's harmless now since released=true blocks
+      // all writes, but we still track it for backpressure purposes.
       const orphanToken = _addOrphan(userId);
       console.warn(`[user:${userId}] Request timed out, orphaned promise tracked (user count: ${_getUserOrphanCount(userId)}, global: ${getOrphanedCount()})`);
       let reaped = false;
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          lockHolder.released = true; // prevent orphaned inner promise from writing via safeAppend
           _removeOrphan(userId, orphanToken);
           console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (user remaining: ${_getUserOrphanCount(userId)})`);
         }
@@ -253,7 +269,6 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            lockHolder.released = true; // prevent any trailing safeAppend calls
             _removeOrphan(userId, orphanToken);
             console.log(`[user:${userId}] Orphaned promise settled (user remaining: ${_getUserOrphanCount(userId)})`);
           }
