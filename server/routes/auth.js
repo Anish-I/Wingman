@@ -78,6 +78,10 @@ const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
 const AUTH_CODE_TTL = 60; // 60 seconds — short-lived, single-use
 const AUTH_COOKIE_NAME = '__wingman_sess';
+// Pre-computed bcrypt hash used as a timing equalizer when the account does not
+// exist.  bcrypt.compare against this dummy always returns false but takes the
+// same wall-clock time as a real comparison, preventing timing-oracle enumeration.
+const DUMMY_HASH = bcrypt.hashSync('wingman-dummy-sentinel', 10);
 
 /** Set the httpOnly auth cookie for web clients. */
 function setAuthCookie(res, token) {
@@ -273,16 +277,13 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     let user = await getUserByEmail(normalizedEmail);
     if (!user) user = await getUserByPhone(`email:${normalizedEmail}`);
-    if (!user || !user.pin_hash) {
-      // Increment counter even for non-existent accounts to prevent user enumeration timing
-      await redis.incr(attemptKey);
-      // Only set TTL when key is first created (TTL -1) to prevent sliding window lockout
-      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
-      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
-    }
 
-    const valid = await bcrypt.compare(password, user.pin_hash);
-    if (!valid) {
+    // Always run bcrypt so response time is identical whether the account exists
+    // or not — prevents timing-oracle account enumeration.
+    const hashToCheck = (user && user.pin_hash) ? user.pin_hash : DUMMY_HASH;
+    const valid = await bcrypt.compare(password, hashToCheck);
+
+    if (!user || !user.pin_hash || !valid) {
       await redis.incr(attemptKey);
       if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
