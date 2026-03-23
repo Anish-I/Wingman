@@ -39,6 +39,7 @@ import { Platform, Pressable, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
+import { useThemeColors } from './tokens';
 import { Text } from './text';
 
 /**
@@ -138,6 +139,7 @@ export function useModal() {
 }
 
 export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | number)[], title, detached = false, ...props }: ModalProps & { ref?: ModalRef }) {
+  const { surface } = useThemeColors();
   const detachedProps = React.useMemo(
     () => getDetachedProps(detached),
     [detached],
@@ -153,7 +155,7 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
   const renderHandleComponent = React.useCallback(
     () => (
       <>
-        <View className="mt-2 mb-8 h-1 w-12 self-center rounded-lg bg-gray-400 dark:bg-gray-700" />
+        <View className="mt-2 mb-8 h-1 w-12 self-center rounded-lg bg-gray-300 dark:bg-gray-700" />
         <ModalHeader title={title} dismiss={modal.dismiss} />
       </>
     ),
@@ -169,6 +171,7 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
       ref={modal.ref}
       index={0}
       snapPoints={snapPoints}
+      backgroundStyle={{ backgroundColor: surface.elevated }}
       backdropComponent={props.backdropComponent || renderBackdrop}
       enableDynamicSizing={false}
       handleComponent={renderHandleComponent}
@@ -261,7 +264,7 @@ function CloseButton({ close }: { close: () => void }) {
       accessibilityHint="closes the modal"
     >
       <Svg
-        className="fill-neutral-300 dark:fill-white"
+        className="fill-neutral-600 dark:fill-neutral-300"
         width={24}
         height={24}
         fill="none"

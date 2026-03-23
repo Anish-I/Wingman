@@ -8,6 +8,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
 import { useThemeColors } from '@/components/ui/tokens';
+import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
 import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -106,6 +107,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { data: profile } = useProfile();
   const { mutate: persistPrefs } = usePersistPreferences();
+  const { setSelectedTheme } = useSelectedTheme();
 
   const displayName = profile?.name || profile?.phone || 'User';
   const displayPhone = profile?.phone ?? '—';
@@ -118,14 +120,27 @@ export default function SettingsScreen() {
   const THEME_OPTIONS = ['Dark', 'Light', 'System'];
   const LANGUAGE_OPTIONS = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Japanese', 'Chinese'];
 
+  /** Map display label → Uniwind ColorSchemeType */
+  const themeValueMap: Record<string, ColorSchemeType> = {
+    Dark: 'dark',
+    Light: 'light',
+    System: 'system',
+  };
+
+  function applyTheme(label: string) {
+    persistPrefs({ theme: label });
+    const scheme = themeValueMap[label];
+    if (scheme) setSelectedTheme(scheme);
+  }
+
   function handleSelectTheme() {
     if (Platform.OS === 'web') {
       const next = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length];
-      persistPrefs({ theme: next });
+      applyTheme(next);
       return;
     }
     Alert.alert('Theme', 'Choose a theme', [
-      ...THEME_OPTIONS.map((t) => ({ text: t, onPress: () => persistPrefs({ theme: t }) })),
+      ...THEME_OPTIONS.map((t) => ({ text: t, onPress: () => applyTheme(t) })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   }

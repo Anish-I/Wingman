@@ -108,6 +108,14 @@ export const semantic = {
   info: '#6B9BEF',
 } as const;
 
+// ── Semantic (light theme — better contrast on white) ────────
+export const semanticLight = {
+  success: '#16A34A',
+  error: '#DC2626',
+  warning: '#D97706',
+  info: '#2563EB',
+} as const;
+
 // ── Legacy blue (demoted to info / link) ──────────────────────
 export const blue = {
   400: '#6B9BEF',
@@ -328,6 +336,7 @@ export function useThemeColors() {
   return {
     surface: isDark ? surface : surfaceLight,
     text: isDark ? text : textLight,
+    semantic: isDark ? semantic : semanticLight,
     isDark,
   } as const;
 }

@@ -22,6 +22,7 @@ const DarkTheme: Theme = {
     text: '#F0F0F5', // Primary text
     border: '#232330', // Standard border
     card: '#131315', // Card surface
+    notification: colors.primary[500],
   },
 };
 

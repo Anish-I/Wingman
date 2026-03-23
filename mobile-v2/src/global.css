@@ -171,6 +171,12 @@
     --color-pip-text: #1C1C1E;
     --color-pip-text-secondary: #3C3C43;
     --color-pip-text-muted: #6B6B7A;
+
+    /* ── Semantic overrides for light-on-white contrast ────────── */
+    --color-pip-success: #16A34A;
+    --color-pip-error: #DC2626;
+    --color-pip-warning: #D97706;
+    --color-pip-orange: #C2410C;
   }
 }
 
