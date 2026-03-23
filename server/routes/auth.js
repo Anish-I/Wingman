@@ -285,8 +285,8 @@ router.post('/login', loginLimiter, async (req, res) => {
     const valid = await bcrypt.compare(password, hashToCheck);
 
     if (!user || !user.pin_hash || !valid) {
-      await redis.incr(attemptKey);
-      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
+      const failCount = await redis.incr(attemptKey);
+      if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
@@ -416,9 +416,10 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     // Compare HMAC of submitted code against stored hash (constant-time)
     const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
     if (!storedHash || storedHash.length !== submittedHash.length || !crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(submittedHash))) {
-      // Increment per-phone attempt counter; only set TTL on first failure to prevent sliding window lockout
-      await redis.incr(attemptKey);
-      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, OTP_TTL);
+      // Increment per-phone attempt counter; TTL set only when count==1 (key just created)
+      // so the window is fixed — not reset on every failure (prevents sliding window lockout).
+      const failCount = await redis.incr(attemptKey);
+      if (failCount === 1) await redis.expire(attemptKey, OTP_TTL);
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
@@ -1001,10 +1002,10 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
     const valid = await bcrypt.compare(pin, req.user.pin_hash);
 
     if (!valid) {
-      await redis.incr(attemptKey);
-      // Only set TTL on first failure to use a fixed window, preventing
-      // sliding window attacks that cause permanent account lockout
-      if (await redis.ttl(attemptKey) === -1) await redis.expire(attemptKey, 15 * 60);
+      // TTL set only when count==1 (key just created) so the window is fixed —
+      // not reset on every failure (prevents sliding window lockout).
+      const failCount = await redis.incr(attemptKey);
+      if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
     } else {
       await redis.del(attemptKey);
     }
