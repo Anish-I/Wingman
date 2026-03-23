@@ -56,11 +56,13 @@ router.post('/sms', async (req, res) => {
     const { getPendingReplyForUser, resolvePendingReply } = require('../db/queries');
     const pendingReply = await getPendingReplyForUser(user.id);
     if (pendingReply) {
-      await resolvePendingReply(pendingReply.id, body);
       const { resumeWorkflowRun } = require('../services/workflow-agent');
-      resumeWorkflowRun(pendingReply.run_id, body).catch(err => {
+      try {
+        await resumeWorkflowRun(pendingReply.run_id, body);
+        await resolvePendingReply(pendingReply.id, body);
+      } catch (err) {
         console.error('[stub-sms] Workflow resume error:', err.message);
-      });
+      }
       const replyText = 'Got it! Processing your reply...';
       await provider.sendMessage(from, replyText);
       await appendMessage(user.id, 'assistant', replyText);
