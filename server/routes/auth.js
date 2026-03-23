@@ -528,6 +528,22 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
+    // Distributed lock on the phone number to serialize all post-OTP operations
+    // (attempt counter cleanup, user lookup/creation, account merge). Prevents
+    // concurrent verify-otp requests for the same phone from racing between
+    // GETDEL and account creation, which could cause duplicate accounts or
+    // double-merge operations across multiple server instances.
+    const lockKey = `otp_verify_lock:${phone}`;
+    const lockValue = crypto.randomUUID();
+    const lockTTL = 10; // seconds — generous ceiling for DB operations
+    const acquired = await redis.set(lockKey, lockValue, 'EX', lockTTL, 'NX');
+    if (!acquired) {
+      // Another verify-otp request for this phone is already in the critical section.
+      // The OTP was already consumed by GETDEL, so we can't retry — tell the client.
+      return res.status(409).json({ error: { code: 'CONCURRENT_VERIFY', message: 'Verification already in progress for this number. Please try again.' } });
+    }
+
+    try {
     // OTP already consumed by GETDEL above — clear attempt counter
     await redis.del(attemptKey);
 
@@ -614,6 +630,13 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     setAuthCookie(res, token);
 
     res.json(authResponse(req, token, { id: user.id, phone: user.phone, name: user.name }));
+    } finally {
+      // Release the distributed lock, but only if we still own it (compare-and-delete).
+      // Uses a Lua script for atomicity — prevents releasing a lock that expired and
+      // was re-acquired by another request.
+      const releaseLua = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`;
+      await redis.eval(releaseLua, 1, lockKey, lockValue).catch(() => {});
+    }
   } catch (err) {
     // Unique-constraint on phone (code 23505) means another request linked
     // this number first. Return a clear 409 instead of a generic 500.
