@@ -272,11 +272,12 @@ async function executeTool(userId, toolCallBlock) {
       // on the remote service. Deleting the key would let a retry claim a new
       // slot and execute concurrently, risking duplicate sends/posts/deletes.
       //
-      // For timeout errors, use the shorter PENDING_TTL so the tool becomes
-      // retryable sooner — the full dedup window (300s) would leave the tool
-      // permanently blocked when the underlying call may have simply been slow.
-      const isTimeout = /timeout|timed.?out|ETIMEDOUT|ECONNABORTED|ESOCKETTIMEDOUT/i.test(err.message || err.code || '');
-      const errorTTL = isTimeout ? PENDING_TTL : TOOL_IDEMPOTENCY_TTL;
+      // Always use the full dedup TTL for side-effecting tools, even on
+      // timeout.  The original request may still be in-flight on the remote
+      // service well beyond PENDING_TTL (30s).  Using the short TTL allowed
+      // a retry to reclaim the idempotency slot while the original was still
+      // executing, causing duplicate side effects (e.g. sending two emails).
+      const errorTTL = TOOL_IDEMPOTENCY_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
       await redis.set(idempKey, errorResult, 'EX', errorTTL).catch(() => {});
     } else {
