@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const crypto = require('crypto');
 
 /**
  * Build ioredis options with optional password from REDIS_PASSWORD env var.
@@ -143,7 +144,7 @@ async function deduplicateMessage(msgId, phone, messageText) {
  */
 async function acquireConversationLock(userId, ttlSeconds = 120) {
   const key = `conv:lock:${userId}`;
-  const token = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const token = `${Date.now()}:${crypto.randomBytes(16).toString('hex')}`;
   const acquired = await redis.set(key, token, 'NX', 'EX', ttlSeconds);
   if (acquired !== 'OK') return null;
   return async function release() {
