@@ -59,7 +59,11 @@ async function seed() {
 
     // Generate JWT token for testing (using hardcoded secret for QA)
     const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'qa_test_secret_64_character_string_minimum_for_testing_only_12345';
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET environment variable is required');
+      process.exit(1);
+    }
+    const JWT_SECRET = process.env.JWT_SECRET;
     const token = jwt.sign(
       { userId, phone: TEST_PHONE },
       JWT_SECRET,
