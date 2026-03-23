@@ -1191,6 +1191,20 @@ router.post('/logout', async (req, res) => {
   }
 });
 
+// POST /auth/logout-all — revoke all active sessions for the authenticated user.
+// Useful when a token may be compromised: the user can invalidate every JWT
+// issued before this moment without needing the compromised token itself.
+router.post('/logout-all', requireAuth, async (req, res) => {
+  try {
+    await invalidateUserSessions(req.user.id);
+    clearAuthCookie(res);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Logout-all error:', err);
+    res.status(500).json({ error: { code: 'LOGOUT_ALL_ERROR', message: 'Failed to revoke sessions. Please try again.' } });
+  }
+});
+
 /**
  * Invalidate all existing sessions for a user by recording a timestamp in Redis.
  * Tokens issued before this timestamp are rejected by isTokenRevoked().
@@ -1216,7 +1230,9 @@ async function invalidateUserSessions(userId) {
  * @param {number} [iat] - Token issued-at timestamp (Unix seconds)
  */
 async function isTokenRevoked(jti, userId, iat) {
-  if (!jti) return false;
+  // Fail closed: tokens without a jti cannot be checked against the blacklist,
+  // so treat them as revoked to prevent bypass via legacy or crafted tokens.
+  if (!jti) return true;
   // Check per-token blacklist (logout), per-user blacklist (account deletion),
   // and per-user session invalidation (identity linking)
   const checks = [redis.get(`blacklist:${jti}`)];
