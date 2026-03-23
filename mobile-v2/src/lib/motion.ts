@@ -88,9 +88,17 @@ export const STAGGER_MS = 60;
 /** Max total stagger window — keeps entrance animations under 500ms */
 const MAX_STAGGER_TOTAL_MS = 400;
 
-/** Compute stagger delay for index, capped to stay within UX guidelines */
+/**
+ * Compute stagger delay for index using an asymptotic curve.
+ * Early items get noticeable spacing; later items compress smoothly
+ * so total delay never exceeds MAX_STAGGER_TOTAL_MS regardless of list size.
+ */
 export function staggerDelay(index: number, baseDelay = 0) {
-  return baseDelay + Math.min(index * STAGGER_MS, MAX_STAGGER_TOTAL_MS);
+  // Asymptotic: delay = MAX * (1 - e^(-index * k))
+  // k chosen so the first few items ≈ STAGGER_MS apart, then taper off.
+  const k = STAGGER_MS / MAX_STAGGER_TOTAL_MS;
+  const delay = MAX_STAGGER_TOTAL_MS * (1 - Math.exp(-index * k));
+  return baseDelay + Math.round(delay);
 }
 
 // ── Entrance presets (MotiView props) ──────────────────────────
