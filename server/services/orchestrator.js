@@ -228,6 +228,16 @@ async function processMessage(user, messageText) {
 async function _processMessageInner(user, messageText, abortController = { aborted: false }, lockHolder = { releaseLock: null, released: false }) {
   const userId = String(user.id);
 
+  // Guarded append — skips the write if the lock was force-released by the
+  // outer timeout, preventing concurrent appendMessage calls from two requests.
+  const safeAppend = (role, text) => {
+    if (lockHolder.released) {
+      console.warn(`[user:${userId}] Lock force-released — skipping appendMessage(${role}) to avoid race`);
+      return Promise.resolve();
+    }
+    return appendMessage(user.id, role, text);
+  };
+
   // Acquire per-user lock to serialize concurrent requests.
   // Retry a few times with back-off before rejecting.
   let releaseLock;
@@ -260,7 +270,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // Append user message immediately so it's sequenced before any LLM work.
   // This ensures cache path and main path both have the message persisted atomically.
-  await appendMessage(user.id, 'user', messageText);
+  await safeAppend('user', messageText);
 
   const selectedTools = selectToolsForMessage(allTools, messageText);
   const tools = [...LOCAL_TOOLS, ...selectedTools];
@@ -272,7 +282,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (shouldCache(messageText)) {
     const cached = await getCachedResponse(messageText, userId);
     if (cached) {
-      await appendMessage(user.id, 'assistant', cached);
+      await safeAppend('assistant', cached);
       return cached;
     }
   }
@@ -445,7 +455,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (abortController.aborted) {
     if (!lockHolder.released) {
       console.warn(`[user:${userId}] Request timed out — persisting assistant reply in background`);
-      appendMessage(user.id, 'assistant', finalText)
+      safeAppend('assistant', finalText)
         .catch(e => console.error(`[user:${userId}] Background history persist failed:`, e.message));
     } else {
       console.warn(`[user:${userId}] Request timed out and lock already force-released — skipping appendMessage to avoid race`);
@@ -453,7 +463,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
     return finalText;
   }
-  await appendMessage(user.id, 'assistant', finalText);
+  await safeAppend('assistant', finalText);
 
   // Cache the response if eligible
   if (shouldCache(messageText) && finalText) {
@@ -482,40 +492,30 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // stop immediately and let the orphaned-promise tracker handle cleanup.
     // If the lock was force-released by the outer timeout, another request may
     // already hold the lock.  Skip all appendMessage calls to avoid concurrent writes.
-    const lockLost = lockHolder.released;
-
     if (err.name === 'AbortError') {
       console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
-      if (!lockLost) {
-        appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
-          .catch(e => console.error(`[user:${userId}] Abort history persist failed:`, e.message));
-      }
+      safeAppend('assistant', "Sorry, that took too long. Please try again.")
+        .catch(e => console.error(`[user:${userId}] Abort history persist failed:`, e.message));
       return "Sorry, that took too long. Please try again.";
     }
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       const rateLimitMsg = "One sec — juggling a few things. Try again in a moment.";
-      if (!lockLost) {
-        appendMessage(user.id, 'assistant', rateLimitMsg)
-          .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
-      }
+      safeAppend('assistant', rateLimitMsg)
+        .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
       return rateLimitMsg;
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
-      if (!lockLost) {
-        appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
-          .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
-      }
+      safeAppend('assistant', "Sorry, that took too long. Please try again.")
+        .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
       return "Sorry, that took too long. Please try again.";
     }
     // Any other LLM/service failure — persist error response so the user's
     // message doesn't appear unanswered on retry or app restart.
     console.error(`[user:${userId}] Unhandled LLM error:`, err.message);
     const errorMsg = "Something went wrong on my end. Please try again.";
-    if (!lockLost) {
-      appendMessage(user.id, 'assistant', errorMsg)
-        .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
-    }
+    safeAppend('assistant', errorMsg)
+      .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
     return errorMsg;
   } finally {
     if (releaseLock && !lockHolder.released) {
