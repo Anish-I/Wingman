@@ -52,14 +52,13 @@ router.post('/sms', async (req, res) => {
     // Store incoming message in conversation history
     await appendMessage(user.id, 'user', body);
 
-    // Check for pending workflow replies
-    const { getPendingReplyForUser, resolvePendingReply } = require('../db/queries');
-    const pendingReply = await getPendingReplyForUser(user.id);
+    // Check for pending workflow replies (atomic claim prevents duplicate processing on concurrent webhooks)
+    const { claimPendingReplyForUser } = require('../db/queries');
+    const pendingReply = await claimPendingReplyForUser(user.id, body);
     if (pendingReply) {
       const { resumeWorkflowRun } = require('../services/workflow-agent');
       try {
         await resumeWorkflowRun(pendingReply.run_id, body);
-        await resolvePendingReply(pendingReply.id, body);
       } catch (err) {
         console.error('[stub-sms] Workflow resume error:', err.message);
       }

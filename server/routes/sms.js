@@ -128,9 +128,9 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
-  // Check for pending workflow replies
-  const { getPendingReplyForUser, resolvePendingReply } = require('../db/queries');
-  const pendingReply = await getPendingReplyForUser(user.id);
+  // Check for pending workflow replies (atomic claim prevents duplicate processing on concurrent webhooks)
+  const { claimPendingReplyForUser } = require('../db/queries');
+  const pendingReply = await claimPendingReplyForUser(user.id, messageText);
   if (pendingReply) {
     const { resumeWorkflowRun } = require('../services/workflow-agent');
     await appendMessage(user.id, 'user', messageText);
@@ -138,7 +138,6 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
     try {
       await resumeWorkflowRun(pendingReply.run_id, messageText);
-      await resolvePendingReply(pendingReply.id, messageText);
     } catch (err) {
       console.error('[sms] Workflow resume error:', err.message);
       const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';

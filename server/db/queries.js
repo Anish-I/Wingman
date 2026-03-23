@@ -634,6 +634,27 @@ async function resolvePendingReply(replyId, replyText) {
   return result.rows[0];
 }
 
+/**
+ * Atomically claim and resolve the most recent pending reply for a user.
+ * Uses FOR UPDATE SKIP LOCKED so concurrent requests cannot claim the same row.
+ * Returns the claimed row or null if none available (already claimed by another request).
+ */
+async function claimPendingReplyForUser(userId, replyText) {
+  const result = await query(
+    `UPDATE workflow_pending_replies
+     SET resolved_at = NOW(), reply_text = $2
+     WHERE id = (
+       SELECT id FROM workflow_pending_replies
+       WHERE user_id = $1 AND resolved_at IS NULL
+       ORDER BY created_at DESC LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING *`,
+    [userId, replyText]
+  );
+  return result.rows[0] || null;
+}
+
 module.exports = {
   getUserByPhone,
   getUserByEmail,
@@ -676,6 +697,7 @@ module.exports = {
   createPendingReply,
   getPendingReplyForUser,
   resolvePendingReply,
+  claimPendingReplyForUser,
   mergeUserAccounts,
   isSyntheticPhone,
   isRealPhone,
