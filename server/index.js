@@ -105,7 +105,15 @@ app.use(cors({
 app.use(cookieParser());
 
 // Body parsing with size limits
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({
+  limit: '100kb',
+  verify: (req, _res, buf) => {
+    // Preserve raw body for webhook signature verification (Telnyx)
+    if (req.originalUrl && req.originalUrl.startsWith('/webhook')) {
+      req.rawBody = buf;
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Global rate limit: 100 requests per 15 minutes

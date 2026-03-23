@@ -65,7 +65,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
-        const rawBody = JSON.stringify(req.body);
+        const rawBody = req.rawBody;
         const isValid = provider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
           console.warn('[security] Invalid Telnyx signature');
