@@ -158,6 +158,19 @@
     --color-ring: #7C5CFC;
     --color-destructive: #DC2626;
     --color-destructive-foreground: #ffffff;
+
+    /* ── Pip surface overrides for light mode ──────────────────── */
+    --color-pip-bg: #FFFFFF;
+    --color-pip-card: #F5F5F7;
+    --color-pip-card-alt: #EFEFF2;
+    --color-pip-elevated: #FFFFFF;
+    --color-pip-border: #D1D1D6;
+    --color-pip-border-strong: #B0B0BA;
+
+    /* ── Pip text overrides for light mode ─────────────────────── */
+    --color-pip-text: #1C1C1E;
+    --color-pip-text-secondary: #3C3C43;
+    --color-pip-text-muted: #6B6B7A;
   }
 }
 

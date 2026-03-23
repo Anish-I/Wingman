@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { twMerge } from 'tailwind-merge';
+import { useThemeColors } from '@/components/ui/tokens';
 
 type Props = {
   initialProgress?: number;
@@ -19,6 +20,7 @@ export type ProgressBarRef = {
 };
 
 export function ProgressBar({ ref, initialProgress = 0, className = '' }: Props & { ref?: React.RefObject<ProgressBarRef | null> }) {
+  const { text: t } = useThemeColors();
   const progress = useSharedValue<number>(initialProgress ?? 0);
   useImperativeHandle(ref, () => {
     return {
@@ -34,13 +36,12 @@ export function ProgressBar({ ref, initialProgress = 0, className = '' }: Props 
   const style = useAnimatedStyle(() => {
     return {
       width: `${progress.value}%`,
-      backgroundColor: '#000',
       height: 2,
     };
   });
   return (
-    <View className={twMerge(`bg-[#EAEAEA]`, className)}>
-      <Animated.View style={style} />
+    <View className={twMerge(`bg-muted`, className)}>
+      <Animated.View style={[style, { backgroundColor: t.primary }]} />
     </View>
   );
 }
