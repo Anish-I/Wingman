@@ -21,7 +21,7 @@ const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 1
 // Per-user orphaned promise tracking — prevents one user's hung requests from blocking others.
 // Each orphan gets a unique Symbol token so reap timers and settlement callbacks target their
 // own entry rather than accidentally decrementing a newer orphan.
-const _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
+let _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
 let _totalOrphanCount = 0; // O(1) global counter kept in sync by add/remove/sweep
 let _lastSweepTime = 0; // monotonic timestamp of the last successful sweep
 
@@ -32,16 +32,24 @@ let _lastSweepTime = 0; // monotonic timestamp of the last successful sweep
 function _sweepOrphans() {
   try {
     const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+    // Rebuild from scratch instead of mutating in-place.  V8's Map does not
+    // shrink its internal hash table after deletions, so in-place delete leaves
+    // the backing store at its high-water-mark size.  Rebuilding lets the old
+    // Map (and its oversized hash table) be GC'd, preventing monotonic memory
+    // growth when many distinct user IDs cycle through orphan tracking.
+    const fresh = new Map();
     let liveCount = 0;
     for (const [userId, perUser] of _orphanedByUser) {
+      const liveTokens = new Map();
       for (const [token, ts] of perUser) {
-        if (ts < cutoff) perUser.delete(token);
+        if (ts >= cutoff) {
+          liveTokens.set(token, ts);
+          liveCount++;
+        }
       }
-      liveCount += perUser.size;
-      if (perUser.size === 0) _orphanedByUser.delete(userId);
+      if (liveTokens.size > 0) fresh.set(userId, liveTokens);
     }
-    // Reconcile counter with actual map state — corrects any drift from
-    // edge-case double-removes or missed decrements.
+    _orphanedByUser = fresh;
     _totalOrphanCount = liveCount;
     _lastSweepTime = Date.now();
   } catch (err) {
