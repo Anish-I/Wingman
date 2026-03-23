@@ -106,11 +106,17 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, false);
     }
   } catch (err) {
-    const code = err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
+    const isRetriable = err.code === 'ECONNREFUSED'
+      || err.code === 'ENOTFOUND'
+      || err.code === 'ETIMEDOUT'
+      || err.code === 'EAI_AGAIN'
+      || (err.message && /database|pg|redis|ECONNRESET/i.test(err.message));
+    const code = isRetriable ? 'SERVICE_UNAVAILABLE'
       : err.name === 'JsonWebTokenError' ? 'AUTH_ERROR'
       : 'WEBHOOK_ERROR';
+    const status = isRetriable ? 503 : 500;
     console.error(`SMS webhook error [${code}]:`, err);
-    res.status(200).json({});
+    res.status(status).json({ error: { code, message: 'Internal server error' } });
   }
 });
 
