@@ -195,9 +195,11 @@ export default function PermissionsScreen() {
                     <Pressable
                       onPress={handleAllowNotifications}
                       disabled={isGranted}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={({ pressed }) => [
                         ...chipPressStyle({ pressed }),
                         webInteractive(),
+                        { minHeight: 44, justifyContent: 'center' as const },
                       ]}
                     >
                       {isGranted
