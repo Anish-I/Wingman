@@ -290,7 +290,8 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       if (!step || typeof step !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is not a valid object` } });
-      if (typeof step.description !== 'string' || step.description.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is missing a description` } });
+      const stepText = step.description || step.instruction;
+      if (typeof stepText !== 'string' || stepText.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is missing a description` } });
     }
 
     for (let i = 0; i < actions.length; i++) {

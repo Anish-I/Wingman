@@ -79,6 +79,10 @@ function validatePlan(raw) {
     }
   }
 
+  if (steps.length === 0) {
+    throw new Error('Workflow plan has no valid steps');
+  }
+
   // system_prompt is NOT accepted from LLM output — it must come from
   // trusted templates only, never from dynamically generated plans
   return { name, description, trigger_type: triggerType, cron_expression: cronExpression, steps, variables };
