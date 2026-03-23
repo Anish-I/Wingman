@@ -385,16 +385,11 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     const otp = crypto.randomInt(100000, 1000000).toString();
     // Store HMAC hash instead of plaintext — prevents Redis read access from leaking OTPs
     const otpHash = crypto.createHmac('sha256', JWT_SECRET).update(otp).digest('hex');
-    await redis.set(`otp:${phone}`, otpHash, 'EX', OTP_TTL);
-
-    // Track which user (if any) requested this OTP to prevent session fixation:
-    // an attacker with token A must not link a victim's phone by intercepting their OTP.
-    if (requestingUserId) {
-      await redis.set(`otp_requester:${phone}`, String(requestingUserId), 'EX', OTP_TTL);
-    } else {
-      // Ensure no stale requester tag from a previous authenticated request
-      await redis.del(`otp_requester:${phone}`);
-    }
+    // Bundle the requester ID with the OTP hash so both are consumed atomically
+    // in a single GETDEL during verify-otp. This prevents session-fixation races
+    // where a separate otp_requester key could be independently consumed or lost.
+    const otpValue = JSON.stringify({ hash: otpHash, requester: requestingUserId ? String(requestingUserId) : null });
+    await redis.set(`otp:${phone}`, otpValue, 'EX', OTP_TTL);
 
     // Set 60-second cooldown
     await redis.set(cooldownKey, '1', 'EX', 60);
@@ -430,7 +425,19 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     const otpKey = `otp:${phone}`;
     // Atomically retrieve AND delete the OTP in one step to prevent race conditions
     // where concurrent requests both read the same OTP before either deletes it.
-    const storedHash = await redis.call('GETDEL', otpKey);
+    const storedRaw = await redis.call('GETDEL', otpKey);
+    let storedHash = null;
+    let otpRequester = null;
+    if (storedRaw) {
+      try {
+        const parsed = JSON.parse(storedRaw);
+        storedHash = parsed.hash;
+        otpRequester = parsed.requester;
+      } catch {
+        // Legacy format (plain hash string) — no requester info available
+        storedHash = storedRaw;
+      }
+    }
     const codeStr = String(code);
     // Compare HMAC of submitted code against stored hash (constant-time)
     const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
@@ -466,15 +473,12 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     // Session-fixation guard: if the caller is authenticated and wants to link
     // this phone, the OTP must have been requested by the SAME user. This prevents
     // an attacker (token A) from intercepting a victim's OTP to steal their phone.
+    // The requester ID was bundled into the OTP value and consumed atomically above,
+    // so there is no separate key that can be independently lost or raced.
     if (existingPayload && existingPayload.userId) {
-      const requesterKey = `otp_requester:${phone}`;
-      const requesterId = await redis.call('GETDEL', requesterKey);
-      if (!requesterId || String(requesterId) !== String(existingPayload.userId)) {
+      if (!otpRequester || String(otpRequester) !== String(existingPayload.userId)) {
         return res.status(403).json({ error: { code: 'SESSION_MISMATCH', message: 'OTP was not requested by this account. Please request a new code.' } });
       }
-    } else {
-      // Unauthenticated login — clean up any requester tag
-      await redis.del(`otp_requester:${phone}`);
     }
 
     let user;
