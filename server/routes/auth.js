@@ -427,9 +427,14 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     }
 
     // Redis-based per-phone rate limiting (prevents distributed brute-force across IPs)
+    // Use atomic INCR to eliminate TOCTOU race where concurrent requests both read
+    // the same count and bypass the limit. Increment first, check after.
     const attemptKey = `otp_attempts:${phone}`;
-    const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
-    if (attempts >= 5) {
+    const attempts = await redis.incr(attemptKey);
+    // Set TTL only when the key is first created (count == 1) so the window is
+    // fixed from the first failure, not reset on every attempt.
+    if (attempts === 1) await redis.expire(attemptKey, OTP_TTL);
+    if (attempts > 5) {
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed OTP attempts for this number. Try again in 10 minutes.' } });
     }
 
@@ -453,10 +458,8 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     // Compare HMAC of submitted code against stored hash (constant-time)
     const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
     if (!storedHash || storedHash.length !== submittedHash.length || !crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(submittedHash))) {
-      // Increment per-phone attempt counter; TTL set only when count==1 (key just created)
-      // so the window is fixed — not reset on every failure (prevents sliding window lockout).
-      const failCount = await redis.incr(attemptKey);
-      if (failCount === 1) await redis.expire(attemptKey, OTP_TTL);
+      // Attempt counter was already incremented atomically at the top of the handler,
+      // so just return the error — no separate INCR needed here.
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
