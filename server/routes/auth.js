@@ -7,7 +7,7 @@ const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, getOrCreateUserByPhone, createUserByEmail, updateUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
+const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, getOrCreateUserByPhone, createUserByEmail, updateUserPin, claimUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
 const { withTransaction } = require('../db/index');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
@@ -240,8 +240,13 @@ router.post('/signup', signupLimiter, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     if (user) {
-      await updateUserPin(user.id, passwordHash);
-      user = await linkUserIdentity(user.id, { email: normalizedEmail }) || user;
+      // Atomically set pin only if no pin exists yet — prevents race where
+      // another request sets a pin between our check and this update.
+      const claimed = await claimUserPin(user.id, passwordHash);
+      if (!claimed) {
+        return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
+      }
+      user = await linkUserIdentity(user.id, { email: normalizedEmail }) || claimed;
     } else {
       // Atomically insert with email set to prevent concurrent-signup race.
       // createUserByEmail catches unique constraint violations and returns
@@ -251,7 +256,17 @@ router.post('/signup', signupLimiter, async (req, res) => {
       if (!created && user.pin_hash) {
         return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
       }
-      await updateUserPin(user.id, passwordHash);
+      if (created) {
+        await updateUserPin(user.id, passwordHash);
+      } else {
+        // Race: another request created this user between our lookup and insert.
+        // Use atomic claim to prevent overwriting a pin set by the winner.
+        const claimed = await claimUserPin(user.id, passwordHash);
+        if (!claimed) {
+          return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
+        }
+        user = claimed;
+      }
     }
 
     const token = signToken({ userId: user.id, phone: user.phone });

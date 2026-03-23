@@ -252,6 +252,18 @@ async function updateUserPin(userId, pinHash) {
   return result.rows[0];
 }
 
+/**
+ * Atomically set pin_hash only if the user currently has no pin.
+ * Returns the updated row, or null if someone else set a pin first.
+ */
+async function claimUserPin(userId, pinHash) {
+  const result = await query(
+    'UPDATE users SET pin_hash = $1, updated_at = NOW() WHERE id = $2 AND pin_hash IS NULL RETURNING *',
+    [pinHash, userId]
+  );
+  return result.rows[0] || null;
+}
+
 async function getConnectedApps(userId) {
   const result = await query(
     'SELECT * FROM connected_apps WHERE user_id = $1 AND status = $2 ORDER BY connected_at DESC',
@@ -619,6 +631,7 @@ module.exports = {
   updateUserZapierAccount,
   updateUserPreferences,
   updateUserPin,
+  claimUserPin,
   getConnectedApps,
   addConnectedApp,
   removeConnectedApp,
