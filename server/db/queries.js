@@ -48,38 +48,35 @@ async function linkUserIdentity(userId, fields) {
   const allowed = ['email', 'google_id', 'apple_id', 'phone'];
   const setClauses = [];
   const whereClauses = [];
+  const conflictClauses = [];
   const values = [];
   let idx = 1;
+
+  // $1 is always userId — used in WHERE id = $1 and in conflict sub-selects
+  values.push(userId);
+  idx = 2;
+
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined && allowed.includes(key)) {
       // Only update if the column is NULL or already matches — never overwrite
       // a different existing value (prevents identity hijacking).
       setClauses.push(`${key} = $${idx}`);
       whereClauses.push(`(${key} IS NULL OR ${key} = $${idx})`);
+      // Atomic conflict check: ensure no *other* user already claims this identity.
+      // Combined into a single query to eliminate TOCTOU race between the old
+      // separate SELECT check and the UPDATE.
+      conflictClauses.push(`NOT EXISTS (SELECT 1 FROM users WHERE ${key} = $${idx} AND id != $1)`);
       values.push(value);
       idx++;
     }
   }
   if (setClauses.length === 0) return null;
 
-  // Conflict check: ensure no *other* user already claims any of these identities.
-  for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined && allowed.includes(key)) {
-      const conflict = await query(
-        `SELECT id FROM users WHERE ${key} = $1 AND id != $2 LIMIT 1`,
-        [value, userId]
-      );
-      if (conflict.rows.length > 0) {
-        // Identity already belongs to another user — refuse to link.
-        return null;
-      }
-    }
-  }
-
   setClauses.push('updated_at = NOW()');
-  values.push(userId);
+  // Single atomic UPDATE that checks ownership, null-guards, AND conflict-free
+  // conditions all in one WHERE clause — no separate SELECT needed.
   const result = await query(
-    `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${idx} AND ${whereClauses.join(' AND ')} RETURNING *`,
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = $1 AND ${whereClauses.join(' AND ')} AND ${conflictClauses.join(' AND ')} RETURNING *`,
     values
   );
   return result.rows[0] || null;

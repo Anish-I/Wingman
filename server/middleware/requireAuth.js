@@ -25,8 +25,8 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token.' } });
   }
 
-  // Check if token has been revoked (e.g. via logout or account deletion)
-  if (await isTokenRevoked(payload.jti, payload.userId)) {
+  // Check if token has been revoked (e.g. via logout, account deletion, or session invalidation)
+  if (await isTokenRevoked(payload.jti, payload.userId, payload.iat)) {
     return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
   }
 

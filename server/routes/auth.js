@@ -188,27 +188,60 @@ function verifyToken(token) {
 
 async function findAndLinkUser({ phone, email, google_id, apple_id }) {
   let user = null;
+  let foundBy = null; // Track which identity matched to restrict cross-provider linking
 
-  if (google_id) user = await getUserByGoogleId(google_id);
-  if (!user && apple_id) user = await getUserByAppleId(apple_id);
-  if (!user && email) user = await getUserByEmail(email);
-  if (!user && phone) user = await getUserByPhone(phone);
+  // 1. Lookup by provider-specific ID first (strongest match)
+  if (google_id) { user = await getUserByGoogleId(google_id); if (user) foundBy = 'google_id'; }
+  if (!user && apple_id) { user = await getUserByAppleId(apple_id); if (user) foundBy = 'apple_id'; }
+  if (!user && email) { user = await getUserByEmail(email); if (user) foundBy = 'email'; }
+  if (!user && phone) { user = await getUserByPhone(phone); if (user) foundBy = 'phone'; }
 
-  if (!user && google_id) user = await getUserByPhone(`google:${google_id}`);
-  if (!user && apple_id) user = await getUserByPhone(`apple:${apple_id}`);
-  if (!user && email) user = await getUserByPhone(`email:${email}`);
+  // 2. Synthetic phone fallback: only match same-provider synthetic keys.
+  //    e.g. google_id lookup → google:<id> synthetic phone only.
+  //    This prevents cross-provider account discovery via synthetic keys.
+  if (!user && google_id) { user = await getUserByPhone(`google:${google_id}`); if (user) foundBy = 'google_id'; }
+  if (!user && apple_id) { user = await getUserByPhone(`apple:${apple_id}`); if (user) foundBy = 'apple_id'; }
+  if (!user && email) { user = await getUserByPhone(`email:${email}`); if (user) foundBy = 'email'; }
 
   if (!user) return null;
 
   // Only fill in identity fields that are currently empty on the found user.
   // Never overwrite an existing identity — that would allow an attacker who
   // controls one provider to hijack an identity on another provider.
+  //
+  // SECURITY: Restrict cross-provider auto-linking to prevent account takeover.
+  // A google_id is only linked if the user was found by google_id (already owned)
+  // or by the email provided in the same OAuth flow (Google/Apple verify email
+  // ownership). Never auto-link a provider ID when the user was found by a
+  // *different* provider ID or by phone alone.
   const updates = {};
-  if (email && !user.email) updates.email = email;
-  if (google_id && !user.google_id) updates.google_id = google_id;
-  if (apple_id && !user.apple_id) updates.apple_id = apple_id;
+
+  // Email can be linked if the provider that found the user verified it
+  // (Google/Apple OAuth verify email ownership), or if found by email itself.
+  if (email && !user.email) {
+    if (['google_id', 'apple_id', 'email'].includes(foundBy)) {
+      updates.email = email;
+    }
+  }
+
+  // google_id: only link if user was found by their own google_id (re-login)
+  // or by the verified email from the same Google OAuth flow.
+  // Never link if user was found by apple_id or phone — that's cross-provider.
+  if (google_id && !user.google_id) {
+    if (foundBy === 'google_id' || foundBy === 'email') {
+      updates.google_id = google_id;
+    }
+  }
+
+  // apple_id: same logic as google_id
+  if (apple_id && !user.apple_id) {
+    if (foundBy === 'apple_id' || foundBy === 'email') {
+      updates.apple_id = apple_id;
+    }
+  }
+
+  // Phone: only replace synthetic phone placeholders, never a real phone number.
   if (phone && isValidPhone(phone) && user.phone !== phone) {
-    // Only replace synthetic phone placeholders, never a real phone number.
     if (!user.phone || user.phone.startsWith('email:') || user.phone.startsWith('google:') || user.phone.startsWith('apple:')) {
       updates.phone = phone;
     }
@@ -219,7 +252,12 @@ async function findAndLinkUser({ phone, email, google_id, apple_id }) {
     // if any identity is already claimed by another user or if it would
     // overwrite a non-null field with a different value.
     const linked = await linkUserIdentity(user.id, updates);
-    if (linked) user = linked;
+    if (linked) {
+      // Session fixation prevention: invalidate all existing sessions when
+      // identity fields change, forcing re-authentication with the new state.
+      await invalidateUserSessions(user.id);
+      user = linked;
+    }
     // If linking failed (conflict), we still return the original user —
     // the caller gets a valid session but no cross-account linking occurs.
   }
@@ -371,7 +409,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     }
     if (reqToken) {
       const payload = verifyToken(reqToken);
-      if (payload && payload.userId && !(await isTokenRevoked(payload.jti, payload.userId))) {
+      if (payload && payload.userId && !(await isTokenRevoked(payload.jti, payload.userId, payload.iat))) {
         requestingUserId = payload.userId;
       }
     }
@@ -479,7 +517,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     let existingPayload = null;
     if (existingToken) {
       const ep = verifyToken(existingToken);
-      if (ep && !(await isTokenRevoked(ep.jti, ep.userId))) {
+      if (ep && !(await isTokenRevoked(ep.jti, ep.userId, ep.iat))) {
         existingPayload = ep;
       }
     }
@@ -1136,16 +1174,43 @@ router.post('/logout', async (req, res) => {
 });
 
 /**
- * Check if a token has been revoked (blacklisted in Redis).
- * Returns true if the token's jti is in the blacklist.
+ * Invalidate all existing sessions for a user by recording a timestamp in Redis.
+ * Tokens issued before this timestamp are rejected by isTokenRevoked().
+ * Used when identity fields change to prevent session fixation attacks.
  */
-async function isTokenRevoked(jti, userId) {
+async function invalidateUserSessions(userId) {
+  // Store as Unix timestamp; tokens with iat <= this value are rejected.
+  // TTL matches max JWT lifetime (24h) so the key auto-expires once all
+  // affected tokens have naturally expired.
+  await redis.set(
+    `user_sessions_invalidated:${userId}`,
+    Math.floor(Date.now() / 1000).toString(),
+    'EX', 86400
+  );
+}
+
+/**
+ * Check if a token has been revoked (blacklisted in Redis).
+ * Returns true if the token's jti is in the blacklist, the user account
+ * was deleted, or sessions were bulk-invalidated after the token was issued.
+ * @param {string} jti - JWT ID
+ * @param {number|string} userId - User ID
+ * @param {number} [iat] - Token issued-at timestamp (Unix seconds)
+ */
+async function isTokenRevoked(jti, userId, iat) {
   if (!jti) return false;
-  // Check per-token blacklist (logout) and per-user blacklist (account deletion)
+  // Check per-token blacklist (logout), per-user blacklist (account deletion),
+  // and per-user session invalidation (identity linking)
   const checks = [redis.get(`blacklist:${jti}`)];
-  if (userId) checks.push(redis.get(`user_deleted:${userId}`));
+  if (userId) {
+    checks.push(redis.get(`user_deleted:${userId}`));
+    checks.push(redis.get(`user_sessions_invalidated:${userId}`));
+  }
   const results = await Promise.all(checks);
-  return results.some(r => r === '1');
+  if (results[0] === '1' || results[1] === '1') return true;
+  // If sessions were bulk-invalidated after this token was issued, reject it
+  if (results[2] && iat && parseInt(results[2], 10) >= iat) return true;
+  return false;
 }
 
 module.exports = router;
