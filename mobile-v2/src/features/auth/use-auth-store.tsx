@@ -5,6 +5,33 @@ import Env from 'env';
 import { getToken, removeToken, setToken } from '@/lib/auth/utils';
 import { createSelectors } from '@/lib/utils';
 
+const MAX_RETRIES = 4;
+const BASE_DELAY_MS = 1_000;
+
+/**
+ * Attempt to blacklist a token server-side, retrying with exponential backoff.
+ * Runs in the background so the UI logout is never delayed.
+ */
+async function blacklistToken(token: string): Promise<void> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) return;
+      // Non-retryable client errors (except 408 Request Timeout & 429 Too Many Requests)
+      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) return;
+    } catch {
+      // Network error — will retry
+    }
+    if (attempt < MAX_RETRIES) {
+      await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+    }
+  }
+  // All retries exhausted — token will expire naturally via JWT TTL
+}
+
 type AuthState = {
   token: TokenType | null;
   status: 'idle' | 'signOut' | 'signIn';
@@ -24,12 +51,9 @@ const _useAuthStore = create<AuthState>((set, get) => ({
     const token = getToken();
     removeToken();
     set({ status: 'signOut', token: null });
-    // Fire-and-forget: tell server to blacklist the token in Redis
+    // Blacklist the token server-side with retry on failure
     if (token) {
-      fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      blacklistToken(token);
     }
   },
   hydrate: () => {
