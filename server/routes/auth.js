@@ -278,6 +278,9 @@ router.post('/signup', signupLimiter, async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({ error: { code: 'PASSWORD_TOO_SHORT', message: 'Password must be at least 8 characters.' } });
     }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return res.status(400).json({ error: { code: 'PASSWORD_TOO_WEAK', message: 'Password must include uppercase, lowercase, digit, and special character.' } });
+    }
 
     const normalizedEmail = email.toLowerCase();
     assertCleanIdentifier(normalizedEmail, 'email');
