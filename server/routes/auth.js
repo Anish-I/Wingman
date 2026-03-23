@@ -645,7 +645,7 @@ router.post('/google', async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error('Google token exchange failed:', tokenData);
+      console.error('Google token exchange failed:', { error: tokenData.error, error_description: tokenData.error_description });
       return res.status(401).json({ error: { code: 'TOKEN_EXCHANGE_FAILED', message: 'Failed to exchange authorization code.' } });
     }
 
@@ -816,7 +816,7 @@ router.get('/google/callback', async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error('Google token exchange failed:', tokenData);
+      console.error('Google token exchange failed:', { error: tokenData.error, error_description: tokenData.error_description });
       return res.redirect(buildRedirectUrl(state, { error: 'token_exchange_failed' }));
     }
 
