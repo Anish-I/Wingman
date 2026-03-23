@@ -71,6 +71,7 @@ function _addOrphan(userId) {
   const perUser = _orphanedByUser.get(userId) || new Map();
   perUser.set(token, Date.now());
   _orphanedByUser.set(userId, perUser);
+  _totalOrphanCount++;
   return token;
 }
 
@@ -78,15 +79,13 @@ function _removeOrphan(userId, token) {
   if (!token) return;
   const perUser = _orphanedByUser.get(userId);
   if (!perUser) return;
-  perUser.delete(token);
+  if (perUser.delete(token)) _totalOrphanCount--;
   if (perUser.size === 0) _orphanedByUser.delete(userId);
+  if (_totalOrphanCount < 0) _totalOrphanCount = 0;
 }
 
 function getOrphanedCount() {
-  let total = 0;
-  // Iterate over a snapshot — _getUserOrphanCount mutates the map while pruning
-  for (const userId of [..._orphanedByUser.keys()]) total += _getUserOrphanCount(userId);
-  return total;
+  return _totalOrphanCount;
 }
 
 // Periodic sweep to prune stale orphan entries for inactive users.
