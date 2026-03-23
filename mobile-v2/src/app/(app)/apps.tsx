@@ -674,11 +674,11 @@ export default function AppsScreen() {
               transition: { type: 'spring', damping: 10, stiffness: 100, delay: 300 },
             }, reduced)}
           >
-            <View className="bg-[#32D74B]/15 rounded-2xl px-4 py-2 items-center">
-              <Text className="text-[#32D74B] text-[20px] font-extrabold">
+            <View className="bg-[#4ADE80]/15 rounded-2xl px-4 py-2 items-center">
+              <Text className="text-[#4ADE80] text-[20px] font-extrabold">
                 {connected.length}
               </Text>
-              <Text className="text-[#32D74B] text-[10px] font-bold uppercase">
+              <Text className="text-[#4ADE80] text-[10px] font-bold uppercase">
                 Connected
               </Text>
             </View>

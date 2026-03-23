@@ -193,8 +193,8 @@ export default function SettingsScreen() {
           <PipCard expression="happy" size="medium" className="mb-0" />
           <Text className="text-foreground text-xl font-extrabold mt-2">{displayName}</Text>
           <View className="flex-row items-center gap-1.5 mt-1">
-            <View className="w-2 h-2 rounded-full bg-[#32D74B]" />
-            <Text className="text-[#32D74B] text-xs font-semibold">Active</Text>
+            <View className="w-2 h-2 rounded-full bg-[#4ADE80]" />
+            <Text className="text-[#4ADE80] text-xs font-semibold">Active</Text>
           </View>
         </MotiView>
 

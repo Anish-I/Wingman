@@ -361,9 +361,9 @@ export default function WorkflowsScreen() {
                     <Text style={{ color: trigger.color, fontSize: 11, fontWeight: '600' }}>{trigger.label}</Text>
                   </View>
                   {item.active && (
-                    <View className="rounded-full px-2.5 py-1 bg-[#32D74B]/15 flex-row items-center gap-1">
-                      <View className="w-1.5 h-1.5 rounded-full bg-[#32D74B]" />
-                      <Text className="text-[#32D74B] text-[11px] font-semibold">Running</Text>
+                    <View className="rounded-full px-2.5 py-1 bg-[#4ADE80]/15 flex-row items-center gap-1">
+                      <View className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
+                      <Text className="text-[#4ADE80] text-[11px] font-semibold">Running</Text>
                     </View>
                   )}
                 </View>

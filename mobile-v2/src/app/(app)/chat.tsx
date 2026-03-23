@@ -48,11 +48,11 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
                 delay: i * 120,
               },
             }, !!reducedMotion)}
-            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teal[300] }}
+            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teal[200] }}
           />
         ))}
       </MotiView>
-      <Text style={{ color: teal[300], fontSize: 13, fontFamily: 'Inter_600SemiBold', marginLeft: 4 }}>
+      <Text style={{ color: teal[200], fontSize: 13, fontFamily: 'Inter_600SemiBold', marginLeft: 4 }}>
         Pip is thinking...
       </Text>
     </View>
@@ -263,8 +263,8 @@ export default function ChatScreen() {
                 )}
                 {status === 'sent' && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Ionicons name="checkmark-done-outline" size={13} color={teal[300]} />
-                    <Text style={{ fontSize: 11, color: teal[300], fontFamily: 'Inter_500Medium' }}>Sent</Text>
+                    <Ionicons name="checkmark-done-outline" size={13} color={teal[200]} />
+                    <Text style={{ fontSize: 11, color: teal[200], fontFamily: 'Inter_500Medium' }}>Sent</Text>
                   </View>
                 )}
                 {isFailed && (
@@ -330,7 +330,7 @@ export default function ChatScreen() {
             <Text style={{ color: t.primary, fontSize: 18, fontFamily: 'Sora_700Bold' }}>Pip</Text>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: semantic.success }} />
           </View>
-          <Text style={{ color: teal[300], fontSize: 12, fontFamily: 'Inter_500Medium' }}>
+          <Text style={{ color: teal[200], fontSize: 12, fontFamily: 'Inter_500Medium' }}>
             Online
           </Text>
         </View>
