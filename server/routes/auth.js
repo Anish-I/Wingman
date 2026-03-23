@@ -693,6 +693,8 @@ router.get('/google', async (req, res, next) => {
     // On callback, the nonce is verified against Redis and deleted (single-use).
     const platform = req.query.platform === 'web' ? 'web' : 'native';
     const webOrigin = req.query.webOrigin || '';
+    // Client-generated CSRF token — echoed back in the redirect so the client can verify
+    const clientState = typeof req.query.clientState === 'string' ? req.query.clientState : '';
     const nonce = crypto.randomBytes(32).toString('hex');
     await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
 
@@ -700,7 +702,7 @@ router.get('/google', async (req, res, next) => {
     const pkce = generatePkce();
     await redis.set(`oauth_pkce:${nonce}`, pkce.verifier, 'EX', 300); // same TTL as nonce
 
-    const state = jwt.sign({ platform, webOrigin, nonce }, JWT_SECRET, { expiresIn: '5m' });
+    const state = jwt.sign({ platform, webOrigin, nonce, clientState }, JWT_SECRET, { expiresIn: '5m' });
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}&code_challenge=${pkce.challenge}&code_challenge_method=S256`;
     res.redirect(url);
   } catch (err) {
@@ -710,13 +712,14 @@ router.get('/google', async (req, res, next) => {
 
 // Verify and parse signed OAuth state (JWT with 5-minute expiry)
 function parseOAuthState(stateParam) {
-  const fallback = { platform: 'native', webOrigin: '' };
+  const fallback = { platform: 'native', webOrigin: '', clientState: '' };
   try {
     if (!stateParam) return fallback;
     const payload = jwt.verify(stateParam, JWT_SECRET, { algorithms: ['HS256'] });
     return {
       platform: payload.platform || 'native',
       webOrigin: payload.webOrigin || '',
+      clientState: payload.clientState || '',
     };
   } catch (err) {
     console.warn('[oauth-state] Invalid or expired state token:', err.message);
@@ -733,7 +736,10 @@ const ALLOWED_WEB_ORIGINS = [
 ];
 
 function buildRedirectUrl(state, params) {
-  const qs = new URLSearchParams(params).toString();
+  const allParams = { ...params };
+  // Echo the client-generated CSRF token so the mobile app can verify it
+  if (state.clientState) allParams.clientState = state.clientState;
+  const qs = new URLSearchParams(allParams).toString();
   if (state.platform === 'web' && state.webOrigin) {
     // Validate webOrigin against allowlist
     if (ALLOWED_WEB_ORIGINS.includes(state.webOrigin) ||

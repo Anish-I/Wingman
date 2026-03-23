@@ -16,7 +16,15 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
+import { setItem, removeItem, getItem } from '@/lib/storage';
 import { entrance, pressStyle, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
+
+/** Generate a cryptographically random hex string for OAuth CSRF protection. */
+function generateOAuthState(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -99,37 +107,60 @@ export default function SignupScreen() {
   async function handleGoogleSignIn() {
     setLoading(true);
     try {
+      // Generate a CSRF token and store it locally with the intended return path.
+      // The server echoes this back in the redirect so both the inline (WebBrowser)
+      // and fallback (callback.tsx) flows can verify the OAuth session is genuine.
+      const clientState = generateOAuthState();
+      setItem('oauth_pending', { clientState, returnTo: '/onboarding/permissions' });
+
       if (Platform.OS === 'web') {
         // On web, use popup-based flow with web-safe redirect
         const webOrigin = encodeURIComponent(window.location.origin);
         const result = await WebBrowser.openAuthSessionAsync(
-          `${Env.EXPO_PUBLIC_API_URL}/auth/google?platform=web&webOrigin=${webOrigin}`,
+          `${Env.EXPO_PUBLIC_API_URL}/auth/google?platform=web&webOrigin=${webOrigin}&clientState=${clientState}`,
           `${window.location.origin}/connect/callback`,
         );
         if (result.type === 'success' && result.url) {
           const url = new URL(result.url);
+          const returnedState = url.searchParams.get('clientState');
+          const pending = getItem<{ clientState: string }>('oauth_pending');
+          removeItem('oauth_pending');
+          if (!pending || !returnedState || pending.clientState !== returnedState) {
+            showAlert('Sign-In Failed', 'OAuth session mismatch. Please try again.');
+            return;
+          }
           const code = url.searchParams.get('code');
           if (code && await exchangeAuthCode(code)) return;
         }
+        removeItem('oauth_pending');
         showAlert('Sign-In Cancelled', 'Google sign-in was cancelled or failed. Please try again.');
         return;
       }
 
       // Native: use deep link redirect
       const result = await WebBrowser.openAuthSessionAsync(
-        `${Env.EXPO_PUBLIC_API_URL}/auth/google`,
+        `${Env.EXPO_PUBLIC_API_URL}/auth/google?clientState=${clientState}`,
         'wingman://auth/callback',
       );
       if (result.type === 'success' && result.url) {
         const url = new URL(result.url);
+        const returnedState = url.searchParams.get('clientState');
+        const pending = getItem<{ clientState: string }>('oauth_pending');
+        removeItem('oauth_pending');
+        if (!pending || !returnedState || pending.clientState !== returnedState) {
+          showAlert('Sign-In Failed', 'OAuth session mismatch. Please try again.');
+          return;
+        }
         const code = url.searchParams.get('code');
         if (code && await exchangeAuthCode(code)) return;
         showAlert('Sign-In Failed', 'No valid authentication received from server.');
       } else {
+        removeItem('oauth_pending');
         showAlert('Sign-In Cancelled', 'Google sign-in was cancelled.');
       }
     }
     catch (err) {
+      removeItem('oauth_pending');
       console.error('Google sign-in error:', err);
       showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
     } finally {
