@@ -56,6 +56,18 @@ function validateEnv() {
     missing.push('REDIS_PASSWORD');
   }
 
+  // Enforce minimum length for JWT_SECRET to prevent brute-force token forgery
+  const jwtSecret = process.env.JWT_SECRET;
+  if (jwtSecret && jwtSecret.length < 32) {
+    const msg = 'JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery';
+    if (isProduction) {
+      console.error(`[env-validate] ERROR: ${msg}`);
+      process.exit(1);
+    } else {
+      console.warn(`[env-validate] WARN: ${msg}`);
+    }
+  }
+
   if (missing.length === 0) {
     return; // All good
   }

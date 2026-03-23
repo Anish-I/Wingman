@@ -73,6 +73,10 @@ if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is required');
   process.exit(1);
 }
+if (JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
+  process.exit(1);
+}
 const JWT_ISSUER = 'wingman';
 const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
