@@ -29,14 +29,14 @@ beforeAll(async () => {
       await pool.query('SELECT 1');
       results.postgres = { ok: true, latencyMs: Date.now() - pgStart };
     } catch (err) {
-      results.postgres = { ok: false, latencyMs: null, error: err.message };
+      results.postgres = { ok: false, latencyMs: null, error: 'unavailable' };
     }
     try {
       const redisStart = Date.now();
       await redis.ping();
       results.redis = { ok: true, latencyMs: Date.now() - redisStart };
     } catch (err) {
-      results.redis = { ok: false, latencyMs: null, error: err.message };
+      results.redis = { ok: false, latencyMs: null, error: 'unavailable' };
     }
     const allOk = results.postgres.ok && results.redis.ok;
     return { status: allOk ? 'ok' : 'degraded', ...results, uptime: process.uptime() };

@@ -155,7 +155,8 @@ async function checkDependencies() {
     await pool.query('SELECT 1');
     results.postgres = { ok: true, latencyMs: Date.now() - pgStart };
   } catch (err) {
-    results.postgres = { ok: false, latencyMs: null, error: err.message };
+    logger.error({ err }, 'Health check: PostgreSQL unreachable');
+    results.postgres = { ok: false, latencyMs: null, error: 'unavailable' };
   }
 
   // Check Redis
@@ -165,7 +166,8 @@ async function checkDependencies() {
     await redis.ping();
     results.redis = { ok: true, latencyMs: Date.now() - redisStart };
   } catch (err) {
-    results.redis = { ok: false, latencyMs: null, error: err.message };
+    logger.error({ err }, 'Health check: Redis unreachable');
+    results.redis = { ok: false, latencyMs: null, error: 'unavailable' };
   }
 
   const allOk = results.postgres.ok && results.redis.ok;
