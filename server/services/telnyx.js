@@ -31,6 +31,8 @@ async function sendSMS(to, body) {
  * Returns true if not configured (dev mode).
  */
 function validateWebhook(rawBody, headers) {
+  if (!rawBody) return false;
+
   const publicKey = process.env.TELNYX_PUBLIC_KEY;
   if (!publicKey) {
     const env = process.env.NODE_ENV;

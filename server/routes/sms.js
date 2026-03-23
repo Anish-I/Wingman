@@ -66,6 +66,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
         const rawBody = req.rawBody;
+        if (!rawBody) {
+          console.warn('[security] Missing rawBody for Telnyx signature verification');
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
         const isValid = provider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
           console.warn('[security] Invalid Telnyx signature');
