@@ -5,6 +5,10 @@ const { redis } = require('./redis');
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
+// Pending TTL must be short enough that a timed-out external call doesn't strand the key for
+// the full dedup window.  30 s > the typical 20 s orchestrator timeout, giving the in-flight
+// call time to write its result while still expiring quickly if it is abandoned.
+const PENDING_TTL = 30; // seconds
 
 // Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
 // For these tools, we must NOT remove the idempotency key on failure, because an orphaned
@@ -190,8 +194,11 @@ function _toolIdempotencyKey(userId, toolCallBlock) {
 async function executeTool(userId, toolCallBlock) {
   const idempKey = _toolIdempotencyKey(userId, toolCallBlock);
 
-  // Try to claim the execution slot atomically
-  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', TOOL_IDEMPOTENCY_TTL);
+  // Try to claim the execution slot atomically.
+  // Use PENDING_TTL (not the full dedup TTL) so the key auto-expires if the
+  // caller is killed by an external timeout before this function's try/catch
+  // can replace 'pending' with the real result or error.
+  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', PENDING_TTL);
 
   if (claimed !== 'OK') {
     // Another execution of this exact call is in progress or completed
