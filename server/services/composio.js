@@ -193,12 +193,18 @@ function _toolIdempotencyKey(userId, toolCallBlock) {
  */
 async function executeTool(userId, toolCallBlock) {
   const idempKey = _toolIdempotencyKey(userId, toolCallBlock);
+  const isSideEffecting = SIDE_EFFECT_PATTERN.test(toolCallBlock.name);
 
-  // Try to claim the execution slot atomically.
-  // Use PENDING_TTL (not the full dedup TTL) so the key auto-expires if the
-  // caller is killed by an external timeout before this function's try/catch
-  // can replace 'pending' with the real result or error.
-  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', PENDING_TTL);
+  // For side-effecting tools (send, create, delete, etc.) use the full dedup
+  // TTL so the pending slot outlives any realistic API latency.  Previously
+  // PENDING_TTL (30 s) was used for all tools, which let the key expire while
+  // the original Composio call was still in-flight — a retry could then
+  // reclaim the slot, causing duplicate sends/posts/deletes.
+  //
+  // For safe/idempotent tools, keep the short PENDING_TTL so the key
+  // auto-expires quickly if the caller is killed by an external timeout.
+  const claimTTL = isSideEffecting ? TOOL_IDEMPOTENCY_TTL : PENDING_TTL;
+  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
 
   if (claimed !== 'OK') {
     // Another execution of this exact call is in progress or completed.
@@ -206,8 +212,14 @@ async function executeTool(userId, toolCallBlock) {
     for (let i = 0; i < 10; i++) {
       const cached = await redis.get(idempKey);
       if (cached === null) {
-        // Key expired while we were waiting — the original executor is gone.
-        // Break out and fall through to claim-and-execute below.
+        if (isSideEffecting) {
+          // Side-effecting tool: the original may still be running on the
+          // remote service even though our key expired.  Do NOT re-attempt —
+          // that risks duplicate sends/posts/deletes.
+          console.warn(`[user:${userId}] Idempotency key expired for side-effecting tool ${toolCallBlock.name}, refusing retry to prevent duplicates`);
+          return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original may still be completing. Please wait and retry later.` };
+        }
+        // Safe/idempotent tool: the original executor is gone, re-attempt.
         console.log(`[user:${userId}] Idempotency key expired for ${toolCallBlock.name}, re-attempting`);
         break;
       }
@@ -241,7 +253,7 @@ async function executeTool(userId, toolCallBlock) {
 
     // Try to claim the slot again — if someone else just claimed it, return
     // a dedup message rather than recursing (avoids unbounded retry loops).
-    const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', PENDING_TTL);
+    const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
     if (reclaimed !== 'OK') {
       console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
       return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
