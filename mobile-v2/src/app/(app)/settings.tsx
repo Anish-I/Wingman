@@ -6,7 +6,7 @@ import { MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
-import { useProfile } from '@/features/settings/api';
+import { useProfile, usePersistPreferences } from '@/features/settings/api';
 import { useThemeColors } from '@/components/ui/tokens';
 import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -105,10 +105,46 @@ export default function SettingsScreen() {
   const reducedMotion = useReducedMotion();
   const router = useRouter();
   const { data: profile } = useProfile();
+  const { mutate: persistPrefs } = usePersistPreferences();
 
   const displayName = profile?.name || profile?.phone || 'User';
   const displayPhone = profile?.phone ?? '—';
   const stats = profile?.stats ?? { apps: 0, workflows: 0, messages: 0 };
+  const prefs = profile?.preferences ?? {};
+  const currentTheme = (prefs.theme as string) || 'Dark';
+  const currentLanguage = (prefs.language as string) || 'English';
+  const notificationsEnabled = prefs.notifications !== false;
+
+  const THEME_OPTIONS = ['Dark', 'Light', 'System'];
+  const LANGUAGE_OPTIONS = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Japanese', 'Chinese'];
+
+  function handleSelectTheme() {
+    if (Platform.OS === 'web') {
+      const next = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length];
+      persistPrefs({ theme: next });
+      return;
+    }
+    Alert.alert('Theme', 'Choose a theme', [
+      ...THEME_OPTIONS.map((t) => ({ text: t, onPress: () => persistPrefs({ theme: t }) })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
+  function handleSelectLanguage() {
+    if (Platform.OS === 'web') {
+      const next = LANGUAGE_OPTIONS[(LANGUAGE_OPTIONS.indexOf(currentLanguage) + 1) % LANGUAGE_OPTIONS.length];
+      persistPrefs({ language: next });
+      return;
+    }
+    Alert.alert('Language', 'Choose a language', [
+      ...LANGUAGE_OPTIONS.map((l) => ({ text: l, onPress: () => persistPrefs({ language: l }) })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
+  function handleToggleNotifications() {
+    persistPrefs({ notifications: !notificationsEnabled });
+  }
 
   function handleLogout() {
     if (Platform.OS === 'web') {
@@ -205,9 +241,9 @@ export default function SettingsScreen() {
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Preferences</Text>
           <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
-            <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" isFirst />
-            <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value="Dark" />
-            <SettingsRow icon="language-outline" iconColor="#6B9BEF" label="Language" value="English" isLast />
+            <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" value={notificationsEnabled ? 'On' : 'Off'} onPress={handleToggleNotifications} isFirst />
+            <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value={currentTheme} onPress={handleSelectTheme} />
+            <SettingsRow icon="language-outline" iconColor="#6B9BEF" label="Language" value={currentLanguage} onPress={handleSelectLanguage} isLast />
           </View>
         </MotiView>
 

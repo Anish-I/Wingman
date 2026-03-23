@@ -1,4 +1,5 @@
-import { createQuery } from 'react-query-kit';
+import { createQuery, createMutation } from 'react-query-kit';
+import { useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api/client';
 
 type UserProfile = {
@@ -20,3 +21,45 @@ export const useProfile = createQuery<UserProfile>({
     return data;
   },
 });
+
+type PreferencesPayload = Partial<{
+  theme: string;
+  language: string;
+  notifications: boolean;
+  timezone: string;
+  smsOptIn: boolean;
+}>;
+
+export const useUpdatePreferences = createMutation<
+  { user: UserProfile },
+  PreferencesPayload
+>({
+  mutationFn: async (preferences) => {
+    const { data } = await client.patch<{ user: UserProfile }>(
+      '/api/user/preferences',
+      preferences,
+    );
+    return data;
+  },
+});
+
+/** Hook that wraps useUpdatePreferences and invalidates the profile cache on success. */
+export function usePersistPreferences() {
+  const queryClient = useQueryClient();
+  const mutation = useUpdatePreferences();
+
+  return {
+    ...mutation,
+    mutate: (
+      prefs: PreferencesPayload,
+      opts?: Parameters<typeof mutation.mutate>[1],
+    ) =>
+      mutation.mutate(prefs, {
+        ...opts,
+        onSuccess: (...args) => {
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
+          opts?.onSuccess?.(...args);
+        },
+      }),
+  };
+}
