@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -113,9 +113,17 @@ export default function LoginScreen() {
   }, [code, step]);
 
   return (
-    <SafeAreaView className="flex-1 justify-center" style={{ backgroundColor: surface.bg }}>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: surface.bg }}>
       <FocusAwareStatusBar />
-      <View className="px-8" style={{ gap: 24 }}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="px-8" style={{ gap: 24 }}>
         {/* Header */}
         <View style={{ gap: 8 }}>
           <Text
@@ -302,6 +310,8 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
