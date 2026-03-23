@@ -425,10 +425,16 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // User message was already appended before the LLM call — only persist
   // the assistant reply. On timeout, fire-and-forget so the caller isn't blocked.
+  // But if the lock was force-released by the outer timeout, skip the append
+  // entirely — a new request may already hold the lock and be writing messages.
   if (abortController.aborted) {
-    console.warn(`[user:${userId}] Request timed out — persisting assistant reply in background`);
-    appendMessage(user.id, 'assistant', finalText)
-      .catch(e => console.error(`[user:${userId}] Background history persist failed:`, e.message));
+    if (!lockHolder.released) {
+      console.warn(`[user:${userId}] Request timed out — persisting assistant reply in background`);
+      appendMessage(user.id, 'assistant', finalText)
+        .catch(e => console.error(`[user:${userId}] Background history persist failed:`, e.message));
+    } else {
+      console.warn(`[user:${userId}] Request timed out and lock already force-released — skipping appendMessage to avoid race`);
+    }
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
     return finalText;
   }
@@ -459,32 +465,42 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
     // AbortError means the outer processMessage timed out and set the flag —
     // stop immediately and let the orphaned-promise tracker handle cleanup.
+    // If the lock was force-released by the outer timeout, another request may
+    // already hold the lock.  Skip all appendMessage calls to avoid concurrent writes.
+    const lockLost = lockHolder.released;
+
     if (err.name === 'AbortError') {
       console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
-      // User message was already persisted — append timeout assistant reply
-      appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
-        .catch(e => console.error(`[user:${userId}] Abort history persist failed:`, e.message));
+      if (!lockLost) {
+        appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
+          .catch(e => console.error(`[user:${userId}] Abort history persist failed:`, e.message));
+      }
       return "Sorry, that took too long. Please try again.";
     }
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       const rateLimitMsg = "One sec — juggling a few things. Try again in a moment.";
-      appendMessage(user.id, 'assistant', rateLimitMsg)
-        .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
+      if (!lockLost) {
+        appendMessage(user.id, 'assistant', rateLimitMsg)
+          .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
+      }
       return rateLimitMsg;
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
-      // User message was already persisted — append timeout assistant reply
-      appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
-        .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
+      if (!lockLost) {
+        appendMessage(user.id, 'assistant', "Sorry, that took too long. Please try again.")
+          .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
+      }
       return "Sorry, that took too long. Please try again.";
     }
     // Any other LLM/service failure — persist error response so the user's
     // message doesn't appear unanswered on retry or app restart.
     console.error(`[user:${userId}] Unhandled LLM error:`, err.message);
     const errorMsg = "Something went wrong on my end. Please try again.";
-    appendMessage(user.id, 'assistant', errorMsg)
-      .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
+    if (!lockLost) {
+      appendMessage(user.id, 'assistant', errorMsg)
+        .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
+    }
     return errorMsg;
   } finally {
     if (releaseLock && !lockHolder.released) {
