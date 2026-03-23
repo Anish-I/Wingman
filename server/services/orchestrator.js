@@ -23,6 +23,19 @@ const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 1
 // own entry rather than accidentally decrementing a newer orphan.
 const _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
 
+// Sweep stale entries from the orphan map.  Called periodically AND on-demand
+// when the map is at capacity, so entries for inactive users cannot accumulate
+// unboundedly even if no further requests arrive for those users.
+function _sweepOrphans() {
+  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+  for (const [userId, perUser] of _orphanedByUser) {
+    for (const [token, ts] of perUser) {
+      if (ts < cutoff) perUser.delete(token);
+    }
+    if (perUser.size === 0) _orphanedByUser.delete(userId);
+  }
+}
+
 function _getUserOrphanCount(userId) {
   const perUser = _orphanedByUser.get(userId);
   if (!perUser) return 0;
@@ -42,8 +55,14 @@ function _isOrphanMapFull(userId) {
 
 function _addOrphan(userId) {
   if (_isOrphanMapFull(userId)) {
-    console.error(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users), rejecting`);
-    return null;
+    // On-demand sweep: evict stale entries before giving up.  Under production
+    // load the periodic sweep may not have run recently enough, so this ensures
+    // expired entries are reclaimed immediately when space is needed.
+    _sweepOrphans();
+    if (_isOrphanMapFull(userId)) {
+      console.error(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users) after sweep, rejecting`);
+      return null;
+    }
   }
   const token = Symbol();
   const perUser = _orphanedByUser.get(userId) || new Map();
@@ -71,15 +90,7 @@ function getOrphanedCount() {
 // Without this, per-user Maps can retain expired timestamps indefinitely
 // if _getUserOrphanCount is never called again for that user.
 const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS || '60000', 10);
-const _orphanSweepTimer = setInterval(() => {
-  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
-  for (const [userId, perUser] of _orphanedByUser) {
-    for (const [token, ts] of perUser) {
-      if (ts < cutoff) perUser.delete(token);
-    }
-    if (perUser.size === 0) _orphanedByUser.delete(userId);
-  }
-}, ORPHAN_SWEEP_INTERVAL_MS);
+const _orphanSweepTimer = setInterval(_sweepOrphans, ORPHAN_SWEEP_INTERVAL_MS);
 _orphanSweepTimer.unref(); // don't prevent process exit
 
 function withTimeout(promise, ms, label) {
