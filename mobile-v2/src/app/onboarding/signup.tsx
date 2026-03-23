@@ -68,6 +68,14 @@ export default function SignupScreen() {
       showAlert('Missing fields', 'Please enter your email and password.');
       return;
     }
+    if (password.length < 8) {
+      showAlert('Weak password', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      showAlert('Weak password', 'Password must include uppercase, lowercase, digit, and special character.');
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await client.post('/auth/signup', { email, password });
