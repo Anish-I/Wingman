@@ -60,7 +60,7 @@ async function runWorkflow(workflowId, userId) {
     extendTimer = setInterval(async () => {
       try {
         await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, LOCK_TTL);
-      } catch (_) { /* best-effort extend */ }
+      } catch (err) { console.error(`[workflows] Lock extend failed for ${lockKey}:`, err.message); }
     }, EXTEND_INTERVAL);
     const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
     const workflow = result.rows[0];

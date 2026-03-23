@@ -140,7 +140,7 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
   const extendTimer = setInterval(async () => {
     try {
       await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, WORKFLOW_LOCK_TTL_SECONDS);
-    } catch (_) { /* best-effort extend */ }
+    } catch (err) { console.error(`[workflow-agent] Lock extend failed for ${lockKey}:`, err.message); }
   }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
 
   try {
