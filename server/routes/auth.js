@@ -160,6 +160,18 @@ const otpVerifyLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Global IP-based rate limit for OTP verification to prevent distributed
+// brute-force across many phone numbers. An attacker spraying 1 guess per
+// phone across thousands of numbers is capped to 10 total attempts per IP
+// per 15-minute window.
+const otpVerifyGlobalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP verification attempts. Try again later.' } },
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -461,11 +473,22 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
 });
 
 // POST /auth/verify-otp
-router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
+router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req, res) => {
   try {
     const { phone, code } = req.body;
     if (!phone || !code) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Phone and code are required.' } });
+    }
+
+    // Global Redis-based rate limit: cap total OTP verification attempts across
+    // ALL phone numbers per IP. Prevents distributed enumeration where an attacker
+    // sprays one guess per phone across thousands of numbers.
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const globalKey = `otp_verify_global:${ip}`;
+    const globalAttempts = await redis.incr(globalKey);
+    if (globalAttempts === 1) await redis.expire(globalKey, 15 * 60); // 15min window
+    if (globalAttempts > 10) {
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP verification attempts. Try again later.' } });
     }
 
     // Redis-based per-phone rate limiting (prevents distributed brute-force across IPs)
