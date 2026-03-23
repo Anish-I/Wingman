@@ -345,6 +345,23 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
       }
     }
 
+    // If the caller is authenticated, block them from requesting an OTP for a phone
+    // that belongs to a *different* account.  Without this check an attacker who
+    // obtains any valid JWT can call request-otp for a victim's phone, store their
+    // own userId as the otp_requester, and then — if they can intercept the OTP
+    // (e.g. via SIM-swap or SS7) — pass the session-fixation guard in verify-otp
+    // and merge the victim's account into their own.
+    if (requestingUserId) {
+      const existingPhoneUser = await getUserByPhone(phone);
+      if (existingPhoneUser && String(existingPhoneUser.id) !== String(requestingUserId)) {
+        return res.status(403).json({
+          error: {
+            code: 'PHONE_BELONGS_TO_ANOTHER_ACCOUNT',
+            message: 'This phone number is already associated with a different account.',
+          },
+        });
+      }
+    }
     const otp = crypto.randomInt(100000, 1000000).toString();
     // Store HMAC hash instead of plaintext — prevents Redis read access from leaking OTPs
     const otpHash = crypto.createHmac('sha256', JWT_SECRET).update(otp).digest('hex');
