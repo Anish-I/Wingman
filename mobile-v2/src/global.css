@@ -36,8 +36,8 @@
 
   /* ── Text ──────────────────────────────────────────────────── */
   --color-pip-text: #F0F0F5;
-  --color-pip-text-secondary: #B6B6C4;
-  --color-pip-text-muted: #C8C8D4;
+  --color-pip-text-secondary: #C4C4D2;
+  --color-pip-text-muted: #D0D0DC;
 
   /* ── Semantic ─────────────────────────────────────────────── */
   --color-pip-success: #32D74B;
@@ -134,7 +134,7 @@
   --color-card-foreground: #F0F0F5;
 
   --color-muted: #1C1C20;
-  --color-muted-foreground: #B6B6C4;
+  --color-muted-foreground: #C4C4D2;
 
   --color-border: #232330;
   --color-input: #131315;
