@@ -121,10 +121,13 @@ async function deduplicateMessage(msgId, phone, messageText) {
   if (msgId) {
     dedupKey = `sms:dedup:${msgId}`;
   } else {
-    // Content-based fallback: bucket by 5-second window
+    // Content-based fallback: keyed by phone + content, no time bucket.
+    // The 300-second TTL below serves as the dedup window — any webhook retry
+    // within that period hits the same key and is blocked atomically. A time
+    // bucket shorter than the TTL would let retries cross bucket boundaries and
+    // bypass deduplication entirely (e.g. Twilio retries after 60s, 3m, 5m).
     const crypto = require('crypto');
-    const bucket = Math.floor(Date.now() / 5000);
-    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex').slice(0, 16);
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex').slice(0, 16);
     dedupKey = `sms:dedup:content:${hash}`;
   }
   const result = await redis.set(dedupKey, '1', 'NX', 'EX', 300);
