@@ -1,6 +1,7 @@
 import type { PressableProps } from 'react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
+import { useReducedMotion } from '@/lib/motion';
 import { useCallback } from 'react';
 import {
   I18nManager,
@@ -75,6 +76,8 @@ function Label({ text, testID, className = '' }: LabelProps) {
 
 export function CheckboxIcon({ checked = false }: IconProps) {
   const color = checked ? colors.primary[300] : colors.charcoal[400];
+  const reduced = useReducedMotion();
+  const duration = reduced ? 0 : 100;
   return (
     <MotiView
       style={{
@@ -89,14 +92,14 @@ export function CheckboxIcon({ checked = false }: IconProps) {
         borderColor: color,
       }}
       transition={{
-        backgroundColor: { type: 'timing', duration: 100 },
-        borderColor: { type: 'timing', duration: 100 },
+        backgroundColor: { type: 'timing', duration },
+        borderColor: { type: 'timing', duration },
       }}
     >
       <MotiView
         from={{ opacity: 0 }}
         animate={{ opacity: checked ? 1 : 0 }}
-        transition={{ opacity: { type: 'timing', duration: 100 } }}
+        transition={{ opacity: { type: 'timing', duration } }}
       >
         <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <Path
@@ -148,6 +151,8 @@ export const Checkbox = Object.assign(CheckboxBase, {
 
 export function RadioIcon({ checked = false }: IconProps) {
   const color = checked ? colors.primary[300] : colors.charcoal[400];
+  const reduced = useReducedMotion();
+  const duration = reduced ? 0 : 100;
   return (
     <MotiView
       style={{
@@ -160,13 +165,13 @@ export function RadioIcon({ checked = false }: IconProps) {
       animate={{
         borderColor: color,
       }}
-      transition={{ borderColor: { duration: 100, type: 'timing' } }}
+      transition={{ borderColor: { duration, type: 'timing' } }}
     >
       <MotiView
         className={`size-[10px] rounded-[10px] ${checked && 'bg-primary-300'}`}
         from={{ opacity: 0 }}
         animate={{ opacity: checked ? 1 : 0 }}
-        transition={{ opacity: { duration: 50, type: 'timing' } }}
+        transition={{ opacity: { duration: reduced ? 0 : 50, type: 'timing' } }}
       />
     </MotiView>
   );
@@ -210,6 +215,7 @@ export function SwitchIcon({ checked = false }: IconProps) {
     : WIDTH - THUMB_WIDTH - THUMB_OFFSET;
 
   const backgroundColor = checked ? colors.primary[300] : colors.charcoal[400];
+  const reduced = useReducedMotion();
 
   return (
     <View className="w-[50px] justify-center">
@@ -234,7 +240,7 @@ export function SwitchIcon({ checked = false }: IconProps) {
         animate={{
           translateX: I18nManager.isRTL ? translateX : -translateX,
         }}
-        transition={{ translateX: { overshootClamping: true } }}
+        transition={reduced ? { translateX: { type: 'timing', duration: 0 } } : { translateX: { overshootClamping: true } }}
       />
     </View>
   );

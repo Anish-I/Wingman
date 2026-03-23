@@ -13,6 +13,7 @@ import { useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
+import { useReducedMotion } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -25,6 +26,7 @@ function showAlert(title: string, message: string) {
 export default function PhoneScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
+  const reduced = useReducedMotion();
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
   const [step, setStep] = useState<'phone' | 'verify' | 'success'>('phone');
@@ -231,9 +233,11 @@ export default function PhoneScreen() {
         <AnimatePresence>
           {(step === 'verify' || step === 'success') && (
             <MotiView
-              from={{ opacity: 0, translateY: 16 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              exit={{ opacity: 0 }}
+              {...(reduced ? {} : {
+                from: { opacity: 0, translateY: 16 },
+                animate: { opacity: 1, translateY: 0 },
+                exit: { opacity: 0 },
+              })}
               className="w-full items-center"
               style={{ gap: 16 }}
             >
@@ -315,9 +319,11 @@ export default function PhoneScreen() {
         <AnimatePresence>
           {step === 'success' && (
             <MotiView
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', damping: 10, stiffness: 100 }}
+              {...(reduced ? {} : {
+                from: { scale: 0, opacity: 0 },
+                animate: { scale: 1, opacity: 1 },
+                transition: { type: 'spring', damping: 10, stiffness: 100 },
+              })}
               className="items-center"
               style={{ gap: 12 }}
             >
