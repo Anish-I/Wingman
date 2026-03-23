@@ -210,7 +210,7 @@ const AppCard = React.memo(function AppCard({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
-      className="w-[90px] rounded-2xl p-3 items-center relative mr-2.5"
+      className="w-[90px] sm:w-[120px] md:w-[150px] rounded-2xl p-3 items-center relative mr-2.5"
       style={({ pressed, hovered, focused }: any) => [
         {
           backgroundColor: isConnected ? surface.card : surface.cardAlt,
@@ -640,7 +640,7 @@ export default function AppsScreen() {
             </View>
             <View className="flex-row gap-2.5">
               {[0, 1, 2, 3].map((card) => (
-                <MotiView key={card} {...pulse} className="w-[90px] h-[100px] rounded-2xl" style={{ backgroundColor: surface.card }} />
+                <MotiView key={card} {...pulse} className="w-[90px] sm:w-[120px] md:w-[150px] h-[100px] sm:h-[130px] md:h-[160px] rounded-2xl" style={{ backgroundColor: surface.card }} />
               ))}
             </View>
           </View>
