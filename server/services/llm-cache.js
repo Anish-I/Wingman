@@ -78,7 +78,7 @@ async function setCachedResponse(messageText, response, userId) {
   try {
     await redis.set(key, response, 'EX', bucket.ttl);
     // Release stampede lock now that cache is populated
-    await redis.del(`${key}:lock`).catch(() => {});
+    await redis.del(`${key}:lock`).catch(e => console.error('[llm-cache] stampede lock release error:', e.message));
     console.log(`[llm-cache] SET ${bucket.name} key=${key} ttl=${bucket.ttl}s`);
   } catch (err) {
     console.error('[llm-cache] Redis set error:', err.message);

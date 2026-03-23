@@ -216,6 +216,7 @@ async function processMessage(user, messageText) {
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
+          lockHolder.released = true; // prevent orphaned inner promise from writing via safeAppend
           _removeOrphan(userId, orphanToken);
           console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (user remaining: ${_getUserOrphanCount(userId)})`);
         }
@@ -227,6 +228,7 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
+            lockHolder.released = true; // prevent any trailing safeAppend calls
             _removeOrphan(userId, orphanToken);
             console.log(`[user:${userId}] Orphaned promise settled (user remaining: ${_getUserOrphanCount(userId)})`);
           }
@@ -288,7 +290,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // release it immediately rather than doing any more work.
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Aborted during lock acquisition — releasing lock immediately`);
-    releaseLock().catch(() => {});
+    releaseLock().catch(e => console.error(`[user:${userId}] Failed to release lock after abort:`, e.message));
     return "Sorry, that took too long. Please try again.";
   }
 
@@ -552,13 +554,13 @@ async function _processMessageInner(user, messageText, abortController = { abort
       // Drain any in-flight fire-and-forget appendMessage before releasing
       // the lock — prevents a new request from interleaving writes.
       if (lockHolder.inflightAppend) {
-        await lockHolder.inflightAppend.catch(() => {});
+        await lockHolder.inflightAppend.catch(e => console.error(`[user:${userId}] Inflight append failed:`, e.message));
       }
       // Only explicitly release if the TTL hasn't expired — if it has,
       // Redis already removed the key and a new request may hold the lock.
       // Calling release on an expired lock could delete the NEW lock key.
       if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
-        await releaseLock().catch(() => {});
+        await releaseLock().catch(e => console.error(`[user:${userId}] Failed to release conversation lock:`, e.message));
       } else {
         console.warn(`[user:${userId}] Lock TTL expired — skipping explicit release to avoid deleting a newer lock`);
       }

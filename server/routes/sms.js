@@ -172,8 +172,8 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     console.error('Orchestrator error:', err);
     responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
     // Orchestrator failed before persisting — save messages here
-    await appendMessage(user.id, 'user', messageText).catch(() => {});
-    await appendMessage(user.id, 'assistant', responseText).catch(() => {});
+    await appendMessage(user.id, 'user', messageText).catch(e => console.error(`[sms] Failed to persist user message for user ${user.id}:`, e.message));
+    await appendMessage(user.id, 'assistant', responseText).catch(e => console.error(`[sms] Failed to persist assistant message for user ${user.id}:`, e.message));
   }
 
   // Orchestrator already persists user + assistant messages atomically

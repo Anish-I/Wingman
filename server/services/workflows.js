@@ -89,7 +89,7 @@ async function runWorkflow(workflowId, userId) {
   } finally {
     clearInterval(extendTimer);
     // Release: only if we still own it — prevents deleting another runner's lock
-    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(() => {});
+    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(e => console.error(`[workflows] Failed to release lock ${lockKey}:`, e.message));
   }
 }
 
