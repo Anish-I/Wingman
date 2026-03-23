@@ -37,7 +37,7 @@ async function generateOAuthState(userId, app) {
 // Verify and decode an OAuth state token, consuming the server-side nonce (single-use)
 async function verifyOAuthState(stateToken) {
   try {
-    const payload = jwt.verify(stateToken, JWT_SECRET);
+    const payload = jwt.verify(stateToken, JWT_SECRET, { algorithms: ['HS256'] });
     if (!payload.nonce) return null;
     // Atomically fetch and delete nonce — prevents replay
     const storedUserId = await redis.call('GETDEL', `oauth_nonce:${payload.nonce}`);

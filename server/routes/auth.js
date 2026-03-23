@@ -573,7 +573,7 @@ router.post('/google', async (req, res) => {
     }
     let statePayload;
     try {
-      statePayload = jwt.verify(state, JWT_SECRET);
+      statePayload = jwt.verify(state, JWT_SECRET, { algorithms: ['HS256'] });
     } catch {
       return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
     }
@@ -698,7 +698,7 @@ function parseOAuthState(stateParam) {
   const fallback = { platform: 'native', webOrigin: '' };
   try {
     if (!stateParam) return fallback;
-    const payload = jwt.verify(stateParam, JWT_SECRET);
+    const payload = jwt.verify(stateParam, JWT_SECRET, { algorithms: ['HS256'] });
     return {
       platform: payload.platform || 'native',
       webOrigin: payload.webOrigin || '',
@@ -737,7 +737,7 @@ router.get('/google/callback', async (req, res) => {
   }
   let statePayload;
   try {
-    statePayload = jwt.verify(req.query.state, JWT_SECRET);
+    statePayload = jwt.verify(req.query.state, JWT_SECRET, { algorithms: ['HS256'] });
   } catch {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
   }
