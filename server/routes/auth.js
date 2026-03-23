@@ -200,18 +200,28 @@ async function findAndLinkUser({ phone, email, google_id, apple_id }) {
 
   if (!user) return null;
 
+  // Only fill in identity fields that are currently empty on the found user.
+  // Never overwrite an existing identity — that would allow an attacker who
+  // controls one provider to hijack an identity on another provider.
   const updates = {};
-  if (email && user.email !== email) updates.email = email;
-  if (google_id && user.google_id !== google_id) updates.google_id = google_id;
-  if (apple_id && user.apple_id !== apple_id) updates.apple_id = apple_id;
+  if (email && !user.email) updates.email = email;
+  if (google_id && !user.google_id) updates.google_id = google_id;
+  if (apple_id && !user.apple_id) updates.apple_id = apple_id;
   if (phone && isValidPhone(phone) && user.phone !== phone) {
+    // Only replace synthetic phone placeholders, never a real phone number.
     if (!user.phone || user.phone.startsWith('email:') || user.phone.startsWith('google:') || user.phone.startsWith('apple:')) {
       updates.phone = phone;
     }
   }
 
   if (Object.keys(updates).length > 0) {
-    user = await linkUserIdentity(user.id, updates) || user;
+    // linkUserIdentity performs its own conflict check and will return null
+    // if any identity is already claimed by another user or if it would
+    // overwrite a non-null field with a different value.
+    const linked = await linkUserIdentity(user.id, updates);
+    if (linked) user = linked;
+    // If linking failed (conflict), we still return the original user —
+    // the caller gets a valid session but no cross-account linking occurs.
   }
 
   return user;
