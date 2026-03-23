@@ -67,8 +67,29 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', parsed);
 }
 
-// Security headers
-app.use(helmet());
+// Security headers with explicit Content-Security-Policy
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://logos.composio.dev"],
+      connectSrc: [
+        "'self'",
+        "https://accounts.google.com",
+        "https://appleid.apple.com",
+      ],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://appleid.apple.com"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
 
 // CORS — in production only allow CORS_ORIGIN; in dev also allow localhost
 const allowedOrigins = [
