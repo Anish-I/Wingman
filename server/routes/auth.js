@@ -981,6 +981,13 @@ router.post('/social', async (req, res) => {
       socialName = payload.name || payload.email;
       socialEmail = payload.email;
     } else if (authProvider === 'apple') {
+      // Reject immediately if Apple audience is not configured — without this,
+      // audience validation inside verifyAppleToken would be skipped, allowing
+      // any Apple-signed JWT to pass as a valid Wingman token.
+      if (!process.env.APPLE_CLIENT_ID) {
+        console.error('APPLE_CLIENT_ID is not configured — refusing Apple sign-in');
+        return res.status(500).json({ error: { code: 'SERVER_MISCONFIGURED', message: 'Apple sign-in is not available.' } });
+      }
       // Cryptographically verify Apple identity token against Apple's JWKS
       try {
         const payload = await verifyAppleToken(token);
