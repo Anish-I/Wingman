@@ -85,9 +85,12 @@ export const timing = {
 /** Standard stagger delay for list items */
 export const STAGGER_MS = 60;
 
-/** Compute stagger delay for index */
+/** Max total stagger window — keeps entrance animations under 500ms */
+const MAX_STAGGER_TOTAL_MS = 400;
+
+/** Compute stagger delay for index, capped to stay within UX guidelines */
 export function staggerDelay(index: number, baseDelay = 0) {
-  return baseDelay + index * STAGGER_MS;
+  return baseDelay + Math.min(index * STAGGER_MS, MAX_STAGGER_TOTAL_MS);
 }
 
 // ── Entrance presets (MotiView props) ──────────────────────────
