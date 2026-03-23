@@ -23,19 +23,30 @@ const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 1
 // own entry rather than accidentally decrementing a newer orphan.
 const _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
 let _totalOrphanCount = 0; // O(1) global counter kept in sync by add/remove/sweep
+let _lastSweepTime = 0; // monotonic timestamp of the last successful sweep
 
-// Sweep stale entries from the orphan map.  Called periodically AND on-demand
-// when the map is at capacity, so entries for inactive users cannot accumulate
-// unboundedly even if no further requests arrive for those users.
+// Sweep stale entries from the orphan map.  Called periodically, on-demand
+// when the map is at capacity, AND lazily at the start of processMessage
+// when enough time has elapsed — so entries for inactive users cannot
+// accumulate even if the periodic timer is delayed by event-loop congestion.
 function _sweepOrphans() {
-  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
-  for (const [userId, perUser] of _orphanedByUser) {
-    for (const [token, ts] of perUser) {
-      if (ts < cutoff) { perUser.delete(token); _totalOrphanCount--; }
+  try {
+    const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+    let liveCount = 0;
+    for (const [userId, perUser] of _orphanedByUser) {
+      for (const [token, ts] of perUser) {
+        if (ts < cutoff) perUser.delete(token);
+      }
+      liveCount += perUser.size;
+      if (perUser.size === 0) _orphanedByUser.delete(userId);
     }
-    if (perUser.size === 0) _orphanedByUser.delete(userId);
+    // Reconcile counter with actual map state — corrects any drift from
+    // edge-case double-removes or missed decrements.
+    _totalOrphanCount = liveCount;
+    _lastSweepTime = Date.now();
+  } catch (err) {
+    console.error('[orphan-sweep] Unexpected error during sweep:', err.message);
   }
-  if (_totalOrphanCount < 0) _totalOrphanCount = 0; // defensive floor
 }
 
 function _getUserOrphanCount(userId) {
@@ -44,11 +55,10 @@ function _getUserOrphanCount(userId) {
   const cutoff = Date.now() - ORPHAN_WINDOW_MS;
   let count = 0;
   for (const [token, ts] of perUser) {
-    if (ts < cutoff) { perUser.delete(token); _totalOrphanCount--; }
+    if (ts < cutoff) { perUser.delete(token); _totalOrphanCount = Math.max(0, _totalOrphanCount - 1); }
     else count++;
   }
   if (perUser.size === 0) _orphanedByUser.delete(userId);
-  if (_totalOrphanCount < 0) _totalOrphanCount = 0;
   return count;
 }
 
@@ -79,9 +89,8 @@ function _removeOrphan(userId, token) {
   if (!token) return;
   const perUser = _orphanedByUser.get(userId);
   if (!perUser) return;
-  if (perUser.delete(token)) _totalOrphanCount--;
+  if (perUser.delete(token)) _totalOrphanCount = Math.max(0, _totalOrphanCount - 1);
   if (perUser.size === 0) _orphanedByUser.delete(userId);
-  if (_totalOrphanCount < 0) _totalOrphanCount = 0;
 }
 
 function getOrphanedCount() {
@@ -166,6 +175,14 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
+  // Lazy sweep: if enough time has passed since the last sweep and stale
+  // entries may exist, sweep inline before checking orphan counts.  This
+  // guarantees cleanup even if the periodic setInterval timer is delayed
+  // by event-loop congestion under heavy load.
+  if (_orphanedByUser.size > 0 && Date.now() - _lastSweepTime > ORPHAN_SWEEP_INTERVAL_MS) {
+    _sweepOrphans();
+  }
+
   // Reject early if this user has too many orphaned promises already running
   const userId = String(user.id);
   const userOrphanCount = _getUserOrphanCount(userId);
