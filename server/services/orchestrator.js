@@ -174,7 +174,7 @@ async function processMessage(user, messageText) {
   const abortController = { aborted: false };
   // Shared holder so we can force-release the lock on timeout even if the
   // orphaned inner promise is still running.
-  const lockHolder = { releaseLock: null, released: false };
+  const lockHolder = { releaseLock: null, released: false, inflightAppend: null };
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -191,10 +191,16 @@ async function processMessage(user, messageText) {
   } catch (err) {
     // On timeout, the inner promise is now orphaned — track it
     if (abortController.aborted) {
-      // Force-release the lock immediately so subsequent messages aren't blocked
-      // waiting for the orphaned inner promise to settle.
+      // Force-release the lock so subsequent messages aren't blocked waiting
+      // for the orphaned inner promise to settle.  Set the released flag first
+      // to prevent new writes, then drain any in-flight appendMessage before
+      // actually releasing — this closes the TOCTOU window where an append
+      // starts before the flag is set and interleaves with the next request.
       if (lockHolder.releaseLock && !lockHolder.released) {
         lockHolder.released = true;
+        if (lockHolder.inflightAppend) {
+          await lockHolder.inflightAppend.catch(() => {});
+        }
         lockHolder.releaseLock().catch(() => {});
       }
       const orphanToken = _addOrphan(userId);
@@ -230,12 +236,18 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // Guarded append — skips the write if the lock was force-released by the
   // outer timeout, preventing concurrent appendMessage calls from two requests.
+  // Tracks the in-flight promise so force-release can drain it before unlocking.
   const safeAppend = (role, text) => {
     if (lockHolder.released) {
       console.warn(`[user:${userId}] Lock force-released — skipping appendMessage(${role}) to avoid race`);
       return Promise.resolve();
     }
-    return appendMessage(user.id, role, text);
+    const p = appendMessage(user.id, role, text);
+    lockHolder.inflightAppend = p;
+    p.finally(() => {
+      if (lockHolder.inflightAppend === p) lockHolder.inflightAppend = null;
+    });
+    return p;
   };
 
   // Acquire per-user lock to serialize concurrent requests.
