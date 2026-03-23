@@ -33,12 +33,13 @@ async function sendSMS(to, body) {
 function validateWebhook(rawBody, headers) {
   const publicKey = process.env.TELNYX_PUBLIC_KEY;
   if (!publicKey) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[security] TELNYX_PUBLIC_KEY is not set — rejecting webhook in production');
-      return false;
+    const env = process.env.NODE_ENV;
+    if (env === 'development' || env === 'test') {
+      console.warn('[security] WARNING: TELNYX_PUBLIC_KEY not set — skipping signature validation in ' + env);
+      return true;
     }
-    console.warn('[security] WARNING: TELNYX_PUBLIC_KEY not set — skipping signature validation in development');
-    return true;
+    console.error('[security] TELNYX_PUBLIC_KEY is not set — rejecting webhook (set NODE_ENV=development to bypass)');
+    return false;
   }
 
   const signature = headers['telnyx-signature-ed25519-signature'];
