@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, blue, semantic, teal } from '@/components/ui/tokens';
+import { useThemeColors, blue, purple, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
