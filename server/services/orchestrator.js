@@ -214,6 +214,14 @@ async function _processMessageInner(user, messageText, abortController = { abort
     return "I'm still working on your previous message — please wait a moment.";
   }
 
+  // If the outer timeout already fired while we were waiting for the lock,
+  // release it immediately rather than doing any more work.
+  if (abortController.aborted) {
+    console.warn(`[user:${userId}] Aborted during lock acquisition — releasing lock immediately`);
+    releaseLock().catch(() => {});
+    return "Sorry, that took too long. Please try again.";
+  }
+
   // Expose lock to caller so it can force-release on outer timeout
   lockHolder.releaseLock = releaseLock;
 
@@ -463,7 +471,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
     return errorMsg;
   } finally {
-    if (!lockHolder.released) {
+    if (releaseLock && !lockHolder.released) {
       lockHolder.released = true;
       await releaseLock().catch(() => {});
     }
