@@ -6,9 +6,9 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wingman
-      POSTGRES_PASSWORD: wingman
-      POSTGRES_DB: wingman
+      POSTGRES_USER: ${POSTGRES_USER:-wingman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wingman}
+      POSTGRES_DB: ${POSTGRES_DB:-wingman}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
