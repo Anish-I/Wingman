@@ -88,14 +88,12 @@ router.get('/initiate', async (req, res) => {
     if (!connectToken) {
       return res.status(400).json({ error: { code: 'MISSING_CONNECT_TOKEN', message: 'Missing connectToken parameter.' } });
     }
-    // Look up and consume the single-use token from Redis
+    // Atomically fetch and delete — prevents concurrent requests from reusing the same token
     const key = `connect_token:${connectToken}`;
-    const stored = await redis.get(key);
+    const stored = await redis.call('GETDEL', key);
     if (!stored) {
       return res.status(401).json({ error: { code: 'INVALID_CONNECT_TOKEN', message: 'Invalid or expired connect token.' } });
     }
-    // Delete immediately — single use
-    await redis.del(key);
     let parsed;
     try {
       parsed = JSON.parse(stored);
