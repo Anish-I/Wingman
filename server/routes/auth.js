@@ -1018,12 +1018,19 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
 
 // DELETE /auth/account — permanently delete the authenticated user's account and all data
 // Required for GDPR/CCPA compliance and Apple App Store guidelines.
-// Requires PIN confirmation (if set) to prevent CSRF-driven account destruction.
+// Requires explicit confirmDeletion flag (CSRF signal) and PIN confirmation (if set).
 router.delete('/account', requireAuth, async (req, res) => {
   try {
-    const { pin } = req.body || {};
+    const { pin, confirmDeletion } = req.body || {};
 
-    // If user has a PIN set, require it for confirmation
+    // Require explicit opt-in to prevent accidental or CSRF-driven deletion.
+    // A cross-site attacker cannot forge an arbitrary JSON body when the auth
+    // cookie is sameSite:lax, making this an effective CSRF guard.
+    if (confirmDeletion !== true) {
+      return res.status(400).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Set confirmDeletion: true to confirm account deletion.' } });
+    }
+
+    // If user has a PIN set, require it as a second factor
     if (req.user.pin_hash) {
       if (!pin || typeof pin !== 'string') {
         return res.status(400).json({ error: { code: 'PIN_REQUIRED', message: 'PIN confirmation is required to delete your account.' } });
