@@ -36,7 +36,7 @@
 
   /* ── Text ──────────────────────────────────────────────────── */
   --color-pip-text: #F0F0F5;
-  --color-pip-text-secondary: #C4C4D2;
+  --color-pip-text-secondary: #D2D2DE;
   --color-pip-text-muted: #D0D0DC;
 
   /* ── Semantic ─────────────────────────────────────────────── */
@@ -134,7 +134,7 @@
   --color-card-foreground: #F0F0F5;
 
   --color-muted: #1C1C20;
-  --color-muted-foreground: #C4C4D2;
+  --color-muted-foreground: #D2D2DE;
 
   --color-border: #232330;
   --color-input: #131315;

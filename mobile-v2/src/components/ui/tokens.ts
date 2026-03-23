@@ -24,7 +24,7 @@ export const purple = {
   700: '#4F32B3',
   800: '#3A228A',
   900: '#261562',
-  muted: 'rgba(124, 92, 252, 0.12)',
+  muted: 'rgba(124, 92, 252, 0.22)',
   /** Subtle glow for premium elevations */
   glow: 'rgba(124, 92, 252, 0.08)',
 } as const;
@@ -82,11 +82,11 @@ export const text = {
   /** High-contrast primary — intentionally warm-white, approachable */
   primary: '#F0F0F5',
   /** Secondary — body text, longer content (high legibility) */
-  secondary: '#C4C4D2',
+  secondary: '#D2D2DE',
   /** Muted — labels, metadata, hints (WCAG AA on all dark surfaces incl. card) */
   muted: '#D0D0DC',
-  /** Disabled / placeholder text — WCAG AA on all dark surfaces */
-  disabled: '#C8C8D6',
+  /** Disabled / placeholder text — visually distinct from secondary, WCAG AA on dark surfaces */
+  disabled: '#8E8E9D',
   /** Inverse for light/elevated surfaces */
   inverse: '#0A0A0C',
 } as const;

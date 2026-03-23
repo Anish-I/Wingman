@@ -372,7 +372,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             className="rounded-full px-3 py-1.5 flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
               {
-                backgroundColor: active ? 'rgba(124, 92, 252, 0.12)' : surface.card,
+                backgroundColor: active ? 'rgba(124, 92, 252, 0.22)' : surface.card,
                 borderWidth: 1,
                 borderColor: active ? '#7C5CFC' : surface.border,
               },

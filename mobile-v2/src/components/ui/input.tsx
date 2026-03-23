@@ -12,7 +12,7 @@ const inputTv = tv({
     container: 'mb-3',
     label: 'text-grey-100 mb-2 text-sm font-medium dark:text-[#C8C8D4]',
     input:
-      'font-inter mt-0 rounded-md border border-neutral-300 bg-neutral-100 px-4 py-3 text-base font-medium dark:border-[#232330] dark:bg-[#1F1F24] dark:text-[#F0F0F5] placeholder:dark:text-[#C8C8D6]',
+      'font-inter mt-0 rounded-md border border-neutral-300 bg-neutral-100 px-4 py-3 text-base font-medium dark:border-[#232330] dark:bg-[#1F1F24] dark:text-[#F0F0F5] placeholder:dark:text-[#8E8E9D]',
   },
 
   variants: {

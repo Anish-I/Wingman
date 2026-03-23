@@ -83,8 +83,8 @@ const button = tv({
     disabled: {
       true: {
         container: 'bg-neutral-200 dark:bg-[#1F1F24]',
-        label: 'text-neutral-400 dark:text-[#C8C8D6]',
-        indicator: 'text-neutral-400 dark:text-[#C8C8D6]',
+        label: 'text-neutral-400 dark:text-[#8E8E9D]',
+        indicator: 'text-neutral-400 dark:text-[#8E8E9D]',
       },
     },
     fullWidth: {
