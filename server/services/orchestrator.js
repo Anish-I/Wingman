@@ -4,7 +4,7 @@ const { getConversationHistory, appendMessage, acquireConversationLock } = requi
 const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
-const { shouldCache, getCachedResponse, setCachedResponse } = require('./llm-cache');
+const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
 
 const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
@@ -429,6 +429,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply in background`);
     appendMessage(user.id, 'assistant', finalText)
       .catch(e => console.error(`[user:${userId}] Background history persist failed:`, e.message));
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
     return finalText;
   }
   await appendMessage(user.id, 'assistant', finalText);
@@ -453,6 +454,9 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   return finalText;
   } catch (err) {
+    // Release stampede lock so other requests aren't blocked for 30s
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
+
     // AbortError means the outer processMessage timed out and set the flag —
     // stop immediately and let the orphaned-promise tracker handle cleanup.
     if (err.name === 'AbortError') {

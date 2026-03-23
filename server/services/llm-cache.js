@@ -126,10 +126,22 @@ async function setCachedWorkflowPlan(description, plans, userId) {
   }
 }
 
+async function releaseCacheLock(messageText, userId) {
+  const bucket = detectBucket(messageText);
+  if (!bucket) return;
+  const key = cacheKey(bucket, messageText, userId);
+  try {
+    await redis.del(`${key}:lock`);
+  } catch (err) {
+    console.error('[llm-cache] lock release error:', err.message);
+  }
+}
+
 module.exports = {
   shouldCache,
   getCachedResponse,
   setCachedResponse,
+  releaseCacheLock,
   getCachedWorkflowPlan,
   setCachedWorkflowPlan,
 };
