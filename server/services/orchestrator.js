@@ -5,6 +5,8 @@ const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsFo
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
+const { redis } = require('./redis');
+const crypto = require('crypto');
 
 const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
@@ -15,100 +17,93 @@ const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10'
 const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
 // Sliding window for orphan counting — limits how long a user stays blocked (default 60s)
 const ORPHAN_WINDOW_MS = parseInt(process.env.ORPHAN_WINDOW_MS || '60000', 10);
-// Cap on distinct users tracked — prevents unbounded memory growth under sustained load
-const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 10);
 
-// Per-user orphaned promise tracking — prevents one user's hung requests from blocking others.
-// Each orphan gets a unique Symbol token so reap timers and settlement callbacks target their
-// own entry rather than accidentally decrementing a newer orphan.
-let _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
-let _totalOrphanCount = 0; // O(1) global counter kept in sync by add/remove/sweep
-let _lastSweepTime = 0; // monotonic timestamp of the last successful sweep
+// Redis key prefix for orphan sorted sets (one per user).
+// Score = timestamp (ms), member = unique token string.
+// Key TTL = ORPHAN_REAP_TIMEOUT so entries auto-expire even with no sweep.
+const ORPHAN_KEY_PREFIX = 'wingman:orphans:';
+const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS || '60000', 10);
 
-// Sweep stale entries from the orphan map.  Called periodically, on-demand
-// when the map is at capacity, AND lazily at the start of processMessage
-// when enough time has elapsed — so entries for inactive users cannot
-// accumulate even if the periodic timer is delayed by event-loop congestion.
-function _sweepOrphans() {
+// Add an orphan entry to Redis.  Returns a token string for later removal.
+async function _addOrphan(userId) {
+  const token = crypto.randomUUID();
+  const key = ORPHAN_KEY_PREFIX + userId;
   try {
+    await redis.zadd(key, Date.now(), token);
+    // Auto-expire the key if no sweep or removal happens (e.g. process dies).
+    await redis.pexpire(key, ORPHAN_REAP_TIMEOUT + 60000);
+  } catch (err) {
+    console.error(`[user:${userId}] Failed to track orphan in Redis:`, err.message);
+    return null;
+  }
+  return token;
+}
+
+// Remove a specific orphan entry from Redis.
+async function _removeOrphan(userId, token) {
+  if (!token) return;
+  try {
+    await redis.zrem(ORPHAN_KEY_PREFIX + userId, token);
+  } catch (err) {
+    console.error(`[user:${userId}] Failed to remove orphan from Redis:`, err.message);
+  }
+}
+
+// Count non-expired orphans for a user (entries within the sliding window).
+async function _getUserOrphanCount(userId) {
+  try {
+    const key = ORPHAN_KEY_PREFIX + userId;
     const cutoff = Date.now() - ORPHAN_WINDOW_MS;
-    // Rebuild from scratch instead of mutating in-place.  V8's Map does not
-    // shrink its internal hash table after deletions, so in-place delete leaves
-    // the backing store at its high-water-mark size.  Rebuilding lets the old
-    // Map (and its oversized hash table) be GC'd, preventing monotonic memory
-    // growth when many distinct user IDs cycle through orphan tracking.
-    const fresh = new Map();
-    let liveCount = 0;
-    for (const [userId, perUser] of _orphanedByUser) {
-      const liveTokens = new Map();
-      for (const [token, ts] of perUser) {
-        if (ts >= cutoff) {
-          liveTokens.set(token, ts);
-          liveCount++;
-        }
-      }
-      if (liveTokens.size > 0) fresh.set(userId, liveTokens);
+    await redis.zremrangebyscore(key, '-inf', cutoff);
+    return await redis.zcard(key);
+  } catch (err) {
+    console.error(`[user:${userId}] Failed to read orphan count from Redis:`, err.message);
+    return 0; // fail-open: allow the request through
+  }
+}
+
+// Global orphan count across all users.
+async function getOrphanedCount() {
+  try {
+    const keys = await redis.keys(ORPHAN_KEY_PREFIX + '*');
+    if (keys.length === 0) return 0;
+    const pipeline = redis.pipeline();
+    for (const key of keys) pipeline.zcard(key);
+    const results = await pipeline.exec();
+    return results.reduce((sum, [err, count]) => sum + (err ? 0 : count), 0);
+  } catch (err) {
+    console.error('[orphan] Failed to read global orphan count:', err.message);
+    return 0;
+  }
+}
+
+// Background sweep: prune expired entries from all orphan keys and remove
+// empty keys.  Runs periodically so entries are cleaned even if the user
+// never sends another request — solving the silent-user leak.
+async function _sweepOrphans() {
+  try {
+    const keys = await redis.keys(ORPHAN_KEY_PREFIX + '*');
+    if (keys.length === 0) return;
+    const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+    const pipeline = redis.pipeline();
+    for (const key of keys) pipeline.zremrangebyscore(key, '-inf', cutoff);
+    await pipeline.exec();
+    // Remove now-empty keys to avoid key-space bloat.
+    const cardPipeline = redis.pipeline();
+    for (const key of keys) cardPipeline.zcard(key);
+    const counts = await cardPipeline.exec();
+    const delPipeline = redis.pipeline();
+    let delCount = 0;
+    for (let i = 0; i < keys.length; i++) {
+      const [err, count] = counts[i];
+      if (!err && count === 0) { delPipeline.del(keys[i]); delCount++; }
     }
-    _orphanedByUser = fresh;
-    _totalOrphanCount = liveCount;
-    _lastSweepTime = Date.now();
+    if (delCount > 0) await delPipeline.exec();
   } catch (err) {
     console.error('[orphan-sweep] Unexpected error during sweep:', err.message);
   }
 }
 
-function _getUserOrphanCount(userId) {
-  const perUser = _orphanedByUser.get(userId);
-  if (!perUser) return 0;
-  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
-  let count = 0;
-  for (const [token, ts] of perUser) {
-    if (ts < cutoff) { perUser.delete(token); _totalOrphanCount = Math.max(0, _totalOrphanCount - 1); }
-    else count++;
-  }
-  if (perUser.size === 0) _orphanedByUser.delete(userId);
-  return count;
-}
-
-function _isOrphanMapFull(userId) {
-  return !_orphanedByUser.has(userId) && _orphanedByUser.size >= MAX_ORPHAN_MAP_SIZE;
-}
-
-function _addOrphan(userId) {
-  if (_isOrphanMapFull(userId)) {
-    // On-demand sweep: evict stale entries before giving up.  Under production
-    // load the periodic sweep may not have run recently enough, so this ensures
-    // expired entries are reclaimed immediately when space is needed.
-    _sweepOrphans();
-    if (_isOrphanMapFull(userId)) {
-      console.error(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users) after sweep, rejecting`);
-      return null;
-    }
-  }
-  const token = Symbol();
-  const perUser = _orphanedByUser.get(userId) || new Map();
-  perUser.set(token, Date.now());
-  _orphanedByUser.set(userId, perUser);
-  _totalOrphanCount++;
-  return token;
-}
-
-function _removeOrphan(userId, token) {
-  if (!token) return;
-  const perUser = _orphanedByUser.get(userId);
-  if (!perUser) return;
-  if (perUser.delete(token)) _totalOrphanCount = Math.max(0, _totalOrphanCount - 1);
-  if (perUser.size === 0) _orphanedByUser.delete(userId);
-}
-
-function getOrphanedCount() {
-  return _totalOrphanCount;
-}
-
-// Periodic sweep to prune stale orphan entries for inactive users.
-// Without this, per-user Maps can retain expired timestamps indefinitely
-// if _getUserOrphanCount is never called again for that user.
-const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS || '60000', 10);
 const _orphanSweepTimer = setInterval(_sweepOrphans, ORPHAN_SWEEP_INTERVAL_MS);
 _orphanSweepTimer.unref(); // don't prevent process exit
 
@@ -183,30 +178,13 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
-  // Lazy sweep: if enough time has passed since the last sweep and stale
-  // entries may exist, sweep inline before checking orphan counts.  This
-  // guarantees cleanup even if the periodic setInterval timer is delayed
-  // by event-loop congestion under heavy load.
-  if (_orphanedByUser.size > 0 && Date.now() - _lastSweepTime > ORPHAN_SWEEP_INTERVAL_MS) {
-    _sweepOrphans();
-  }
-
-  // Reject early if this user has too many orphaned promises already running
+  // Reject early if this user has too many orphaned promises already running.
+  // _getUserOrphanCount prunes expired entries inline via ZREMRANGEBYSCORE.
   const userId = String(user.id);
-  const userOrphanCount = _getUserOrphanCount(userId);
+  const userOrphanCount = await _getUserOrphanCount(userId);
   if (userOrphanCount >= MAX_ORPHANED_PROMISES) {
     console.warn(`[user:${userId}] Rejecting request: ${userOrphanCount} orphaned promises already in-flight for this user (limit ${MAX_ORPHANED_PROMISES})`);
     return "I'm currently overloaded — please try again in a moment.";
-  }
-
-  // Reject early if the global orphan map is at capacity and this user isn't already tracked.
-  // This prevents silent fail-open under sustained load — new users get a clear rejection
-  // instead of bypassing orphan tracking entirely.
-  if (_isOrphanMapFull(userId)) {
-    console.error(`[user:${userId}] Rejecting request: orphan tracking at capacity (${MAX_ORPHAN_MAP_SIZE} users tracked)`);
-    const err = new Error('Server overloaded — too many concurrent requests');
-    err.statusCode = 429;
-    throw err;
   }
 
   const abortController = { aborted: false };
@@ -243,14 +221,14 @@ async function processMessage(user, messageText) {
       // appends and releases the lock safely.
 
       // Track the orphan for backpressure purposes.
-      const orphanToken = _addOrphan(userId);
-      console.warn(`[user:${userId}] Request timed out, orphaned promise tracked (user count: ${_getUserOrphanCount(userId)}, global: ${getOrphanedCount()})`);
+      const orphanToken = await _addOrphan(userId);
+      console.warn(`[user:${userId}] Request timed out, orphaned promise tracked`);
       let reaped = false;
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          _removeOrphan(userId, orphanToken);
-          console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (user remaining: ${_getUserOrphanCount(userId)})`);
+          _removeOrphan(userId, orphanToken).catch(() => {});
+          console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms`);
         }
       }, ORPHAN_REAP_TIMEOUT);
       if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
@@ -260,8 +238,8 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            _removeOrphan(userId, orphanToken);
-            console.log(`[user:${userId}] Orphaned promise settled (user remaining: ${_getUserOrphanCount(userId)})`);
+            _removeOrphan(userId, orphanToken).catch(() => {});
+            console.log(`[user:${userId}] Orphaned promise settled`);
           }
         });
     }
