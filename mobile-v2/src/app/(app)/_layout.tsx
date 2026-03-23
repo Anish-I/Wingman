@@ -18,6 +18,8 @@ export default function TabLayout() {
   const status = useAuth.use.status();
   const token = useAuth.use.token();
   const [isFirstTime] = useIsFirstTime();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
@@ -41,9 +43,6 @@ export default function TabLayout() {
   if (isFirstTime !== false) {
     return <Redirect href="/onboarding/welcome" />;
   }
-
-  const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
 
   return (
     <Tabs
