@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,8 @@ function showAlert(title: string, message: string) {
 export default function LoginScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const [phone, setPhone] = useState('');
   const [e164Phone, setE164Phone] = useState('');
   const [step, setStep] = useState<'phone' | 'verify'>('phone');
@@ -120,10 +122,14 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingVertical: isLandscape ? 16 : 0,
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="px-8" style={{ gap: 24 }}>
+          <View className="px-8" style={{ gap: isLandscape ? 14 : 24 }}>
         {/* Header */}
         <View style={{ gap: 8 }}>
           <Text
@@ -205,7 +211,7 @@ export default function LoginScreen() {
         ) : (
           <>
             {/* OTP boxes */}
-            <View className="flex-row justify-center" style={{ gap: 10 }}>
+            <View className="flex-row justify-center" style={{ gap: isLandscape ? 6 : 10 }}>
               {code.map((digit, i) => (
                 <TextInput
                   key={i}
@@ -214,15 +220,15 @@ export default function LoginScreen() {
                       inputs.current[i] = r;
                   }}
                   style={{
-                    width: 48,
-                    height: 56,
+                    width: isLandscape ? 38 : 48,
+                    height: isLandscape ? 44 : 56,
                     borderRadius: 10,
                     backgroundColor: surface.card,
                     borderWidth: activeIdx === i ? 2 : 1,
                     borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
                     textAlign: 'center',
                     fontFamily: 'Sora_700Bold',
-                    fontSize: 24,
+                    fontSize: isLandscape ? 18 : 24,
                     color: t.primary,
                   }}
                   value={digit}
