@@ -341,7 +341,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     }
     if (reqToken) {
       const payload = verifyToken(reqToken);
-      if (payload && payload.userId) {
+      if (payload && payload.userId && !(await isTokenRevoked(payload.jti, payload.userId))) {
         requestingUserId = payload.userId;
       }
     }
@@ -438,7 +438,10 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     }
     let existingPayload = null;
     if (existingToken) {
-      existingPayload = verifyToken(existingToken);
+      const ep = verifyToken(existingToken);
+      if (ep && !(await isTokenRevoked(ep.jti, ep.userId))) {
+        existingPayload = ep;
+      }
     }
 
     // Session-fixation guard: if the caller is authenticated and wants to link
