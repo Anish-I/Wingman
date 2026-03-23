@@ -102,7 +102,7 @@ describe('button component ', () => {
     const button = screen.getByTestId('button');
 
     const expectedStyle
-      = 'font-inter font-semibold text-base text-neutral-600 dark:text-neutral-600';
+      = 'font-inter font-semibold text-base text-neutral-400 dark:text-[#8E8E9D]';
     const receivedStyle
       = button.props.children[0].props.children.props.className;
     expect(receivedStyle).toContain(expectedStyle);
