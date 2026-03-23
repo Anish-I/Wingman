@@ -125,7 +125,12 @@ function withTimeout(promise, ms, label) {
  * with `timedOut: true` and `completionPromise` (a Promise that resolves when
  * the underlying call finishes) on timeout.
  */
-function execWithTimeout(promise, ms, label) {
+function execWithTimeout(promiseOrFn, ms, label, { controller } = {}) {
+  // If a function is passed, call it with the abort controller so the callee
+  // can wire up the signal.  If a bare promise is passed, use it directly.
+  const ac = controller || new AbortController();
+  const promise = typeof promiseOrFn === 'function' ? promiseOrFn(ac) : promiseOrFn;
+
   let settled = false;
   const tracked = promise.then(
     (val) => { settled = true; return val; },
@@ -135,6 +140,8 @@ function execWithTimeout(promise, ms, label) {
   let timerId;
   const timer = new Promise((_, reject) => {
     timerId = setTimeout(() => {
+      // Abort the underlying work (e.g. HTTP requests) — not just the race.
+      ac.abort();
       const err = new Error(`${label} timed out after ${ms}ms`);
       err.timedOut = true;
       // Allow callers to await eventual completion
@@ -378,12 +385,16 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // Execute each tool call, tracking completion per-tool to handle iteration timeouts gracefully
     const completedToolIds = new Set();
     const toolResults = [];
+    // Shared AbortController for this iteration — aborted on iteration timeout
+    // so in-flight tool HTTP requests are cancelled, not just ignored.
+    const iterationAC = new AbortController();
 
     const iterationWork = async () => {
     for (const block of response.toolUseBlocks) {
       // Check abort before each tool — prevents executing further tools
       // (especially side-effecting ones) after the request has timed out
       throwIfAborted(abortController, `tool:${block.name}`);
+      if (iterationAC.signal.aborted) throw new AbortError(`Iteration aborted before tool:${block.name}`);
 
       let result;
       try {
@@ -409,10 +420,20 @@ async function _processMessageInner(user, messageText, abortController = { abort
           result = { success: true, workflows: workflows.map(w => ({ id: w.id, name: w.name })) };
         } else {
           console.log(`[user:${userId}] Tool: ${block.name}`);
+          // Each tool gets its own AbortController for its per-tool timeout,
+          // but also listens to the iteration-level controller so that an
+          // iteration timeout aborts in-flight tool HTTP requests.
+          const toolAC = new AbortController();
+          // If iteration is aborted, propagate to this tool's controller
+          const onIterAbort = () => toolAC.abort();
+          iterationAC.signal.addEventListener('abort', onIterAbort, { once: true });
           const { result: toolResult } = await execWithTimeout(
-            executeTool(userId, block),
-            TOOL_EXEC_TIMEOUT, `tool:${block.name}`
-          );
+            executeTool(userId, block, { signal: toolAC.signal }),
+            TOOL_EXEC_TIMEOUT, `tool:${block.name}`,
+            { controller: toolAC }
+          ).finally(() => {
+            iterationAC.signal.removeEventListener('abort', onIterAbort);
+          });
           result = toolResult;
 
           // Composio returns { successful, error } — surface errors cleanly
@@ -476,9 +497,10 @@ async function _processMessageInner(user, messageText, abortController = { abort
       await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
     } catch (iterErr) {
       // AbortError must propagate — the request is cancelled, don't continue the loop
-      if (iterErr.name === 'AbortError') throw iterErr;
-      // Iteration timed out — some tools may have completed, others are still in-flight.
-      // Generate error results for tools that didn't finish so the LLM gets complete context.
+      if (iterErr.name === 'AbortError' && abortController.aborted) throw iterErr;
+      // Iteration timed out — abort in-flight tool calls and generate error
+      // results for tools that didn't finish so the LLM gets complete context.
+      if (!iterationAC.signal.aborted) iterationAC.abort();
       console.warn(`[user:${userId}] Iteration ${iterations + 1} timed out: ${iterErr.message}`);
       for (const block of response.toolUseBlocks) {
         if (!completedToolIds.has(block.id)) {

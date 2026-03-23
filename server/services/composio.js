@@ -191,7 +191,7 @@ function _toolIdempotencyKey(userId, toolCallBlock) {
  * first execution is returned. This prevents duplicate side effects
  * for non-idempotent tools like GMAIL_SEND or CREATE_GITHUB_ISSUE.
  */
-async function executeTool(userId, toolCallBlock) {
+async function executeTool(userId, toolCallBlock, { signal } = {}) {
   const idempKey = _toolIdempotencyKey(userId, toolCallBlock);
   const isSideEffecting = SIDE_EFFECT_PATTERN.test(toolCallBlock.name);
 
@@ -263,8 +263,16 @@ async function executeTool(userId, toolCallBlock) {
 
   // We claimed the slot — execute the tool
   try {
+    // Check abort signal before starting the API call — avoids sending a
+    // request for a tool whose iteration/request has already timed out.
+    if (signal?.aborted) {
+      const abortErr = new Error(`Aborted before executing ${toolCallBlock.name}`);
+      abortErr.name = 'AbortError';
+      throw abortErr;
+    }
+
     const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-    const raw = await toolset.executeToolCall({
+    const toolCallPromise = toolset.executeToolCall({
       id: toolCallBlock.id,
       type: 'function',
       function: {
@@ -272,6 +280,34 @@ async function executeTool(userId, toolCallBlock) {
         arguments: JSON.stringify(toolCallBlock.input),
       },
     });
+
+    // Race the SDK call against the abort signal so that when the
+    // iteration/request timeout fires, we stop waiting immediately
+    // rather than letting the HTTP call run to completion in the foreground.
+    let raw;
+    if (signal) {
+      raw = await new Promise((resolve, reject) => {
+        if (signal.aborted) {
+          const err = new Error(`Aborted during ${toolCallBlock.name}`);
+          err.name = 'AbortError';
+          reject(err);
+          return;
+        }
+        const onAbort = () => {
+          const err = new Error(`Aborted during ${toolCallBlock.name}`);
+          err.name = 'AbortError';
+          reject(err);
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        toolCallPromise.then(
+          (val) => { signal.removeEventListener('abort', onAbort); resolve(val); },
+          (err) => { signal.removeEventListener('abort', onAbort); reject(err); }
+        );
+      });
+    } else {
+      raw = await toolCallPromise;
+    }
+
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
 
     // Cache the result so retries get the same response
