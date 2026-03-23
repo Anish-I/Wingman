@@ -499,6 +499,32 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP verification attempts. Try again later.' } });
     }
 
+    // System-wide rate limit: cap total OTP verification attempts across ALL IPs
+    // and ALL phone numbers. Defends against distributed brute-force (botnet) where
+    // an attacker uses many IPs × many phones to spray OTP guesses. With 1M possible
+    // 6-digit OTPs, even 5 guesses/phone across 200K phones guarantees a hit — this
+    // global cap prevents that volume from ever being reached.
+    const systemWideKey = 'otp_verify_global_all';
+    const systemWideAttempts = await redis.incr(systemWideKey);
+    if (systemWideAttempts === 1) await redis.expire(systemWideKey, 15 * 60); // 15min window
+    const systemWideMax = parseInt(process.env.OTP_GLOBAL_MAX, 10) || 100;
+    if (systemWideAttempts > systemWideMax) {
+      console.warn(`System-wide OTP verification rate limit reached: ${systemWideAttempts} attempts in window`);
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Service is experiencing high traffic. Please try again later.' } });
+    }
+
+    // Per-IP unique phone tracking: detect phone number enumeration from a single IP.
+    // An attacker trying OTPs against many different phones from one IP is enumeration;
+    // legitimate users verify 1-2 phones at most. Uses a Redis set of phones per IP.
+    const ipPhonesKey = `otp_verify_phones:${ip}`;
+    await redis.sadd(ipPhonesKey, phone);
+    const uniquePhones = await redis.scard(ipPhonesKey);
+    // Set TTL on first entry (won't reset on subsequent adds since key already exists)
+    if (uniquePhones === 1) await redis.expire(ipPhonesKey, 15 * 60);
+    if (uniquePhones > 3) {
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many different phone numbers attempted. Try again later.' } });
+    }
+
     // Redis-based per-phone rate limiting (prevents distributed brute-force across IPs)
     // Use atomic INCR to eliminate TOCTOU race where concurrent requests both read
     // the same count and bypass the limit. Increment first, check after.
