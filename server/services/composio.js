@@ -158,7 +158,7 @@ async function getTools(userId) {
   if (!COMPOSIO_API_KEY) return [];
 
   const cacheKey = `tools:${userId}`;
-  const cached = await redis.get(cacheKey).catch(() => null);
+  const cached = await redis.get(cacheKey).catch(err => { console.error('[composio] Redis cache get error:', err.message); return null; });
   if (cached) return JSON.parse(cached);
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
@@ -263,7 +263,7 @@ async function executeTool(userId, toolCallBlock) {
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
 
     // Cache the result so retries get the same response
-    await redis.set(idempKey, JSON.stringify(parsed), 'EX', TOOL_IDEMPOTENCY_TTL).catch(() => {});
+    await redis.set(idempKey, JSON.stringify(parsed), 'EX', TOOL_IDEMPOTENCY_TTL).catch(err => { console.error('[composio] Redis idempotency set error:', err.message); });
     return parsed;
   } catch (err) {
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
@@ -279,10 +279,10 @@ async function executeTool(userId, toolCallBlock) {
       // executing, causing duplicate side effects (e.g. sending two emails).
       const errorTTL = TOOL_IDEMPOTENCY_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
-      await redis.set(idempKey, errorResult, 'EX', errorTTL).catch(() => {});
+      await redis.set(idempKey, errorResult, 'EX', errorTTL).catch(err => { console.error('[composio] Redis idempotency set error:', err.message); });
     } else {
       // Safe/idempotent tool: remove the key so retries can attempt again
-      await redis.del(idempKey).catch(() => {});
+      await redis.del(idempKey).catch(err => { console.error('[composio] Redis idempotency del error:', err.message); });
     }
     throw err;
   }
