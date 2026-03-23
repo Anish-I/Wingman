@@ -27,7 +27,11 @@ class StubProvider extends EventEmitter {
     await this.redis.rpush(key, JSON.stringify(message));
     await this.redis.expire(key, 86400); // 24h TTL
 
-    console.log(`[STUB SMS → ${to}]: ${body}`);
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`[STUB SMS → ${to}]: <redacted>`);
+    } else {
+      console.log(`[STUB SMS → ${to}]: ${body}`);
+    }
     this.emit('message', message);
     return { id };
   }

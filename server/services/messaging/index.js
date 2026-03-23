@@ -12,6 +12,9 @@ if (!PROVIDER) {
   } else if (process.env.TELNYX_API_KEY) {
     PROVIDER = 'telnyx';
   } else {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[messaging] FATAL: No SMS credentials set and NODE_ENV=production — refusing to start with stub provider');
+    }
     PROVIDER = 'stub';
     console.warn('[messaging] WARNING: No SMS credentials set — falling back to stub provider');
   }
