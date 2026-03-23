@@ -54,12 +54,14 @@ async function getConversationHistory(userId) {
 async function appendMessage(userId, role, content) {
   const key = `conv:${userId}`;
   const entry = JSON.stringify({ role, content, timestamp: Date.now() });
-  try {
-    await redis.lpush(key, entry);
-  } finally {
-    // Always trim and set TTL, even if lpush partially fails on pipeline
-    await redis.ltrim(key, 0, MAX_MESSAGES - 1).catch(() => {});
-    await redis.expire(key, CONVERSATION_TTL).catch(() => {});
+  const pipeline = redis.pipeline();
+  pipeline.lpush(key, entry);
+  pipeline.ltrim(key, 0, MAX_MESSAGES - 1);
+  pipeline.expire(key, CONVERSATION_TTL);
+  const results = await pipeline.exec();
+  // pipeline.exec() returns [[err, result], ...] — throw the first error found
+  for (const [err] of results) {
+    if (err) throw err;
   }
 }
 
