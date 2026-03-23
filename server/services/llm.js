@@ -124,7 +124,7 @@ function toOpenAIMessages(messages, systemPrompt) {
 }
 
 async function callLLM(systemPrompt, messages, tools, options = {}) {
-  const { complex = false } = options;
+  const { complex = false, signal } = options;
 
   const openAIMessages = toOpenAIMessages(messages, systemPrompt);
 
@@ -216,7 +216,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
     // All providers exhausted
     console.error('[llm] All providers failed');
     throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
-  });
+  }, { signal });
 }
 
 module.exports = { callLLM, MODEL_DEFAULT, MODEL_COMPLEX };
