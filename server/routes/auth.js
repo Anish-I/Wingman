@@ -77,7 +77,15 @@ if (JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
   process.exit(1);
 }
-const OTP_SECRET = process.env.OTP_SECRET || JWT_SECRET;
+const OTP_SECRET = process.env.OTP_SECRET;
+if (!OTP_SECRET) {
+  console.error('FATAL: OTP_SECRET environment variable is required (must differ from JWT_SECRET)');
+  process.exit(1);
+}
+if (OTP_SECRET.length < 32) {
+  console.error('FATAL: OTP_SECRET must be at least 32 characters long');
+  process.exit(1);
+}
 const JWT_ISSUER = 'wingman';
 const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
@@ -635,7 +643,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       // Uses a Lua script for atomicity — prevents releasing a lock that expired and
       // was re-acquired by another request.
       const releaseLua = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`;
-      await redis.eval(releaseLua, 1, lockKey, lockValue).catch(() => {});
+      await redis.eval(releaseLua, 1, lockKey, lockValue).catch(err => { console.error('[auth] OTP lock release failed:', err.message); });
     }
   } catch (err) {
     // Unique-constraint on phone (code 23505) means another request linked

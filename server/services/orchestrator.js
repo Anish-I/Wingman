@@ -240,7 +240,7 @@ async function processMessage(user, messageText) {
       }, ORPHAN_REAP_TIMEOUT);
       if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
       innerPromise
-        .catch(() => {}) // swallow — inner already handles its own errors
+        .catch(err => { console.error(`[user:${userId}] Orphaned inner promise error:`, err.message); })
         .finally(() => {
           if (!reaped) {
             reaped = true;
@@ -288,7 +288,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       }
       return appendMessage(user.id, role, text);
     });
-    appendChain = p.catch(() => {}); // don't let errors break the chain
+    appendChain = p.catch(err => { console.error(`[user:${userId}] appendMessage(${role}) failed:`, err.message); });
     lockHolder.inflightAppend = p;
     p.finally(() => {
       if (lockHolder.inflightAppend === p) lockHolder.inflightAppend = null;
@@ -521,7 +521,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
     await safeAppend('assistant', finalText);
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { console.error(`[user:${userId}] releaseCacheLock failed:`, err.message); });
     return finalText;
   }
   await safeAppend('assistant', finalText);
@@ -547,7 +547,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   return finalText;
   } catch (err) {
     // Release stampede lock so other requests aren't blocked for 30s
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(() => {});
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { console.error(`[user:${userId}] releaseCacheLock failed:`, err.message); });
 
     // AbortError means the outer processMessage timed out and set the flag —
     // stop immediately.  The lock is still held (the outer handler no longer
