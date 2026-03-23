@@ -201,20 +201,52 @@ async function executeTool(userId, toolCallBlock) {
   const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', PENDING_TTL);
 
   if (claimed !== 'OK') {
-    // Another execution of this exact call is in progress or completed
-    // Wait briefly then check for a cached result
+    // Another execution of this exact call is in progress or completed.
+    // Poll for the result, but also handle key expiry (null) mid-loop.
     for (let i = 0; i < 10; i++) {
       const cached = await redis.get(idempKey);
-      if (cached && cached !== 'pending') {
+      if (cached === null) {
+        // Key expired while we were waiting — the original executor is gone.
+        // Break out and fall through to claim-and-execute below.
+        console.log(`[user:${userId}] Idempotency key expired for ${toolCallBlock.name}, re-attempting`);
+        break;
+      }
+      if (cached !== 'pending') {
         console.log(`[user:${userId}] Idempotent cache hit for ${toolCallBlock.name}`);
         try { return JSON.parse(cached); } catch { return { result: cached }; }
       }
       // Still pending — wait 500ms before checking again
       await new Promise(r => setTimeout(r, 500));
     }
-    // Timed out waiting for the first execution — return a safe message
-    console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
-    return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
+
+    // Final check — the key may have been updated in the last iteration's sleep
+    const finalVal = await redis.get(idempKey);
+    if (finalVal && finalVal !== 'pending') {
+      console.log(`[user:${userId}] Idempotent cache hit (final) for ${toolCallBlock.name}`);
+      try { return JSON.parse(finalVal); } catch { return { result: finalVal }; }
+    }
+
+    if (finalVal === 'pending') {
+      // Key is stale — the original executor likely died (e.g. external timeout).
+      // Atomically delete only if still 'pending' (CAS via Lua) so a concurrent
+      // executor that just finished writing its result is not clobbered.
+      const cleaned = await redis.eval(
+        "if redis.call('get', KEYS[1]) == 'pending' then return redis.call('del', KEYS[1]) end return 0",
+        1, idempKey
+      ).catch(() => 0);
+      if (cleaned === 1) {
+        console.log(`[user:${userId}] Cleaned stale pending key for ${toolCallBlock.name}, re-attempting`);
+      }
+    }
+
+    // Try to claim the slot again — if someone else just claimed it, return
+    // a dedup message rather than recursing (avoids unbounded retry loops).
+    const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', PENDING_TTL);
+    if (reclaimed !== 'OK') {
+      console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
+      return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
+    }
+    // Fall through to execute below
   }
 
   // We claimed the slot — execute the tool
@@ -239,8 +271,14 @@ async function executeTool(userId, toolCallBlock) {
       // An orphaned promise (from a timed-out request) may still be running
       // on the remote service. Deleting the key would let a retry claim a new
       // slot and execute concurrently, risking duplicate sends/posts/deletes.
+      //
+      // For timeout errors, use the shorter PENDING_TTL so the tool becomes
+      // retryable sooner — the full dedup window (300s) would leave the tool
+      // permanently blocked when the underlying call may have simply been slow.
+      const isTimeout = /timeout|timed.?out|ETIMEDOUT|ECONNABORTED|ESOCKETTIMEDOUT/i.test(err.message || err.code || '');
+      const errorTTL = isTimeout ? PENDING_TTL : TOOL_IDEMPOTENCY_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
-      await redis.set(idempKey, errorResult, 'EX', TOOL_IDEMPOTENCY_TTL).catch(() => {});
+      await redis.set(idempKey, errorResult, 'EX', errorTTL).catch(() => {});
     } else {
       // Safe/idempotent tool: remove the key so retries can attempt again
       await redis.del(idempKey).catch(() => {});
