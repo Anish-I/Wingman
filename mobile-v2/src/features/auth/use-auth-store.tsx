@@ -54,3 +54,11 @@ export const useAuthStore = createSelectors(_useAuthStore);
 export const signOut = () => _useAuthStore.getState().signOut();
 export const signIn = (token: TokenType) => _useAuthStore.getState().signIn(token);
 export const hydrateAuth = () => _useAuthStore.getState().hydrate();
+
+// Subscribe to sign-in events so the API client can reset its 401 guard
+export const onSignIn = (callback: () => void) =>
+  _useAuthStore.subscribe((state, prev) => {
+    if (state.status === 'signIn' && prev.status !== 'signIn') {
+      callback();
+    }
+  });

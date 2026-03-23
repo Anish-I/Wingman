@@ -2,7 +2,7 @@ import axios from 'axios';
 import Env from 'env';
 import { showMessage } from 'react-native-flash-message';
 import { getToken } from '@/lib/auth/utils';
-import { signOut } from '@/features/auth/use-auth-store';
+import { signOut, onSignIn } from '@/features/auth/use-auth-store';
 
 export const client = axios.create({
   baseURL: Env.EXPO_PUBLIC_API_URL,
@@ -20,8 +20,14 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Debounce 401 sign-outs so concurrent failures don't race
+// Guard against concurrent 401s triggering multiple sign-outs.
+// Set true on first 401 sign-out; cleared when a new sign-in occurs
+// (not on a timer, which would create a re-trigger window).
 let isSigningOut = false;
+
+onSignIn(() => {
+  isSigningOut = false;
+});
 
 // Auto-logout on 401 with user notification
 client.interceptors.response.use(
@@ -36,10 +42,6 @@ client.interceptors.response.use(
         duration: 4000,
       });
       signOut();
-      // Reset after a short delay so a genuinely new session can still be invalidated
-      setTimeout(() => {
-        isSigningOut = false;
-      }, 2000);
     }
     return Promise.reject(error);
   }
