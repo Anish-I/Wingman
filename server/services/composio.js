@@ -292,11 +292,24 @@ async function executeTool(userId, toolCallBlock) {
  * The URL is single-use and opens in the user's browser.
  * Once authorized, Composio persists the session indefinitely.
  */
+const ALLOWED_REDIRECT_ORIGINS = [
+  process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`,
+].filter(Boolean);
+
 async function getConnectionLink(userId, appName, redirectUrl = null) {
   const client = new Composio({ apiKey: COMPOSIO_API_KEY });
   const entity = await client.getEntity(String(userId));
   const params = { appName };
-  if (redirectUrl) params.redirectUrl = redirectUrl;
+  if (redirectUrl) {
+    // SSRF protection: only allow redirects to whitelisted origins
+    let parsed;
+    try { parsed = new URL(redirectUrl); } catch { throw new Error('Invalid redirectUrl'); }
+    const origin = parsed.origin;
+    if (!ALLOWED_REDIRECT_ORIGINS.some(allowed => origin === new URL(allowed).origin)) {
+      throw new Error('redirectUrl origin not in allowlist');
+    }
+    params.redirectUrl = redirectUrl;
+  }
   const conn = await entity.initiateConnection(params);
   return conn.redirectUrl;
 }

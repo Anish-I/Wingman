@@ -52,6 +52,11 @@ async function verifyOAuthState(stateToken) {
 
 const WEB_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+// Validate app name to prevent injection into Composio API paths
+function isValidAppName(app) {
+  return typeof app === 'string' && /^[a-z0-9_]+$/.test(app) && WINGMAN_APPS.includes(app);
+}
+
 // GET /connect/status — list connected & missing apps (Bearer auth)
 router.get('/status', requireAuth, async (req, res) => {
   try {
@@ -68,7 +73,7 @@ router.get('/status', requireAuth, async (req, res) => {
 router.post('/create-connect-token', requireAuth, async (req, res) => {
   try {
     const { app } = req.body;
-    if (!app || typeof app !== 'string') {
+    if (!app || !isValidAppName(app.toLowerCase())) {
       return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Missing or invalid app parameter.' } });
     }
     const connectToken = crypto.randomBytes(32).toString('hex');
@@ -147,7 +152,7 @@ router.get('/callback', async (req, res) => {
 router.post('/disconnect', requireAuth, async (req, res) => {
   try {
     const { app } = req.body;
-    if (!app || typeof app !== 'string') {
+    if (!app || !isValidAppName(app.toLowerCase())) {
       return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Missing or invalid app parameter.' } });
     }
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
@@ -178,6 +183,9 @@ router.post('/disconnect', requireAuth, async (req, res) => {
 router.get('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
+    if (!isValidAppName(app)) {
+      return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Unsupported app.' } });
+    }
     const state = await generateOAuthState(req.user.id, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(req.user.id, app, redirectUrl);
@@ -193,6 +201,9 @@ router.get('/:app', requireAuth, async (req, res) => {
 router.delete('/:app', requireAuth, async (req, res) => {
   try {
     const app = req.params.app.toLowerCase();
+    if (!isValidAppName(app)) {
+      return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Unsupported app.' } });
+    }
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
     const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
