@@ -227,31 +227,22 @@ async function processMessage(user, messageText) {
     const result = await Promise.race([innerPromise, timeout]);
     return result;
   } catch (err) {
-    // On timeout, the inner promise is now orphaned — block its writes,
-    // drain any in-flight append, then release the lock so a retry can
-    // safely acquire it without interleaving messages.
+    // On timeout, the inner promise is now orphaned — the abort flag blocks
+    // its writes, and the inner promise's finally block will release the lock
+    // once it winds down (via throwIfAborted at the next LLM/tool boundary).
     if (abortController.aborted) {
-      // Block all further safeAppend calls from the orphaned inner promise.
-      // This must happen BEFORE draining/releasing so no new writes can
-      // start between the drain and the lock release.
-      lockHolder.released = true;
+      // Do NOT release the lock here. The inner promise's finally block is
+      // the sole owner of lock lifecycle. Releasing here created a data
+      // integrity window: the retry could acquire the lock while the
+      // orphaned inner promise still had in-flight Redis writes, causing
+      // interleaved message appends in conversation history.
+      //
+      // The abort flag (abortController.aborted) blocks all further
+      // safeAppend writes, and throwIfAborted causes the inner promise to
+      // exit quickly — reaching its finally block which drains in-flight
+      // appends and releases the lock safely.
 
-      // Drain any in-flight append so it completes before we release the lock.
-      if (lockHolder.inflightAppend) {
-        await lockHolder.inflightAppend.catch(e =>
-          console.error(`[user:${userId}] Inflight append drain failed:`, e.message));
-      }
-
-      // Explicitly release the lock now that no more writes can happen.
-      if (lockHolder.releaseLock) {
-        if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
-          await lockHolder.releaseLock().catch(e =>
-            console.error(`[user:${userId}] Failed to release lock after timeout:`, e.message));
-        }
-      }
-
-      // Track the orphan — it's harmless now since released=true blocks
-      // all writes, but we still track it for backpressure purposes.
+      // Track the orphan for backpressure purposes.
       const orphanToken = _addOrphan(userId);
       console.warn(`[user:${userId}] Request timed out, orphaned promise tracked (user count: ${_getUserOrphanCount(userId)}, global: ${getOrphanedCount()})`);
       let reaped = false;
@@ -291,17 +282,18 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // where the lock could be released between the check and the actual write.
   let appendChain = Promise.resolve();
   const safeAppend = (role, text) => {
-    if (lockHolder.released) {
-      console.warn(`[user:${userId}] Lock released — skipping appendMessage(${role})`);
+    if (lockHolder.released || abortController.aborted) {
+      console.warn(`[user:${userId}] Lock released or aborted — skipping appendMessage(${role})`);
       return Promise.resolve();
     }
     // Chain the append so it waits for any prior write to complete, then
     // re-checks the lock state in the same microtask as the Redis call.
     const p = appendChain.then(() => {
       // Re-check after preceding append completes — the lock may have been
-      // released or TTL-expired while the previous write was in flight.
-      if (lockHolder.released) {
-        console.warn(`[user:${userId}] Lock released (chain) — skipping appendMessage(${role})`);
+      // released or TTL-expired while the previous write was in flight,
+      // or the outer timeout may have fired (setting abortController.aborted).
+      if (lockHolder.released || abortController.aborted) {
+        console.warn(`[user:${userId}] Lock released or aborted (chain) — skipping appendMessage(${role})`);
         return;
       }
       if (lockHolder.lockExpiry && Date.now() > lockHolder.lockExpiry - LOCK_SAFETY_MARGIN_MS) {
@@ -608,7 +600,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     if (lockHolder.inflightAppend) {
       await lockHolder.inflightAppend.catch(e => console.error(`[user:${userId}] Inflight append failed:`, e.message));
     }
-    if (releaseLock && !lockHolder.released) {
+    if (releaseLock) {
       lockHolder.released = true;
       // Only explicitly release if the TTL hasn't expired — if it has,
       // Redis already removed the key and a new request may hold the lock.
