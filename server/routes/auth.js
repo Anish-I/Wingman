@@ -144,11 +144,12 @@ const otpLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP requests, please try again later.' } },
 });
 
-// Rate limit OTP verification: 5 attempts per 15 minutes per phone (or IP fallback)
+// Rate limit OTP verification: 5 attempts per 15 minutes per phone
+// Never fall back to req.ip — it can be spoofed via X-Forwarded-For
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.body?.phone || req.ip,
+  keyGenerator: (req) => req.body?.phone || 'no-phone',
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many attempts. Try again in 15 minutes.' } },
   standardHeaders: true,
   legacyHeaders: false,
