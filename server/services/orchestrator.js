@@ -67,6 +67,21 @@ function getOrphanedCount() {
   return total;
 }
 
+// Periodic sweep to prune stale orphan entries for inactive users.
+// Without this, per-user Maps can retain expired timestamps indefinitely
+// if _getUserOrphanCount is never called again for that user.
+const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS || '60000', 10);
+const _orphanSweepTimer = setInterval(() => {
+  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+  for (const [userId, perUser] of _orphanedByUser) {
+    for (const [token, ts] of perUser) {
+      if (ts < cutoff) perUser.delete(token);
+    }
+    if (perUser.size === 0) _orphanedByUser.delete(userId);
+  }
+}, ORPHAN_SWEEP_INTERVAL_MS);
+_orphanSweepTimer.unref(); // don't prevent process exit
+
 function withTimeout(promise, ms, label) {
   let timerId;
   const timer = new Promise((_, reject) => {
