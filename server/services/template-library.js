@@ -91,8 +91,10 @@ async function search(term, category, pagination) {
   return searchTemplates(term, category, pagination);
 }
 
-async function publish(userId, { name, description, category, steps, variables, system_prompt }) {
-  return createTemplate({ name, description, category, steps, variables, system_prompt, author_user_id: userId, is_system: false });
+async function publish(userId, { name, description, category, steps, variables }) {
+  // system_prompt is intentionally excluded — only system templates may define one.
+  // User-published templates inherit the default system prompt at instantiation time.
+  return createTemplate({ name, description, category, steps, variables, system_prompt: null, author_user_id: userId, is_system: false });
 }
 
 async function instantiate(templateId, userId, overrides = {}) {

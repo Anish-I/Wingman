@@ -336,7 +336,41 @@ router.get('/templates', requireAuth, async (req, res) => {
 // POST /api/templates — publish a template
 router.post('/templates', requireAuth, async (req, res) => {
   try {
-    const template = await require('../services/template-library').publish(req.user.id, req.body);
+    const { name, description, category, steps, variables } = req.body;
+
+    // Validate required fields
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 200) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'name is required and must be 1-200 characters.' } });
+    }
+    if (!description || typeof description !== 'string' || description.trim().length === 0 || description.trim().length > 1000) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'description is required and must be 1-1000 characters.' } });
+    }
+    const ALLOWED_CATEGORIES = ['productivity', 'messaging', 'finance', 'marketing', 'smart-home', 'other'];
+    if (!category || !ALLOWED_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: `category must be one of: ${ALLOWED_CATEGORIES.join(', ')}` } });
+    }
+    if (!Array.isArray(steps) || steps.length === 0 || steps.length > 20) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'steps must be a non-empty array with at most 20 entries.' } });
+    }
+    for (const step of steps) {
+      if (!step || typeof step.instruction !== 'string' || step.instruction.trim().length === 0 || step.instruction.trim().length > 500) {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Each step must have an instruction (1-500 characters).' } });
+      }
+    }
+    if (variables !== undefined && (typeof variables !== 'object' || variables === null || Array.isArray(variables))) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'variables must be a plain object if provided.' } });
+    }
+
+    // Only allow whitelisted fields — system_prompt is forbidden for user-published templates
+    const sanitized = {
+      name: name.trim(),
+      description: description.trim(),
+      category,
+      steps: steps.map(s => ({ instruction: s.instruction.trim() })),
+      variables: variables || {},
+    };
+
+    const template = await require('../services/template-library').publish(req.user.id, sanitized);
     res.status(201).json({ template });
   } catch (err) {
     console.error('[api] publish template error:', err);
