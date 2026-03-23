@@ -853,7 +853,12 @@ router.post('/exchange-code', async (req, res) => {
     try {
       data = JSON.parse(stored);
     } catch {
-      console.error('Corrupt auth_code payload in Redis for key:', key);
+      // Do not log the key — it contains the raw auth code
+      console.error('Corrupt auth_code payload in Redis — unparseable JSON');
+      return res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
+    }
+    if (!data || typeof data.token !== 'string' || !data.userId) {
+      console.error('Corrupt auth_code payload in Redis — unexpected structure');
       return res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
     }
     setAuthCookie(res, data.token);
