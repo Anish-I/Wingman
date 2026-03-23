@@ -80,10 +80,11 @@ export default function RootLayout() {
 function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const { surface } = useThemeColors();
-  // Phone (<768): full width, capped at 430px centered
-  // Tablet (768–1024): 720px max
-  // Desktop (>1024): 960px max
-  const maxWidth = width < 768 ? 430 : width < 1024 ? 720 : 960;
+  // Phone (<768): full width (no cap — content fills the screen)
+  // Tablet (768–1199): 92% of viewport width (scales with device)
+  // Desktop (≥1200): 80% of viewport, capped at 1400px
+  const maxWidth =
+    width < 768 ? '100%' : width < 1200 ? Math.round(width * 0.92) : Math.min(Math.round(width * 0.8), 1400);
 
   return (
     <View
