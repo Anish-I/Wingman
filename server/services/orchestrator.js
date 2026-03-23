@@ -36,11 +36,13 @@ function _getUserOrphanCount(userId) {
   return count;
 }
 
+function _isOrphanMapFull(userId) {
+  return !_orphanedByUser.has(userId) && _orphanedByUser.size >= MAX_ORPHAN_MAP_SIZE;
+}
+
 function _addOrphan(userId) {
-  // Enforce map size cap — if we're already tracking too many distinct users, skip.
-  // Fail open: the request is allowed through without orphan accounting.
-  if (!_orphanedByUser.has(userId) && _orphanedByUser.size >= MAX_ORPHAN_MAP_SIZE) {
-    console.warn(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users), skipping tracking`);
+  if (_isOrphanMapFull(userId)) {
+    console.error(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users), rejecting`);
     return null;
   }
   const token = Symbol();
@@ -142,6 +144,16 @@ async function processMessage(user, messageText) {
   if (userOrphanCount >= MAX_ORPHANED_PROMISES) {
     console.warn(`[user:${userId}] Rejecting request: ${userOrphanCount} orphaned promises already in-flight for this user (limit ${MAX_ORPHANED_PROMISES})`);
     return "I'm currently overloaded — please try again in a moment.";
+  }
+
+  // Reject early if the global orphan map is at capacity and this user isn't already tracked.
+  // This prevents silent fail-open under sustained load — new users get a clear rejection
+  // instead of bypassing orphan tracking entirely.
+  if (_isOrphanMapFull(userId)) {
+    console.error(`[user:${userId}] Rejecting request: orphan tracking at capacity (${MAX_ORPHAN_MAP_SIZE} users tracked)`);
+    const err = new Error('Server overloaded — too many concurrent requests');
+    err.statusCode = 429;
+    throw err;
   }
 
   const abortController = { aborted: false };

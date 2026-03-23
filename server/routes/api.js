@@ -115,10 +115,12 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('[api] chat error:', err);
-    const code = err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
+    const status = err.statusCode || 500;
+    const code = err.statusCode === 429 ? 'TOO_MANY_REQUESTS'
+      : err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
       : err.message?.includes('timeout') ? 'ORCHESTRATOR_TIMEOUT'
       : 'ORCHESTRATOR_ERROR';
-    res.status(500).json({ error: { code, message: 'Failed to process chat message.' } });
+    res.status(status).json({ error: { code, message: status === 429 ? 'Server is overloaded — please try again shortly.' : 'Failed to process chat message.' } });
   }
 });
 
