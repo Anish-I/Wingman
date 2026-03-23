@@ -205,16 +205,41 @@ export default function WorkflowsScreen() {
   }
 
   if (isLoading) {
+    const pulse = reduced ? {} : {
+      from: { opacity: 0.35 },
+      animate: { opacity: 0.75 },
+      transition: { type: 'timing' as const, duration: 900, loop: true },
+    };
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center">
-        <MotiView
-          from={reduced ? undefined : { rotate: '0deg' }}
-          animate={reduced ? undefined : { rotate: '360deg' }}
-          transition={reduced ? undefined : { type: 'timing', duration: 1000, loop: true }}
-        >
-          <Ionicons name="sync" size={32} color="#7C5CFC" />
-        </MotiView>
-        <Text className="text-[#7C5CFC] text-sm font-semibold mt-3">Loading workflows...</Text>
+      <SafeAreaView className="flex-1 bg-background">
+        {/* Skeleton header */}
+        <View className="px-6 pt-6 pb-2">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <MotiView {...pulse} className="h-7 w-40 rounded-lg" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="h-4 w-52 rounded-md mt-2" style={{ backgroundColor: surface.card }} />
+            </View>
+            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={{ backgroundColor: surface.card }} />
+          </View>
+        </View>
+        {/* Skeleton workflow cards */}
+        <View className="px-4 gap-3 mt-2">
+          {[0, 1, 2, 3].map((i) => (
+            <MotiView key={i} {...pulse} className="rounded-2xl p-4" style={{ backgroundColor: surface.card }}>
+              <View className="flex-row items-center gap-3">
+                <View className="w-[42px] h-[42px] rounded-xl" style={{ backgroundColor: surface.section }} />
+                <View className="flex-1">
+                  <View className="h-4 w-40 rounded-md" style={{ backgroundColor: surface.section }} />
+                  <View className="h-3 w-56 rounded-md mt-2" style={{ backgroundColor: surface.section }} />
+                </View>
+                <View className="w-12 h-7 rounded-full" style={{ backgroundColor: surface.section }} />
+              </View>
+              <View className="flex-row items-center gap-2 mt-3">
+                <View className="h-6 w-20 rounded-full" style={{ backgroundColor: surface.section }} />
+              </View>
+            </MotiView>
+          ))}
+        </View>
       </SafeAreaView>
     );
   }

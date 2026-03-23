@@ -604,18 +604,47 @@ export default function AppsScreen() {
   }
 
   if (isLoading) {
+    const pulse = reduced ? {} : {
+      from: { opacity: 0.35 },
+      animate: { opacity: 0.75 },
+      transition: { type: 'timing' as const, duration: 900, loop: true },
+    };
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center">
-        <MotiView
-          from={reduced ? undefined : { rotate: '0deg' }}
-          animate={reduced ? undefined : { rotate: '360deg' }}
-          transition={reduced ? undefined : { type: 'timing', duration: 1000, loop: true }}
-        >
-          <Ionicons name="sync" size={32} color="#7C5CFC" />
-        </MotiView>
-        <Text className="text-[#7C5CFC] text-sm font-semibold mt-3">
-          Loading your apps...
-        </Text>
+      <SafeAreaView className="flex-1 bg-background">
+        {/* Skeleton header */}
+        <View className="px-6 pt-6 pb-4">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <MotiView {...pulse} className="h-7 w-36 rounded-lg" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="h-4 w-28 rounded-md mt-2" style={{ backgroundColor: surface.card }} />
+            </View>
+            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={{ backgroundColor: surface.card }} />
+          </View>
+        </View>
+        {/* Skeleton search bar */}
+        <View className="mx-6 mb-3">
+          <MotiView {...pulse} className="h-12 rounded-2xl" style={{ backgroundColor: surface.card }} />
+        </View>
+        {/* Skeleton category tabs */}
+        <View className="flex-row px-6 mb-4 gap-2">
+          {[72, 88, 96, 64, 80].map((w, i) => (
+            <MotiView key={i} {...pulse} className="h-8 rounded-full" style={{ backgroundColor: surface.card, width: w }} />
+          ))}
+        </View>
+        {/* Skeleton category sections */}
+        {[0, 1, 2].map((section) => (
+          <View key={section} className="px-6 mb-6">
+            <View className="flex-row items-center gap-2 mb-3">
+              <MotiView {...pulse} className="w-6 h-6 rounded-md" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="h-5 w-28 rounded-md" style={{ backgroundColor: surface.card }} />
+            </View>
+            <View className="flex-row gap-2.5">
+              {[0, 1, 2, 3].map((card) => (
+                <MotiView key={card} {...pulse} className="w-[90px] h-[100px] rounded-2xl" style={{ backgroundColor: surface.card }} />
+              ))}
+            </View>
+          </View>
+        ))}
       </SafeAreaView>
     );
   }
