@@ -268,11 +268,28 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
 
         // Handle pseudo-tools
         if (block.name === 'NOTIFY_USER') {
-          await provider.sendMessage(user.phone, block.input.message);
-          result = { success: true, message: 'User notified' };
+          try {
+            await provider.sendMessage(user.phone, block.input.message);
+            result = { success: true, message: 'User notified' };
+          } catch (sendErr) {
+            console.error(`[workflow-agent] NOTIFY_USER sendMessage failed:`, sendErr.message);
+            result = { error: `Failed to notify user: ${sendErr.message}` };
+          }
         } else if (block.name === 'WAIT_FOR_REPLY') {
           // Pause workflow — save state and insert pending reply
-          await provider.sendMessage(user.phone, block.input.prompt);
+          try {
+            await provider.sendMessage(user.phone, block.input.prompt);
+          } catch (sendErr) {
+            console.error(`[workflow-agent] WAIT_FOR_REPLY sendMessage failed:`, sendErr.message);
+            result = { error: `Failed to send prompt to user: ${sendErr.message}` };
+            stepLog.push({ ...stepEntry, result: { error: result.error } });
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
           await createPendingReply({
             run_id: run.id,
             workflow_id: workflowId,
@@ -474,10 +491,27 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
         }
 
         if (block.name === 'NOTIFY_USER') {
-          await provider.sendMessage(user.phone, block.input.message);
-          result = { success: true, message: 'User notified' };
+          try {
+            await provider.sendMessage(user.phone, block.input.message);
+            result = { success: true, message: 'User notified' };
+          } catch (sendErr) {
+            console.error(`[workflow-agent] NOTIFY_USER sendMessage failed:`, sendErr.message);
+            result = { error: `Failed to notify user: ${sendErr.message}` };
+          }
         } else if (block.name === 'WAIT_FOR_REPLY') {
-          await provider.sendMessage(user.phone, block.input.prompt);
+          try {
+            await provider.sendMessage(user.phone, block.input.prompt);
+          } catch (sendErr) {
+            console.error(`[workflow-agent] WAIT_FOR_REPLY sendMessage failed:`, sendErr.message);
+            result = { error: `Failed to send prompt to user: ${sendErr.message}` };
+            stepLog.push({ ...stepEntry, result: { error: result.error } });
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
           await createPendingReply({
             run_id: runId,
             workflow_id: workflow.id,
