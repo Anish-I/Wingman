@@ -13,21 +13,55 @@ const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10)
 const LLM_ITERATION_TIMEOUT = parseInt(process.env.LLM_ITERATION_TIMEOUT || '45000', 10);
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
 const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
+// Sliding window for orphan counting — limits how long a user stays blocked (default 60s)
+const ORPHAN_WINDOW_MS = parseInt(process.env.ORPHAN_WINDOW_MS || '60000', 10);
+// Cap on distinct users tracked — prevents unbounded memory growth under sustained load
+const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 10);
 
-// Per-user orphaned promise tracking — prevents one user's hung requests from blocking others
-const _orphanedByUser = new Map(); // userId -> count
-function _getUserOrphanCount(userId) { return _orphanedByUser.get(userId) || 0; }
-function _incrUserOrphanCount(userId) {
-  _orphanedByUser.set(userId, _getUserOrphanCount(userId) + 1);
+// Per-user orphaned promise tracking — prevents one user's hung requests from blocking others.
+// Each orphan gets a unique Symbol token so reap timers and settlement callbacks target their
+// own entry rather than accidentally decrementing a newer orphan.
+const _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
+
+function _getUserOrphanCount(userId) {
+  const perUser = _orphanedByUser.get(userId);
+  if (!perUser) return 0;
+  const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+  let count = 0;
+  for (const [token, ts] of perUser) {
+    if (ts < cutoff) perUser.delete(token); // prune expired entries
+    else count++;
+  }
+  if (perUser.size === 0) _orphanedByUser.delete(userId);
+  return count;
 }
-function _decrUserOrphanCount(userId) {
-  const count = _getUserOrphanCount(userId) - 1;
-  if (count <= 0) _orphanedByUser.delete(userId);
-  else _orphanedByUser.set(userId, count);
+
+function _addOrphan(userId) {
+  // Enforce map size cap — if we're already tracking too many distinct users, skip.
+  // Fail open: the request is allowed through without orphan accounting.
+  if (!_orphanedByUser.has(userId) && _orphanedByUser.size >= MAX_ORPHAN_MAP_SIZE) {
+    console.warn(`[user:${userId}] Orphan map at capacity (${MAX_ORPHAN_MAP_SIZE} users), skipping tracking`);
+    return null;
+  }
+  const token = Symbol();
+  const perUser = _orphanedByUser.get(userId) || new Map();
+  perUser.set(token, Date.now());
+  _orphanedByUser.set(userId, perUser);
+  return token;
 }
+
+function _removeOrphan(userId, token) {
+  if (!token) return;
+  const perUser = _orphanedByUser.get(userId);
+  if (!perUser) return;
+  perUser.delete(token);
+  if (perUser.size === 0) _orphanedByUser.delete(userId);
+}
+
 function getOrphanedCount() {
   let total = 0;
-  for (const c of _orphanedByUser.values()) total += c;
+  // Iterate over a snapshot — _getUserOrphanCount mutates the map while pruning
+  for (const userId of [..._orphanedByUser.keys()]) total += _getUserOrphanCount(userId);
   return total;
 }
 
@@ -136,13 +170,13 @@ async function processMessage(user, messageText) {
         lockHolder.released = true;
         lockHolder.releaseLock().catch(() => {});
       }
-      _incrUserOrphanCount(userId);
+      const orphanToken = _addOrphan(userId);
       console.warn(`[user:${userId}] Request timed out, orphaned promise tracked (user count: ${_getUserOrphanCount(userId)}, global: ${getOrphanedCount()})`);
       let reaped = false;
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          _decrUserOrphanCount(userId);
+          _removeOrphan(userId, orphanToken);
           console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms (user remaining: ${_getUserOrphanCount(userId)})`);
         }
       }, ORPHAN_REAP_TIMEOUT);
@@ -153,7 +187,7 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            _decrUserOrphanCount(userId);
+            _removeOrphan(userId, orphanToken);
             console.log(`[user:${userId}] Orphaned promise settled (user remaining: ${_getUserOrphanCount(userId)})`);
           }
         });
