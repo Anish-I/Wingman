@@ -14,7 +14,10 @@ type ChatState = {
 const _useChatStore = create<ChatState>((set) => ({
   messages: [],
   loading: false,
-  addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+  addMessage: (msg) =>
+    set((state) => ({
+      messages: [...state.messages, msg].sort((a, b) => a.timestamp - b.timestamp),
+    })),
   updateMessage: (id, updates) =>
     set((state) => ({
       messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
