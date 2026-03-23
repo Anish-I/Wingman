@@ -77,6 +77,7 @@ if (JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
   process.exit(1);
 }
+const OTP_SECRET = process.env.OTP_SECRET || JWT_SECRET;
 const JWT_ISSUER = 'wingman';
 const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
@@ -436,7 +437,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     }
     const otp = crypto.randomInt(100000, 1000000).toString();
     // Store HMAC hash instead of plaintext — prevents Redis read access from leaking OTPs
-    const otpHash = crypto.createHmac('sha256', JWT_SECRET).update(otp).digest('hex');
+    const otpHash = crypto.createHmac('sha256', OTP_SECRET).update(otp).digest('hex');
     // Bundle the requester ID with the OTP hash so both are consumed atomically
     // in a single GETDEL during verify-otp. This prevents session-fixation races
     // where a separate otp_requester key could be independently consumed or lost.
@@ -497,7 +498,7 @@ router.post('/verify-otp', otpVerifyLimiter, async (req, res) => {
     }
     const codeStr = String(code);
     // Compare HMAC of submitted code against stored hash (constant-time)
-    const submittedHash = crypto.createHmac('sha256', JWT_SECRET).update(codeStr).digest('hex');
+    const submittedHash = crypto.createHmac('sha256', OTP_SECRET).update(codeStr).digest('hex');
     if (!storedHash || storedHash.length !== submittedHash.length || !crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(submittedHash))) {
       // Attempt counter was already incremented atomically at the top of the handler,
       // so just return the error — no separate INCR needed here.

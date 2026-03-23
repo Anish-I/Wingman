@@ -61,6 +61,7 @@ PORT=3001
 DATABASE_URL=postgresql://wingman:wingman@localhost:5432/wingman
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=<64+ char random string>
+OTP_SECRET=<64+ char random string>   # dedicated OTP HMAC key; falls back to JWT_SECRET
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=<your key>
 MESSAGING_PROVIDER=stub          # use 'twilio' for real SMS

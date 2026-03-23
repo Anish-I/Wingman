@@ -22,6 +22,7 @@ const MAX_ORPHAN_MAP_SIZE = parseInt(process.env.MAX_ORPHAN_MAP_SIZE || '500', 1
 // Each orphan gets a unique Symbol token so reap timers and settlement callbacks target their
 // own entry rather than accidentally decrementing a newer orphan.
 const _orphanedByUser = new Map(); // userId -> Map<token, timestamp>
+let _totalOrphanCount = 0; // O(1) global counter kept in sync by add/remove/sweep
 
 // Sweep stale entries from the orphan map.  Called periodically AND on-demand
 // when the map is at capacity, so entries for inactive users cannot accumulate
@@ -30,10 +31,11 @@ function _sweepOrphans() {
   const cutoff = Date.now() - ORPHAN_WINDOW_MS;
   for (const [userId, perUser] of _orphanedByUser) {
     for (const [token, ts] of perUser) {
-      if (ts < cutoff) perUser.delete(token);
+      if (ts < cutoff) { perUser.delete(token); _totalOrphanCount--; }
     }
     if (perUser.size === 0) _orphanedByUser.delete(userId);
   }
+  if (_totalOrphanCount < 0) _totalOrphanCount = 0; // defensive floor
 }
 
 function _getUserOrphanCount(userId) {
@@ -42,10 +44,11 @@ function _getUserOrphanCount(userId) {
   const cutoff = Date.now() - ORPHAN_WINDOW_MS;
   let count = 0;
   for (const [token, ts] of perUser) {
-    if (ts < cutoff) perUser.delete(token); // prune expired entries
+    if (ts < cutoff) { perUser.delete(token); _totalOrphanCount--; }
     else count++;
   }
   if (perUser.size === 0) _orphanedByUser.delete(userId);
+  if (_totalOrphanCount < 0) _totalOrphanCount = 0;
   return count;
 }
 
@@ -185,7 +188,7 @@ async function processMessage(user, messageText) {
   const abortController = { aborted: false };
   // Shared state so the inner function can guard writes and drain in-flight
   // appends before releasing the lock in its own finally block.
-  const lockHolder = { releaseLock: null, released: false, inflightAppend: null };
+  const lockHolder = { releaseLock: null, released: false, inflightAppend: null, lockExpiry: null };
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -248,6 +251,13 @@ async function _processMessageInner(user, messageText, abortController = { abort
       console.warn(`[user:${userId}] Lock released — skipping appendMessage(${role})`);
       return Promise.resolve();
     }
+    // If the Redis lock TTL is about to expire (or already has), another request
+    // may have acquired a new lock.  Refuse the write to prevent interleaving.
+    if (lockHolder.lockExpiry && Date.now() > lockHolder.lockExpiry - LOCK_SAFETY_MARGIN_MS) {
+      console.warn(`[user:${userId}] Lock TTL expired or near expiry — skipping appendMessage(${role})`);
+      lockHolder.released = true; // mark so subsequent calls short-circuit immediately
+      return Promise.resolve();
+    }
     const p = appendMessage(user.id, role, text);
     lockHolder.inflightAppend = p;
     p.finally(() => {
@@ -263,6 +273,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Without this margin the lock disappears, a second request acquires it, and
   // both call appendMessage() concurrently — producing duplicate/out-of-order messages.
   const LOCK_TTL_SECONDS = Math.ceil((PROCESS_MESSAGE_TIMEOUT + LLM_ITERATION_TIMEOUT + 30000) / 1000);
+  const LOCK_SAFETY_MARGIN_MS = 5000; // refuse writes this far before TTL to avoid racing Redis expiry
   let releaseLock;
   for (let attempt = 0; attempt < 4; attempt++) {
     releaseLock = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
@@ -282,6 +293,9 @@ async function _processMessageInner(user, messageText, abortController = { abort
     return "Sorry, that took too long. Please try again.";
   }
 
+  // Track when the Redis lock will auto-expire so safeAppend can refuse
+  // writes once the lock is no longer guaranteed to be held.
+  lockHolder.lockExpiry = Date.now() + (LOCK_TTL_SECONDS * 1000);
   // Expose lock to caller so it can force-release on outer timeout
   lockHolder.releaseLock = releaseLock;
 
@@ -541,7 +555,14 @@ async function _processMessageInner(user, messageText, abortController = { abort
       if (lockHolder.inflightAppend) {
         await lockHolder.inflightAppend.catch(() => {});
       }
-      await releaseLock().catch(() => {});
+      // Only explicitly release if the TTL hasn't expired — if it has,
+      // Redis already removed the key and a new request may hold the lock.
+      // Calling release on an expired lock could delete the NEW lock key.
+      if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
+        await releaseLock().catch(() => {});
+      } else {
+        console.warn(`[user:${userId}] Lock TTL expired — skipping explicit release to avoid deleting a newer lock`);
+      }
     }
   }
 }
