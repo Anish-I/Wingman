@@ -257,11 +257,17 @@ async function processSingleSMS(phone, messageText, user, isNewUser) {
   } catch (err) {
     logger.error({ err: err.message }, 'Orchestrator error');
     const fallbackMsg = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
-    await Promise.allSettled([
+    const results = await Promise.allSettled([
       appendMessage(user.id, 'user', messageText),
       appendMessage(user.id, 'assistant', fallbackMsg),
       provider.sendMessage(phone, fallbackMsg),
-    ]).catch(() => {});
+    ]);
+    const sendResult = results[2];
+    if (sendResult.status === 'rejected') {
+      logger.error({ err: sendResult.reason?.message, phone }, '[sms] Failed to send error-notification SMS — user was not notified');
+      // Throw so the caller returns 500/503, prompting the provider to retry the webhook
+      throw sendResult.reason;
+    }
     return;
   }
 
