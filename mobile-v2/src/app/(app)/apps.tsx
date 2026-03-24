@@ -628,24 +628,29 @@ export default function AppsScreen() {
     };
     return (
       <SafeAreaView className="flex-1 bg-background">
-        {/* Slow-loading hint */}
-        {loadingSlow && (
-          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={styles.slowHintBg}>
-            <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
-            <Text style={ts.slowHintText}>
-              Taking longer than usual
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Retry loading apps"
-              onPress={() => { setLoadingSlow(false); refetch(); }}
-              className="ml-2 rounded-lg px-3 py-1"
-              style={styles.slowHintRetry}
-            >
-              <Text style={styles.slowHintRetryText}>Retry</Text>
-            </Pressable>
-          </View>
-        )}
+        {/* Immediate loading indicator — visible from second 0 */}
+        <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={loadingSlow ? styles.slowHintBg : styles.loadingHintBg}>
+          {loadingSlow ? (
+            <>
+              <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
+              <Text style={ts.slowHintText}>Taking longer than usual</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading apps"
+                onPress={() => { setLoadingSlow(false); refetch(); }}
+                className="ml-2 rounded-lg px-3 py-1"
+                style={styles.slowHintRetry}
+              >
+                <Text style={styles.slowHintRetryText}>Retry</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="small" color={t.muted} style={styles.slowHintIcon} />
+              <Text style={[ts.slowHintText, { color: t.muted }]}>Loading your apps…</Text>
+            </>
+          )}
+        </View>
         {/* Skeleton header */}
         <View className="px-6 pt-6 pb-4">
           <View className="flex-row items-center justify-between">
@@ -853,6 +858,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+  },
+  loadingHintBg: {
+    backgroundColor: 'rgba(150, 150, 150, 0.08)',
   },
   slowHintBg: {
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
