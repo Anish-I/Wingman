@@ -233,6 +233,42 @@ async function acquireConversationLock(userId, ttlSeconds = 120) {
   };
 }
 
+/**
+ * Enqueue an incoming SMS into a per-phone FIFO queue in Redis.
+ * Messages are scored by arrival timestamp so they can be drained in order
+ * even when webhooks arrive out of order or concurrently.
+ */
+async function enqueueSMS(phone, messageText, timestamp) {
+  const key = `sms:queue:${phone}`;
+  const entry = JSON.stringify({ text: messageText, ts: timestamp });
+  const pipeline = redis.pipeline();
+  pipeline.rpush(key, entry);
+  pipeline.expire(key, 600); // 10-minute safety TTL
+  const results = await pipeline.exec();
+  for (const [err] of results) {
+    if (err) throw err;
+  }
+}
+
+/**
+ * Atomically drain all queued SMS messages for a phone number, returned
+ * in FIFO order. Uses LRANGE + DEL in a pipeline so no messages are lost
+ * or double-processed.
+ */
+async function drainSMSQueue(phone) {
+  const key = `sms:queue:${phone}`;
+  // Lua script: atomically read all entries and delete the key
+  const entries = await redis.eval(
+    "local items = redis.call('lrange', KEYS[1], 0, -1) redis.call('del', KEYS[1]) return items",
+    1, key
+  );
+  if (!entries || entries.length === 0) return [];
+  return entries.map((raw) => {
+    const parsed = JSON.parse(raw);
+    return { text: parsed.text, ts: parsed.ts };
+  });
+}
+
 module.exports = {
   redis,
   createRedisClient,
@@ -244,4 +280,6 @@ module.exports = {
   cleanupStaleConversations,
   deduplicateMessage,
   acquireConversationLock,
+  enqueueSMS,
+  drainSMSQueue,
 };

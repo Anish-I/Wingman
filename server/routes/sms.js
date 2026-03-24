@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('../services/logger');
 const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
-const { appendMessage, deduplicateMessage } = require('../services/redis');
+const { appendMessage, deduplicateMessage, enqueueSMS, drainSMSQueue, acquireConversationLock } = require('../services/redis');
 
 const router = express.Router();
 
@@ -157,6 +157,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
   }
 });
 
+// Maximum time (ms) to wait for the per-user conversation lock before giving up
+const LOCK_WAIT_MS = 30_000;
+const LOCK_POLL_MS = 250;
+
 async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   const respond = (status) => {
     if (isTwilio) return res.status(status).send('<Response></Response>');
@@ -165,6 +169,43 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
+  // --- Enqueue with arrival timestamp so messages drain in FIFO order ---
+  await enqueueSMS(phone, messageText, Date.now());
+
+  // --- Acquire the per-user conversation lock (wait with back-off) ---
+  let release;
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  while (!release && Date.now() < deadline) {
+    release = await acquireConversationLock(user.id);
+    if (!release) await new Promise((r) => setTimeout(r, LOCK_POLL_MS));
+  }
+  if (!release) {
+    // Another handler has the lock and will drain our queued message
+    logger.warn({ phone }, '[sms] Lock wait timeout — message queued for processing by lock holder');
+    return respond(200);
+  }
+
+  try {
+    // --- Drain the queue in FIFO order (sorted by arrival timestamp) ---
+    const queued = await drainSMSQueue(phone);
+    // Sort by timestamp to guarantee FIFO even if Redis list order was perturbed
+    queued.sort((a, b) => a.ts - b.ts);
+
+    for (const msg of queued) {
+      await processSingleSMS(phone, msg.text, user, isNewUser);
+    }
+  } finally {
+    await release();
+  }
+
+  return respond(200);
+}
+
+/**
+ * Process a single SMS message for a user.  Called inside the conversation
+ * lock so messages are handled strictly in FIFO order.
+ */
+async function processSingleSMS(phone, messageText, user, isNewUser) {
   // Check for pending workflow replies (atomic claim prevents duplicate processing on concurrent webhooks)
   const { claimPendingReplyForUser, unclaimPendingReply } = require('../db/queries');
   const pendingReply = await claimPendingReplyForUser(user.id, messageText);
@@ -173,22 +214,20 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     try {
       await resumeWorkflowRun(pendingReply.run_id, messageText);
     } catch (err) {
-      // Unclaim so the next retry (or manual re-send) can pick it up
       try { await unclaimPendingReply(pendingReply.id); } catch (_) { /* best-effort */ }
       logger.error({ err: err.message }, '[sms] Workflow resume error');
       const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';
       await provider.sendMessage(phone, failMsg);
       await appendMessage(user.id, 'assistant', failMsg);
-      return respond(200);
+      return;
     }
     await appendMessage(user.id, 'user', messageText);
     await provider.sendMessage(phone, 'Got it! Processing your reply...');
     await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
-    return respond(200);
+    return;
   }
 
   // New user discovery — use atomic Redis flag to prevent duplicate sends
-  // under concurrent requests (both would pass the guard before either writes)
   if (isNewUser || !user.preferences?.onboarded) {
     const { redis } = require('../services/redis');
     const claimKey = `discovery:sent:${user.id}`;
@@ -204,12 +243,10 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
       await appendMessage(user.id, 'assistant', discoveryMsg);
       const { updateUserPreferences } = require('../db/queries');
       await updateUserPreferences(user.id, { onboarded: false, discoverySmsSent: true });
-      return respond(200);
+      return;
     }
-    // Another request already claimed the discovery send — just append
-    // the user message and return (the discovery SMS is already in flight)
     await appendMessage(user.id, 'user', messageText);
-    return respond(200);
+    return;
   }
 
   // Process through orchestrator
@@ -220,25 +257,19 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   } catch (err) {
     logger.error({ err: err.message }, 'Orchestrator error');
     const fallbackMsg = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
-    // Fire-and-forget: persist messages and send error reply without delaying the 500 response
-    Promise.allSettled([
+    await Promise.allSettled([
       appendMessage(user.id, 'user', messageText),
       appendMessage(user.id, 'assistant', fallbackMsg),
       provider.sendMessage(phone, fallbackMsg),
-    ]).catch(() => {});  // guard against allSettled itself throwing
-    return respond(500);
+    ]).catch(() => {});
+    return;
   }
 
-  // Send reply — wrap in try/catch so a delivery failure doesn't mask the outcome
   try {
     await provider.sendMessage(phone, responseText);
   } catch (sendErr) {
     logger.error({ err: sendErr.message, phone }, '[sms] Failed to send reply');
-    // Re-throw so the outer route handler returns an appropriate status
-    throw sendErr;
   }
-
-  return respond(200);
 }
 
 module.exports = router;
