@@ -137,14 +137,28 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
   const acquired = await redis.set(lockKey, lockValue, 'EX', WORKFLOW_LOCK_TTL_SECONDS, 'NX');
   if (!acquired) return onLocked();
 
+  // Shared flag so fn() can detect when the lock is no longer held
+  const lockStatus = { lost: false, reason: null };
+
   const extendTimer = setInterval(async () => {
     try {
-      await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, WORKFLOW_LOCK_TTL_SECONDS);
-    } catch (err) { console.error(`[workflow-agent] Lock extend failed for ${lockKey}:`, err.message); }
+      const result = await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, WORKFLOW_LOCK_TTL_SECONDS);
+      if (result === 0) {
+        lockStatus.lost = true;
+        lockStatus.reason = 'lock_stolen';
+        console.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
+        clearInterval(extendTimer);
+      }
+    } catch (err) {
+      lockStatus.lost = true;
+      lockStatus.reason = 'redis_error';
+      console.error(`[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost:`, err.message);
+      clearInterval(extendTimer);
+    }
   }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
 
   try {
-    return await fn();
+    return await fn(lockStatus);
   } finally {
     clearInterval(extendTimer);
     let released = false;
@@ -193,7 +207,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   return withWorkflowExecutionLock(workflowId, async () => {
     console.log(`[workflow-agent] Skipping workflow ${workflowId} - already running (lock exists)`);
     return { status: 'skipped', workflowId, reason: 'already_running' };
-  }, async () => {
+  }, async (lockStatus) => {
     const [workflow, user] = await Promise.all([
       getWorkflowById(workflowId),
       getUserById(userId),
@@ -237,6 +251,17 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   let response;
 
   while (iterations < MAX_AGENT_ITERATIONS) {
+    // Abort if we lost the distributed lock — another executor may be running
+    if (lockStatus.lost) {
+      console.error(`[workflow-agent] Aborting workflow ${workflowId} run ${run.id} — lock lost (${lockStatus.reason})`);
+      await updateWorkflowRun(run.id, {
+        status: 'failed',
+        completed_at: new Date(),
+        result: { summary: `Workflow aborted: distributed lock lost (${lockStatus.reason})`, steps: stepLog.length, error: 'lock_lost' },
+      });
+      return { status: 'failed', runId: run.id, summary: `Aborted: lock lost (${lockStatus.reason})` };
+    }
+
     response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
 
     if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) break;
@@ -428,7 +453,7 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   return withWorkflowExecutionLock(workflow.id, async () => {
     console.log(`[workflow-agent] Workflow ${workflow.id} busy; deferring resume for run ${runId}`);
     return scheduleResumeRetry(workflow.id, workflow.user_id, runId, replyText, retryAttempt + 1);
-  }, async () => {
+  }, async (lockStatus) => {
     // Atomically claim the run — prevents double-processing when concurrent resumes both pass the initial check
     const claimed = await require('../db/queries').claimWorkflowRunForResume(runId);
     if (!claimed) throw new Error('Run not found or not paused (already claimed)');
@@ -462,6 +487,17 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   let response;
 
   while (iterations < MAX_AGENT_ITERATIONS) {
+    // Abort if we lost the distributed lock — another executor may be running
+    if (lockStatus.lost) {
+      console.error(`[workflow-agent] Aborting resumed run ${runId} — lock lost (${lockStatus.reason})`);
+      await updateWorkflowRun(runId, {
+        status: 'failed',
+        completed_at: new Date(),
+        result: { summary: `Workflow aborted: distributed lock lost (${lockStatus.reason})`, steps: stepLog.length, error: 'lock_lost' },
+      });
+      return { status: 'failed', runId, summary: `Aborted: lock lost (${lockStatus.reason})` };
+    }
+
     response = await callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true });
 
     if (!response.toolUseBlocks || response.toolUseBlocks.length === 0) break;
