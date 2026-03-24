@@ -63,6 +63,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const codeExchangedRef = useRef(false);
+  const googleSignInActiveRef = useRef(false);
 
   // Theme-dependent styles
   const themed = {
@@ -165,11 +166,17 @@ export default function SignupScreen() {
     } catch (err) {
       console.error('Auth code exchange failed:', err);
     }
-    codeExchangedRef.current = false;
+    // Don't reset the guard — auth codes are single-use, so a second
+    // callback fire with the same code should be silently dropped.
     return false;
   }
 
   async function handleGoogleSignIn() {
+    // Ref-based guard prevents concurrent execution — React state updates
+    // are async, so `disabled={loading}` alone can't block a rapid double-tap
+    // or back/forward before re-render.
+    if (googleSignInActiveRef.current) return;
+    googleSignInActiveRef.current = true;
     setLoading(true);
     codeExchangedRef.current = false;
     try {
@@ -231,6 +238,7 @@ export default function SignupScreen() {
       showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
+      googleSignInActiveRef.current = false;
     }
   }
 
