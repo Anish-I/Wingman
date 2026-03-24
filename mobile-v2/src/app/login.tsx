@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { FocusAwareStatusBar } from '@/components/ui';
 import { purple, useThemeColors } from '@/components/ui/tokens';
-import { signIn } from '@/features/auth/use-auth-store';
+import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
 /** Show a toast on web (FlashMessage) or native Alert */
@@ -22,6 +22,7 @@ function showAlert(title: string, message: string) {
 export default function LoginScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
+  const authStatus = useAuthStore.use.status();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const [phone, setPhone] = useState('');
@@ -92,7 +93,9 @@ export default function LoginScreen() {
         return;
       }
       signIn(data.token);
-      router.replace('/(app)/chat');
+      // Navigation is handled declaratively via <Redirect> at the top of the
+      // component — it fires only after React re-renders with the settled auth
+      // state, eliminating the race with the (app)/_layout.tsx auth guard.
     }
     catch (err: any) {
       const message = err?.response?.data?.error || 'The code you entered is incorrect. Please try again.';
@@ -113,6 +116,13 @@ export default function LoginScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, step]);
+
+  // Declarative redirect: only fires after React re-renders with updated auth
+  // state, avoiding the race where an imperative router.replace() navigates
+  // before the auth guard in (app)/_layout.tsx sees the new token.
+  if (authStatus === 'signIn') {
+    return <Redirect href="/(app)/chat" />;
+  }
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: surface.bg }}>
