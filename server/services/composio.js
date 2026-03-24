@@ -6,6 +6,7 @@ const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
+const TOOLS_CACHE_COOLDOWN_TTL = 15; // seconds — after cache invalidation, don't re-cache to prevent stale re-population
 const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
 // Pending TTL must be short enough that a timed-out external call doesn't strand the key for
 // the full dedup window.  30 s > the typical 20 s orchestrator timeout, giving the in-flight
@@ -218,17 +219,29 @@ async function getTools(userId) {
   if (!COMPOSIO_API_KEY) return [];
 
   const cacheKey = `tools:${userId}`;
+  const cooldownKey = `tools_cooldown:${userId}`;
   const cached = await redis.get(cacheKey).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache get error'); return null; });
   if (cached) return JSON.parse(cached);
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
   const tools = await toolset.getTools({});
-  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache set error'); throw err; });
+  // Skip caching if a cooldown is active (recently invalidated by OAuth callback or disconnect).
+  // This prevents re-populating stale data before Composio fully propagates connection changes.
+  const inCooldown = await redis.exists(cooldownKey).catch(() => 0);
+  if (!inCooldown) {
+    await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache set error'); throw err; });
+  }
   return tools;
 }
 
 async function invalidateToolsCache(userId) {
-  await redis.del(`tools:${userId}`).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache del error'); throw err; });
+  const cacheKey = `tools:${userId}`;
+  const cooldownKey = `tools_cooldown:${userId}`;
+  // Delete cache and set a short cooldown to prevent immediate re-population with stale data
+  await Promise.all([
+    redis.del(cacheKey),
+    redis.set(cooldownKey, '1', 'EX', TOOLS_CACHE_COOLDOWN_TTL),
+  ]).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache invalidation error'); throw err; });
 }
 
 /**

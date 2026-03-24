@@ -36,38 +36,46 @@ async function generateOAuthState(userId, app) {
   return jwt.sign({ userId, app, nonce }, JWT_SECRET, { expiresIn: '10m' });
 }
 
-// Lua script: atomically consume the OAuth nonce AND invalidate the tools cache.
-// This closes the race window where concurrent /connect/status reads could
-// re-populate stale cache between nonce consumption and cache invalidation.
-// KEYS[1] = oauth_nonce:{nonce}, KEYS[2] = tools:{userId}
-// ARGV[1] = expected userId string
+// Lua script: atomically consume the OAuth nonce, invalidate the tools cache,
+// AND set a short cooldown to prevent concurrent getTools() from re-populating
+// stale data before Composio propagates the connection change.
+// KEYS[1] = oauth_nonce:{nonce}, KEYS[2] = tools:{userId}, KEYS[3] = tools_cooldown:{userId}
+// ARGV[1] = expected userId string, ARGV[2] = cooldown TTL in seconds
 // Returns the stored userId if valid, nil otherwise.
+const TOOLS_CACHE_COOLDOWN_TTL = 15; // must match composio.js TOOLS_CACHE_COOLDOWN_TTL
 const VERIFY_AND_INVALIDATE_LUA = `
 local storedUserId = redis.call('GETDEL', KEYS[1])
 if not storedUserId then return nil end
 if storedUserId ~= ARGV[1] then return nil end
 redis.call('DEL', KEYS[2])
+redis.call('SET', KEYS[3], '1', 'EX', ARGV[2])
 return storedUserId
 `;
 
-// Verify and decode an OAuth state token, atomically consuming the nonce
-// and invalidating the tools cache in a single Redis round-trip.
+// Verify and decode an OAuth state token, atomically consuming the nonce,
+// invalidating the tools cache, and setting a cooldown in a single Redis round-trip.
+// Returns null for invalid/expired JWT tokens.
+// Throws on Redis errors so the caller can return 500 instead of a misleading 400.
 async function verifyOAuthState(stateToken) {
+  let payload;
   try {
-    const payload = jwt.verify(stateToken, JWT_SECRET, { algorithms: ['HS256'] });
-    if (!payload.nonce) return null;
-    const nonceKey = `oauth_nonce:${payload.nonce}`;
-    const cacheKey = `tools:${payload.userId}`;
-    const expectedUserId = String(payload.userId);
-    // Single atomic Redis operation: consume nonce + invalidate tools cache
-    const storedUserId = await redis.eval(
-      VERIFY_AND_INVALIDATE_LUA, 2, nonceKey, cacheKey, expectedUserId
-    );
-    if (!storedUserId) return null;
-    return payload;
+    payload = jwt.verify(stateToken, JWT_SECRET, { algorithms: ['HS256'] });
   } catch {
-    return null;
+    return null; // expired or malformed JWT — not a server error
   }
+  if (!payload.nonce) return null;
+  const nonceKey = `oauth_nonce:${payload.nonce}`;
+  const cacheKey = `tools:${payload.userId}`;
+  const cooldownKey = `tools_cooldown:${payload.userId}`;
+  const expectedUserId = String(payload.userId);
+  // Single atomic Redis operation: consume nonce + invalidate tools cache + set cooldown
+  // Redis errors intentionally propagate — caller handles with 500
+  const storedUserId = await redis.eval(
+    VERIFY_AND_INVALIDATE_LUA, 3, nonceKey, cacheKey, cooldownKey,
+    expectedUserId, String(TOOLS_CACHE_COOLDOWN_TTL)
+  );
+  if (!storedUserId) return null;
+  return payload;
 }
 
 const WEB_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -161,10 +169,18 @@ router.get('/callback', async (req, res) => {
     }
     res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
 
-    // verifyOAuthState atomically consumes the nonce AND invalidates the
-    // tools cache in a single Lua script, so there is no window where
-    // concurrent /connect/status can read stale cache.
-    const payload = await verifyOAuthState(state);
+    // verifyOAuthState atomically consumes the nonce, invalidates the tools
+    // cache, AND sets a cooldown (preventing stale re-population) in a single
+    // Lua script. JWT errors → null (invalid token), Redis errors → throw.
+    let payload;
+    try {
+      payload = await verifyOAuthState(state);
+    } catch (err) {
+      // Redis failure during atomic verify — nonce may or may not be consumed.
+      // Return 500 (not 400) so the user knows to retry.
+      logger.error({ err: err.message }, '[connect] Redis error during OAuth state verification');
+      return res.status(500).json({ error: { code: 'OAUTH_CALLBACK_ERROR', message: 'Something went wrong. Please retry the connection.' } });
+    }
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
@@ -219,7 +235,12 @@ router.post('/disconnect', requireAuth, async (req, res) => {
         }
       }
     }
-    await invalidateToolsCache(req.user.id);
+    // Best-effort cache invalidation — Composio DELETE already succeeded,
+    // so don't fail the request if Redis is temporarily unavailable.
+    // Cache will self-heal on TTL expiry (30 min) if this fails.
+    await invalidateToolsCache(req.user.id).catch(err => {
+      logger.warn({ err: err.message, userId: req.user.id }, '[connect] tools cache invalidation failed after disconnect (best-effort)');
+    });
     res.json({ success: true });
   } catch (err) {
     logger.error({ err: err.message }, 'Disconnect error');
@@ -273,7 +294,10 @@ router.delete('/:app', requireAuth, async (req, res) => {
         }
       }
     }
-    await invalidateToolsCache(req.user.id);
+    // Best-effort cache invalidation — Composio DELETE already succeeded
+    await invalidateToolsCache(req.user.id).catch(err => {
+      logger.warn({ err: err.message, userId: req.user.id }, '[connect] tools cache invalidation failed after disconnect (best-effort)');
+    });
     res.json({ success: true });
   } catch (err) {
     logger.error({ err: err.message }, 'Disconnect error');
