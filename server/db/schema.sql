@@ -143,6 +143,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_apple_id ON users(apple_id) WHERE apple_id IS NOT NULL;
 
+-- Persistent token blacklist — survives Redis restarts.
+-- Mirrors the three Redis key patterns used for token revocation:
+--   blacklist:{jti}, user_deleted:{userId}, user_sessions_invalidated:{userId}
+CREATE TABLE IF NOT EXISTS token_blacklist (
+  id         SERIAL PRIMARY KEY,
+  key        VARCHAR(255) NOT NULL UNIQUE,
+  value      VARCHAR(255) NOT NULL DEFAULT '1',
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
+
 -- Indexes on user_id foreign keys for faster joins and lookups
 CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);

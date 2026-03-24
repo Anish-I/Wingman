@@ -233,6 +233,13 @@ const server = app.listen(PORT, () => {
   const { cleanupStaleConversations } = require('./services/redis');
   cleanupStaleConversations().catch(err => logger.error({ err: err.message }, 'Startup conversation cleanup failed'));
 
+  // Purge expired token blacklist entries from PostgreSQL on startup and every hour
+  const { purgeExpiredBlacklistEntries } = require('./db/queries');
+  purgeExpiredBlacklistEntries().catch(err => logger.error({ err: err.message }, 'Startup blacklist purge failed'));
+  setInterval(() => {
+    purgeExpiredBlacklistEntries().catch(err => logger.error({ err: err.message }, 'Periodic blacklist purge failed'));
+  }, 60 * 60 * 1000);
+
   // Start BullMQ workers only after server is listening so jobs that call
   // back into HTTP routes or depend on fully-initialized services don't fail.
   try {

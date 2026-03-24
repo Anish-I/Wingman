@@ -672,6 +672,42 @@ async function unclaimPendingReply(replyId) {
   );
 }
 
+/**
+ * Persist a blacklist entry to PostgreSQL (write-through from Redis).
+ * Uses ON CONFLICT to upsert — logout-all may overwrite a previous timestamp.
+ */
+async function persistBlacklistEntry(key, value, ttlSeconds) {
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  await query(
+    `INSERT INTO token_blacklist (key, value, expires_at)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (key) DO UPDATE SET value = $2, expires_at = $3`,
+    [key, value, expiresAt]
+  );
+}
+
+/**
+ * Check the persistent blacklist for the given keys.
+ * Returns an array of { key, value } for entries that exist and haven't expired.
+ */
+async function checkBlacklistEntries(keys) {
+  if (!keys.length) return [];
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+  const result = await query(
+    `SELECT key, value FROM token_blacklist
+     WHERE key IN (${placeholders}) AND expires_at > NOW()`,
+    keys
+  );
+  return result.rows;
+}
+
+/**
+ * Remove expired blacklist entries. Call periodically to prevent table bloat.
+ */
+async function purgeExpiredBlacklistEntries() {
+  await query('DELETE FROM token_blacklist WHERE expires_at <= NOW()');
+}
+
 module.exports = {
   getUserByPhone,
   getUserByEmail,
@@ -719,4 +755,7 @@ module.exports = {
   mergeUserAccounts,
   isSyntheticPhone,
   isRealPhone,
+  persistBlacklistEntry,
+  checkBlacklistEntries,
+  purgeExpiredBlacklistEntries,
 };

@@ -8,7 +8,7 @@ const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
 const { provider } = require('../services/messaging');
-const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, getOrCreateUserByPhone, createUserByEmail, updateUserPin, claimUserPin, linkUserIdentity, mergeUserAccounts, deleteUser } = require('../db/queries');
+const { getUserByPhone, getUserByEmail, getUserByGoogleId, getUserByAppleId, getUserById, createUser, getOrCreateUserByPhone, createUserByEmail, updateUserPin, claimUserPin, linkUserIdentity, mergeUserAccounts, deleteUser, persistBlacklistEntry, checkBlacklistEntries, purgeExpiredBlacklistEntries } = require('../db/queries');
 const { withTransaction } = require('../db/index');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
@@ -1370,7 +1370,11 @@ router.delete('/account', requireAuth, async (req, res) => {
     // Blacklist ALL tokens for this user (not just the current session).
     // TTL matches JWT max lifetime (24h) so the key auto-expires once all
     // tokens issued before deletion are naturally invalid.
-    await redis.set(`user_deleted:${req.user.id}`, '1', 'EX', 86400);
+    const delKey = `user_deleted:${req.user.id}`;
+    await Promise.all([
+      redis.set(delKey, '1', 'EX', 86400),
+      persistBlacklistEntry(delKey, '1', 86400),
+    ]);
 
     clearAuthCookie(res);
     res.json({ success: true });
@@ -1398,7 +1402,11 @@ router.post('/logout', async (req, res) => {
         // Blacklist this token for its remaining lifetime
         const ttl = payload.exp - Math.floor(Date.now() / 1000);
         if (ttl > 0) {
-          await redis.set(`blacklist:${payload.jti}`, '1', 'EX', ttl);
+          const key = `blacklist:${payload.jti}`;
+          await Promise.all([
+            redis.set(key, '1', 'EX', ttl),
+            persistBlacklistEntry(key, '1', ttl),
+          ]);
         }
       }
     }
@@ -1435,11 +1443,12 @@ async function invalidateUserSessions(userId) {
   // Store as Unix timestamp; tokens with iat <= this value are rejected.
   // TTL matches max JWT lifetime (24h) so the key auto-expires once all
   // affected tokens have naturally expired.
-  await redis.set(
-    `user_sessions_invalidated:${userId}`,
-    Math.floor(Date.now() / 1000).toString(),
-    'EX', 86400
-  );
+  const key = `user_sessions_invalidated:${userId}`;
+  const value = Math.floor(Date.now() / 1000).toString();
+  await Promise.all([
+    redis.set(key, value, 'EX', 86400),
+    persistBlacklistEntry(key, value, 86400),
+  ]);
 }
 
 /**
@@ -1454,17 +1463,41 @@ async function isTokenRevoked(jti, userId, iat) {
   // Fail closed: tokens without a jti cannot be checked against the blacklist,
   // so treat them as revoked to prevent bypass via legacy or crafted tokens.
   if (!jti) return true;
-  // Check per-token blacklist (logout), per-user blacklist (account deletion),
-  // and per-user session invalidation (identity linking)
-  const checks = [redis.get(`blacklist:${jti}`)];
+
+  // Build the list of keys to check
+  const tokenKey = `blacklist:${jti}`;
+  const keys = [tokenKey];
   if (userId) {
-    checks.push(redis.get(`user_deleted:${userId}`));
-    checks.push(redis.get(`user_sessions_invalidated:${userId}`));
+    keys.push(`user_deleted:${userId}`);
+    keys.push(`user_sessions_invalidated:${userId}`);
   }
-  const results = await Promise.all(checks);
-  if (results[0] === '1' || results[1] === '1') return true;
-  // If sessions were bulk-invalidated after this token was issued, reject it
-  if (results[2] && iat && parseInt(results[2], 10) >= iat) return true;
+
+  // Fast path: check Redis first
+  const redisResults = await Promise.all(keys.map(k => redis.get(k)));
+  if (redisResults[0] === '1') return true;
+  if (userId && redisResults[1] === '1') return true;
+  if (userId && redisResults[2] && iat && parseInt(redisResults[2], 10) >= iat) return true;
+
+  // If Redis returned data for at least one key, it's alive — trust the result
+  if (redisResults.some(r => r !== null)) return false;
+
+  // Redis returned null for all keys — may be a restart. Fall back to PostgreSQL.
+  try {
+    const pgRows = await checkBlacklistEntries(keys);
+    if (!pgRows.length) return false;
+
+    const pgMap = Object.fromEntries(pgRows.map(r => [r.key, r.value]));
+    if (pgMap[tokenKey] === '1') return true;
+    if (userId && pgMap[`user_deleted:${userId}`] === '1') return true;
+    if (userId && pgMap[`user_sessions_invalidated:${userId}`] && iat) {
+      if (parseInt(pgMap[`user_sessions_invalidated:${userId}`], 10) >= iat) return true;
+    }
+  } catch (err) {
+    // Fail closed: if PG is also unavailable, reject the token
+    logger.error({ err: err.message }, 'Blacklist PG fallback failed — failing closed');
+    return true;
+  }
+
   return false;
 }
 
