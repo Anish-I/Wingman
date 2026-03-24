@@ -1492,9 +1492,11 @@ async function invalidateUserSessions(userId) {
 }
 
 /**
- * Check if a token has been revoked (blacklisted in Redis).
- * Returns true if the token's jti is in the blacklist, the user account
- * was deleted, or sessions were bulk-invalidated after the token was issued.
+ * Check if a token has been revoked.
+ * Uses Redis as a fast cache with PostgreSQL as the persistent authoritative
+ * store.  After a Redis restart, new writes may populate some keys while old
+ * blacklist entries are lost — so we always fall through to PostgreSQL when
+ * Redis reports "not revoked" unless it had data for every key we checked.
  * @param {string} jti - JWT ID
  * @param {number|string} userId - User ID
  * @param {number} [iat] - Token issued-at timestamp (Unix seconds)
@@ -1512,25 +1514,41 @@ async function isTokenRevoked(jti, userId, iat) {
     keys.push(`user_sessions_invalidated:${userId}`);
   }
 
-  // Fast path: check Redis first
-  const redisResults = await Promise.all(keys.map(k => redis.get(k)));
-  if (redisResults[0] === '1') return true;
-  if (userId && redisResults[1] === '1') return true;
-  if (userId && redisResults[2] && iat && parseInt(redisResults[2], 10) >= iat) return true;
+  // Fast path: check Redis first — a positive hit is authoritative
+  try {
+    const redisResults = await Promise.all(keys.map(k => redis.get(k)));
+    if (redisResults[0] === '1') return true;
+    if (userId && redisResults[1] === '1') return true;
+    if (userId && redisResults[2] && iat && parseInt(redisResults[2], 10) >= iat) return true;
 
-  // If Redis returned data for at least one key, it's alive — trust the result
-  if (redisResults.some(r => r !== null)) return false;
+    // Trust the negative only if Redis had values for ALL keys we queried.
+    // A partial miss (some null, some non-null) could indicate a restart that
+    // lost some blacklist entries while new ones were written — fall through.
+    if (redisResults.every(r => r !== null)) return false;
+  } catch {
+    // Redis unavailable — fall through to PostgreSQL
+  }
 
-  // Redis returned null for all keys — may be a restart. Fall back to PostgreSQL.
+  // Authoritative check: PostgreSQL persistent blacklist
   try {
     const pgRows = await checkBlacklistEntries(keys);
     if (!pgRows.length) return false;
 
     const pgMap = Object.fromEntries(pgRows.map(r => [r.key, r.value]));
-    if (pgMap[tokenKey] === '1') return true;
-    if (userId && pgMap[`user_deleted:${userId}`] === '1') return true;
+    if (pgMap[tokenKey] === '1') {
+      _restoreToRedis(tokenKey, '1').catch(() => {});
+      return true;
+    }
+    if (userId && pgMap[`user_deleted:${userId}`] === '1') {
+      _restoreToRedis(`user_deleted:${userId}`, '1').catch(() => {});
+      return true;
+    }
     if (userId && pgMap[`user_sessions_invalidated:${userId}`] && iat) {
-      if (parseInt(pgMap[`user_sessions_invalidated:${userId}`], 10) >= iat) return true;
+      const ts = parseInt(pgMap[`user_sessions_invalidated:${userId}`], 10);
+      if (ts >= iat) {
+        _restoreToRedis(`user_sessions_invalidated:${userId}`, pgMap[`user_sessions_invalidated:${userId}`]).catch(() => {});
+        return true;
+      }
     }
   } catch (err) {
     // Fail closed: if PG is also unavailable, reject the token
@@ -1539,6 +1557,18 @@ async function isTokenRevoked(jti, userId, iat) {
   }
 
   return false;
+}
+
+/**
+ * Re-populate a blacklist entry into Redis after discovering it only in
+ * PostgreSQL, so subsequent checks hit the fast path.
+ */
+async function _restoreToRedis(key, value) {
+  try {
+    await redis.set(key, value, 'EX', 86400);
+  } catch {
+    // Ignore — Redis may still be recovering
+  }
 }
 
 module.exports = router;
