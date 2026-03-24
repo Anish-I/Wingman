@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   welcomeCard: {
-    borderRadius: 20,
+    borderRadius: radii.xl,
     borderWidth: 1,
     padding: 24,
     width: '100%',

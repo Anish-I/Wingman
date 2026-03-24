@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { base, semantic, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, radii, semantic, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   otpBoxBase: {
     width: 48,
     height: 56,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     textAlign: 'center',
     fontFamily: 'Sora_700Bold',
     fontSize: 24,

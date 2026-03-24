@@ -12,6 +12,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import colors from '@/components/ui/colors';
+import { radii } from '@/components/ui/tokens';
 
 import { Text } from './text';
 
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     width: THUMB_WIDTH,
     position: 'absolute',
     backgroundColor: 'white',
-    borderRadius: 13,
+    borderRadius: radii.pill,
     right: 0,
   },
 });

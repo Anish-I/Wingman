@@ -22,7 +22,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
-import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, semantic, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, popIn, delays, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.03 }],
   } as any,
   appLogo: {
-    borderRadius: 8,
+    borderRadius: radii.sm,
   },
   appCardFocusRing: {
     boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)',

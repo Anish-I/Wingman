@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, blue, purple, radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   messageBubbleAssistant: {
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: radii.xs,
     borderWidth: 1,
   },
   messageText: {
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     margin: 12,
     marginBottom: 16,
-    borderRadius: 18,
+    borderRadius: radii.xl,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 8,
@@ -581,24 +581,24 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   messageBubbleUser: {
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: radii.xs,
   },
   messageMaxWidth: {},
   typingDotsContainer: {},
   messageBubbleUserFailed: {
     backgroundColor: '#7C3AED80',
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: radii.xs,
   },
   // --- Original static styles ---
   typingDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: teal[200],
   },
   typingLabel: {
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   messageBubbleBase: {
-    borderRadius: 18,
+    borderRadius: radii.xl,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -674,12 +674,12 @@ const styles = StyleSheet.create({
   onlineDot: {
     width: 7,
     height: 7,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: semantic.success,
   },
   demoBadge: {
     backgroundColor: '#F5A62318',
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
   emptyAvatar: {
     width: 100,
     height: 100,
-    borderRadius: 50,
+    borderRadius: radii.pill,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   promptIconContainer: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

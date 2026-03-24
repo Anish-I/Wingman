@@ -7,7 +7,7 @@ import { AxiosError } from 'axios';
 import Env from 'env';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
-import { semantic, useThemeColors } from '@/components/ui/tokens';
+import { radii, semantic, useThemeColors } from '@/components/ui/tokens';
 
 export default function ConnectAppScreen() {
   const { surface, text: t } = useThemeColors();
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   goBackButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
   goBackLabel: {
     fontSize: 14,

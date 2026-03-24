@@ -9,7 +9,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { base, purple, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     height: 52,
-    borderRadius: 12,
+    borderRadius: radii.md,
     borderWidth: 1,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     height: 52,
-    borderRadius: 12,
+    borderRadius: radii.md,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: radii.md,
     borderWidth: 1,
     gap: 8,
     width: '100%',
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   },
   appleButton: {
     height: 52,
-    borderRadius: 12,
+    borderRadius: radii.md,
     backgroundColor: surfaceLight.bg,
     flexDirection: 'row',
     alignItems: 'center',

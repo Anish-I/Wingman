@@ -8,7 +8,7 @@ import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
-import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, semantic, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -539,8 +539,8 @@ const styles = StyleSheet.create({
   templateIcon: {},
   modalContent: {
     borderTopWidth: 1,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     padding: 24,
     paddingBottom: 48,
   },
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   fabGradient: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

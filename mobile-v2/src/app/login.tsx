@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
-import { purple, typography, useThemeColors } from '@/components/ui/tokens';
+import { purple, radii, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   otpBox: {
-    borderRadius: 10,
+    borderRadius: radii.md,
     textAlign: 'center',
     fontFamily: 'Sora_700Bold',
   },

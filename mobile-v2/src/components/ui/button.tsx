@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
-import { base, shadows } from '@/components/ui/tokens';
+import { base, radii, shadows } from '@/components/ui/tokens';
 import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 const button = tv({
@@ -161,7 +161,7 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
         webInteractive(disabled || loading),
         // Web focus ring — purple glow
         Platform.OS === 'web' && focused && !disabled
-          ? { boxShadow: `0 0 0 2.5px ${glowColor}`, borderRadius: 12 } as any
+          ? { boxShadow: `0 0 0 2.5px ${glowColor}`, borderRadius: radii.md } as any
           : undefined,
         // Web hover lift — amplified for primary & gradient
         Platform.OS === 'web' && hovered && !pressed && !disabled && (variant === 'primary' || isGradient(variant))

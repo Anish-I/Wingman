@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, blue, purple, semantic, teal } from '@/components/ui/tokens';
+import { useThemeColors, blue, purple, radii, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     height: 56,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   featureIconCircle: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

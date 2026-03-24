@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, useThemeColors, purple, semantic, teal } from '@/components/ui/tokens';
+import { base, useThemeColors, purple, radii, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
   },
   speechBubble: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   permissionCard: {
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   comingSoonBadge: {
-    borderRadius: 8,
+    borderRadius: radii.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -268,13 +268,13 @@ const styles = StyleSheet.create({
   },
   grantedBadge: {
     backgroundColor: semantic.success,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   allowBadge: {
     backgroundColor: purple[500],
-    borderRadius: 8,
+    borderRadius: radii.sm,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },

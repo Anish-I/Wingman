@@ -170,6 +170,7 @@ export const typography = {
 
 // ── Radii ─────────────────────────────────────────────────────
 export const radii = {
+  xs: 4,
   sm: 8,
   md: 12,
   lg: 16,
