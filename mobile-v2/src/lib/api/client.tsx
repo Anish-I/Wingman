@@ -23,6 +23,9 @@ client.interceptors.request.use((config) => {
   } catch {
     // Storage not yet initialized
   }
+  // Tag each request with the current sign-in generation so the 401
+  // handler can tell whether the request belongs to the current session.
+  (config as any).__signInGeneration = signInGeneration;
   return config;
 });
 
@@ -36,12 +39,18 @@ onSignIn(() => {
   isSigningOut = false;
 });
 
-// Auto-logout on 401 with user notification
+// Auto-logout on 401 with user notification.
+// Uses the generation stamped at request time to ignore stale 401s from
+// requests that were sent before the user signed back in.
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !isSigningOut) {
-      const gen = signInGeneration;
+    const requestGen = (error.config as any)?.__signInGeneration;
+    if (
+      error.response?.status === 401 &&
+      !isSigningOut &&
+      requestGen === signInGeneration
+    ) {
       isSigningOut = true;
       showMessage({
         message: 'Session expired',
@@ -49,12 +58,7 @@ client.interceptors.response.use(
         type: 'warning',
         duration: 4000,
       });
-      // Only sign out if no new sign-in has occurred since we captured gen
-      if (gen === signInGeneration) {
-        signOut();
-      } else {
-        isSigningOut = false;
-      }
+      signOut();
     }
     return Promise.reject(error);
   }
