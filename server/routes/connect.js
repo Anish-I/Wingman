@@ -105,8 +105,8 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
   }
 });
 
-// GET /connect/initiate — initiate OAuth with single-use connect token
-router.get('/initiate', async (req, res) => {
+// GET /connect/initiate — initiate OAuth with single-use connect token (Bearer auth + userId match)
+router.get('/initiate', requireAuth, async (req, res) => {
   try {
     const { connectToken } = req.query;
     if (!connectToken) {
@@ -126,6 +126,11 @@ router.get('/initiate', async (req, res) => {
       return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
     }
     const { userId, app } = parsed;
+    // Verify the authenticated user matches the token's userId to prevent IDOR
+    if (String(userId) !== String(req.user.id)) {
+      logger.warn({ tokenUserId: userId, authUserId: req.user.id }, '[connect] initiate userId mismatch');
+      return res.status(403).json({ error: { code: 'USER_MISMATCH', message: 'Connect token does not belong to the authenticated user.' } });
+    }
     const state = await generateOAuthState(userId, app);
     const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
     const url = await getConnectionLink(userId, app, redirectUrl);
