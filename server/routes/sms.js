@@ -6,13 +6,18 @@ const { appendMessage, deduplicateMessage } = require('../services/redis');
 
 const router = express.Router();
 
-// SMS webhook rate limit: 20 requests per minute
+// SMS webhook rate limit: 20 requests per minute per phone number
 const smsLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many SMS requests.' } },
+  keyGenerator: (req) => {
+    // Twilio sends From in form-urlencoded body; Telnyx nests it in JSON
+    const phone = req.body?.From || req.body?.data?.payload?.from?.phone_number || req.ip;
+    return phone.replace(/[^\d+]/g, '');
+  },
 });
 
 router.get('/sms', (req, res) => res.status(200).send('OK'));
