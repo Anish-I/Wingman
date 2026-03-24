@@ -19,7 +19,7 @@ const EXTRACTION_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_MESSAGES_FOR_EXTRACTION = 3;
 const EXTRACTION_DELAY_MS = 2000; // 2s delay to avoid competing with main response
 
-async function extractAndSaveMemory(user, messages) {
+async function extractAndSaveMemory(user, messages, { signal } = {}) {
   try {
     // Only run if conversation has enough messages
     if (messages.length < MIN_MESSAGES_FOR_EXTRACTION) return;
@@ -31,7 +31,13 @@ async function extractAndSaveMemory(user, messages) {
     }
 
     // Delay to avoid competing with the main LLM response
-    await new Promise(r => setTimeout(r, EXTRACTION_DELAY_MS));
+    await new Promise((r, reject) => {
+      const id = setTimeout(r, EXTRACTION_DELAY_MS);
+      if (signal) {
+        if (signal.aborted) { clearTimeout(id); return reject(signal.reason); }
+        signal.addEventListener('abort', () => { clearTimeout(id); reject(signal.reason); }, { once: true });
+      }
+    });
 
     const recent = messages.slice(-10);
     const conversationText = recent
@@ -51,7 +57,8 @@ async function extractAndSaveMemory(user, messages) {
     const response = await callLLM(
       EXTRACT_PROMPT,
       [{ role: 'user', content: conversationText }],
-      null
+      null,
+      { signal }
     );
 
     if (!response.text) return;
