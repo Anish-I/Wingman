@@ -213,6 +213,55 @@ async function deduplicateMessage(msgId, phone, messageText) {
 }
 
 /**
+ * Atomic dedup-and-enqueue: uses a Lua script to SET NX the dedup key and
+ * RPUSH the message into the per-phone queue in a single atomic operation.
+ * This eliminates the TOCTOU gap between deduplicateMessage() and enqueueSMS()
+ * — if dedup succeeds, the message is guaranteed to be enqueued; if it fails,
+ * nothing is enqueued. No duplicate workflow triggers can slip through.
+ *
+ * Returns true if the message was new (deduped + enqueued).
+ * Returns false if the message was already seen (nothing enqueued).
+ */
+const DEDUP_ENQUEUE_LUA = `
+  local dedupKey = KEYS[1]
+  local queueKey = KEYS[2]
+  local dedupTTL = tonumber(ARGV[1])
+  local queueTTL = tonumber(ARGV[2])
+  local entry = ARGV[3]
+
+  -- Atomic SET NX: claim the dedup slot or bail
+  local ok = redis.call('SET', dedupKey, '1', 'NX', 'EX', dedupTTL)
+  if not ok then
+    return 0
+  end
+
+  -- Dedup succeeded — enqueue the message in the same atomic script
+  redis.call('RPUSH', queueKey, entry)
+  redis.call('EXPIRE', queueKey, queueTTL)
+  return 1
+`;
+
+async function deduplicateAndEnqueue(msgId, phone, messageText, timestamp) {
+  let dedupKey;
+  if (msgId) {
+    dedupKey = `sms:dedup:${msgId}`;
+  } else {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex').slice(0, 16);
+    dedupKey = `sms:dedup:content:${hash}`;
+  }
+  const queueKey = `sms:queue:${phone}`;
+  const entry = JSON.stringify({ text: messageText, ts: timestamp });
+
+  const result = await redis.eval(
+    DEDUP_ENQUEUE_LUA,
+    2, dedupKey, queueKey,
+    300, 600, entry
+  );
+  return result === 1;
+}
+
+/**
  * Per-user conversation lock using Redis SET NX EX.
  * Prevents concurrent requests for the same user from interleaving
  * history reads, LLM calls, and message appends.
@@ -279,6 +328,7 @@ module.exports = {
   deleteSession,
   cleanupStaleConversations,
   deduplicateMessage,
+  deduplicateAndEnqueue,
   acquireConversationLock,
   enqueueSMS,
   drainSMSQueue,

@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('../services/logger');
 const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
-const { appendMessage, deduplicateMessage, enqueueSMS, drainSMSQueue, acquireConversationLock } = require('../services/redis');
+const { appendMessage, deduplicateAndEnqueue, drainSMSQueue, acquireConversationLock } = require('../services/redis');
 
 const router = express.Router();
 
@@ -75,8 +75,8 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
         return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Message too long' } });
       }
 
-      // Idempotency — atomic dedup with content-based fallback when msgId is absent
-      const isNew = await deduplicateMessage(msgId, phone, messageText);
+      // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
+      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
       if (!isNew) return res.status(200).send('<Response></Response>');
 
       await handleIncomingSMS(phone, messageText, res, true);
@@ -136,8 +136,8 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
         return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: 'Message too long' } });
       }
 
-      // Idempotency — atomic dedup with content-based fallback when msgId is absent
-      const isNew = await deduplicateMessage(msgId, phone, messageText);
+      // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
+      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
       if (!isNew) return res.sendStatus(200);
 
       await handleIncomingSMS(phone, messageText, res, false);
@@ -169,8 +169,8 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
-  // --- Enqueue with arrival timestamp so messages drain in FIFO order ---
-  await enqueueSMS(phone, messageText, Date.now());
+  // Message was already atomically enqueued by deduplicateAndEnqueue() —
+  // no separate enqueueSMS call needed, eliminating the TOCTOU gap.
 
   // --- Acquire the per-user conversation lock (wait with back-off) ---
   let release;
