@@ -334,13 +334,16 @@ const LOCAL_TOOLS = [
 ];
 
 async function processMessage(user, messageText) {
-  // Reject early if this user has too many orphaned promises already running.
-  // _getUserOrphanCount prunes expired entries inline via ZREMRANGEBYSCORE.
+  // Check orphan count — degrade to text-only mode instead of hard-rejecting.
+  // Hard rejection caused a DoS cycle: user blocked → retries → creates more
+  // orphans → blocked again.  Degrading to text-only breaks the cycle because
+  // no new tool calls are made and therefore no new orphans are created.
   const userId = String(user.id);
   const userOrphanCount = await _getUserOrphanCount(userId);
+  let toolsDisabled = false;
   if (userOrphanCount >= MAX_ORPHANED_PROMISES) {
-    console.warn(`[user:${userId}] Rejecting request: ${userOrphanCount} orphaned promises already in-flight for this user (limit ${MAX_ORPHANED_PROMISES})`);
-    return "I'm currently overloaded — please try again in a moment.";
+    toolsDisabled = true;
+    console.warn(`[user:${userId}] Orphan limit reached (${userOrphanCount}/${MAX_ORPHANED_PROMISES}) — proceeding without tools`);
   }
 
   const abortController = { aborted: false };
@@ -355,7 +358,7 @@ async function processMessage(user, messageText) {
     }, PROCESS_MESSAGE_TIMEOUT);
   });
 
-  const innerPromise = _processMessageInner(user, messageText, abortController, lockHolder);
+  const innerPromise = _processMessageInner(user, messageText, abortController, lockHolder, toolsDisabled);
 
   try {
     const result = await Promise.race([innerPromise, timeout]);
@@ -396,7 +399,7 @@ async function processMessage(user, messageText) {
   }
 }
 
-async function _processMessageInner(user, messageText, abortController = { aborted: false }, lockHolder = { releaseLock: null, released: false }) {
+async function _processMessageInner(user, messageText, abortController = { aborted: false }, lockHolder = { releaseLock: null, released: false }, toolsDisabled = false) {
   const userId = String(user.id);
 
   // Guarded append — skips the write once the lock has been released
@@ -478,10 +481,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Expose lock to caller so it can force-release on outer timeout
   lockHolder.releaseLock = releaseLock;
 
+  // Skip Composio calls when tools are disabled (orphan backpressure) to avoid
+  // hitting a potentially slow/down Composio API that caused the orphans.
   const [history, allTools, connectionStatus] = await Promise.all([
     getConversationHistory(user.id),
-    getTools(userId),
-    getConnectionStatus(userId),
+    toolsDisabled ? Promise.resolve([]) : getTools(userId),
+    toolsDisabled ? Promise.resolve({ connected: [] }) : getConnectionStatus(userId),
   ]);
 
   // Build a set of apps the user has actively connected — used to block
@@ -492,8 +497,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // This ensures cache path and main path both have the message persisted atomically.
   await safeAppend('user', messageText);
 
-  const selectedTools = selectToolsForMessage(allTools, messageText);
-  const tools = [...LOCAL_TOOLS, ...selectedTools];
+  // When toolsDisabled is set (orphan limit reached), pass no tools to the LLM.
+  // This lets the user still get text responses without creating new orphan-
+  // producing tool calls, breaking the reject→retry→more-orphans DoS cycle.
+  const selectedTools = toolsDisabled ? [] : selectToolsForMessage(allTools, messageText);
+  const tools = toolsDisabled ? [] : [...LOCAL_TOOLS, ...selectedTools];
   // Build allowlist of tool names the LLM is permitted to call this turn
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
   // Build a map of tool name → parameter schema for argument validation
@@ -505,7 +513,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
   // Local tools bypass Composio connection checks
   const localToolNames = new Set(LOCAL_TOOLS.map(t => t.function?.name).filter(Boolean));
-  console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
+  if (toolsDisabled) {
+    console.log(`[user:${userId}] Tools disabled (orphan backpressure) — text-only mode`);
+  } else {
+    console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
+  }
 
   // Check semantic cache before doing any LLM work
   if (shouldCache(messageText)) {
