@@ -342,14 +342,26 @@ export default function WorkflowsScreen() {
                       <Text style={{ color: t.muted }} className="text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <Switch
-                    value={item.active}
-                    onValueChange={(v) => toggleWorkflow(item.id, v)}
-                    disabled={togglingIds.has(item.id)}
-                    trackColor={{ false: surface.elevated, true: '#32D74B' }}
-                    thumbColor="#fff"
-                    style={togglingIds.has(item.id) ? { opacity: 0.5 } : undefined}
-                  />
+                  <View className="flex-row items-center gap-1.5">
+                    <Text
+                      style={{ color: item.active ? '#32D74B' : t.muted }}
+                      className="text-[11px] font-semibold"
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    >
+                      {item.active ? 'ON' : 'OFF'}
+                    </Text>
+                    <Switch
+                      value={item.active}
+                      onValueChange={(v) => toggleWorkflow(item.id, v)}
+                      disabled={togglingIds.has(item.id)}
+                      trackColor={{ false: surface.elevated, true: '#32D74B' }}
+                      thumbColor="#fff"
+                      accessibilityLabel={`${item.name} is ${item.active ? 'on' : 'off'}`}
+                      accessibilityRole="switch"
+                      style={togglingIds.has(item.id) ? { opacity: 0.5 } : undefined}
+                    />
+                  </View>
                 </View>
                 {/* Trigger badge */}
                 <View className="flex-row items-center gap-2">
