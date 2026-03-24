@@ -8,7 +8,7 @@ import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
-import { base, purple, radii, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
   },
   slowHintIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   slowHintText: {
     color: '#F5A623',
@@ -541,8 +541,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    padding: 24,
-    paddingBottom: 48,
+    padding: spacing['2xl'],
+    paddingBottom: spacing['3xl'] + spacing.lg,
   },
   modalInput: {
     borderWidth: 1,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   templateList: {
-    gap: 8,
+    gap: spacing.sm,
   },
   fabGradient: {
     width: 56,

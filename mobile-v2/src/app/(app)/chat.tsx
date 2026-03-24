@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, blue, purple, radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, blue, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -501,10 +501,10 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    gap: 12,
+    gap: spacing.md,
   },
   headerAvatarBorder: {
     borderWidth: 1.5,
@@ -551,10 +551,10 @@ const styles = StyleSheet.create({
   promptChipBase: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     borderRadius: radii.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1,
   },
   promptChipText: {
@@ -567,12 +567,12 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    margin: 12,
-    marginBottom: 16,
+    margin: spacing.md,
+    marginBottom: spacing.lg,
     borderRadius: radii.xl,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
     borderWidth: 1.5,
   },
   textInputBase: {
@@ -614,20 +614,20 @@ const styles = StyleSheet.create({
   },
   messageBubbleBase: {
     borderRadius: radii.xl,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 3,
-    gap: 4,
+    gap: spacing.xs,
   },
   statusSentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xs / 2,
   },
   statusSentText: {
     fontSize: 11,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   statusFailedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   statusFailedText: {
     fontSize: 11,
@@ -647,8 +647,8 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    marginLeft: 4,
+    gap: spacing.xs / 2,
+    marginLeft: spacing.xs,
     minHeight: 44,
     minWidth: 44,
     justifyContent: 'center',
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   headerNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
   },
   onlineDot: {
     width: 7,
@@ -680,8 +680,8 @@ const styles = StyleSheet.create({
   demoBadge: {
     backgroundColor: '#F5A62318',
     borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
   },
   demoBadgeText: {
     color: '#F5A623',
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   emptyAvatarImage: {
     width: 110,
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   promptSuggestionsGap: {
-    gap: 8,
+    gap: spacing.sm,
   },
   promptIconContainer: {
     width: 28,

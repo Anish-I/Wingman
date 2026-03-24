@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, blue, purple, radii, semantic, teal } from '@/components/ui/tokens';
+import { useThemeColors, blue, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
   subTitle: {
     fontSize: 18,
     fontFamily: 'Sora_700Bold',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   featureList: {
-    gap: 11,
+    gap: spacing.md,
   },
   featureIconCircle: {
     width: 40,

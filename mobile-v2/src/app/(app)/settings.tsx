@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
-import { radii, semantic, useThemeColors } from '@/components/ui/tokens';
+import { radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
 import { cardPressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
 
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
   // --- Extracted from inline SettingsRow styles ---
   valueBadge: {
     borderRadius: radii.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
   },
   valueBadgeText: {
     fontSize: 12,

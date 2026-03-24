@@ -168,6 +168,29 @@ export const typography = {
   },
 } as const;
 
+// ── Spacing ──────────────────────────────────────────────────
+/**
+ * 4-point grid spacing scale.
+ * Use these instead of hard-coded pixel values for consistent rhythm.
+ *
+ *   xs  (4)   — tight inline gaps (icon–text, status indicators)
+ *   sm  (8)   — small component gaps (header groups, chip grids)
+ *   md  (12)  — medium gaps (section internals, input bars, list padding)
+ *   lg  (16)  — large gaps (between sections, screen header bar padding)
+ *   xl  (20)  — extra-large gaps (major section separators)
+ *   '2xl' (24) — screen-level horizontal padding, content gaps
+ *   '3xl' (32) — screen-level bottom safe-area padding
+ */
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+} as const;
+
 // ── Radii ─────────────────────────────────────────────────────
 export const radii = {
   xs: 4,
@@ -270,7 +293,7 @@ export const presets = {
     backgroundColor: surface.elevated,
     borderWidth: 1,
     borderColor: surface.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
   },
@@ -311,7 +334,7 @@ export const presets = {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 10,
+    gap: spacing.sm,
     ...shadows.card,
   },
   /** Trust / security footnote — dense, centered, subdued */
@@ -319,9 +342,9 @@ export const presets = {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     backgroundColor: surface.section,
     borderRadius: radii.md,
     borderWidth: 1,
@@ -360,6 +383,7 @@ const tokens = {
   semantic,
   blue,
   typography,
+  spacing,
   radii,
   shadows,
   presets,

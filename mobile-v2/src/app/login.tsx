@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
-import { purple, radii, typography, useThemeColors } from '@/components/ui/tokens';
+import { purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -50,8 +50,8 @@ export default function LoginScreen() {
     phoneInput: [styles.phoneInput, { color: t.primary }],
     signupText: [styles.signupText, { color: t.muted }],
   };
-  const contentGap = { gap: isLandscape ? 14 : 24 };
-  const otpRow = { gap: isLandscape ? 6 : 10 };
+  const contentGap = { gap: isLandscape ? spacing.md : spacing['2xl'] };
+  const otpRow = { gap: isLandscape ? spacing.sm : spacing.md };
   const otpBox = (i: number) => [
     styles.otpBox,
     {
@@ -179,7 +179,7 @@ export default function LoginScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="px-8" style={contentGap}>
+          <View className="px-6" style={contentGap}>
         {/* Header */}
         <View style={styles.headerGroup}>
           <Text style={themed.headerTitle}>
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerGroup: {
-    gap: 8,
+    gap: spacing.sm,
   },
   headerTitle: {
     ...typography.hero,

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { purple, useThemeColors } from '@/components/ui/tokens';
+import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 
 type SectionLabelProps = {
   text: string;
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: spacing.sm,
   },
   accentBar: {
     width: 24,

@@ -22,7 +22,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
-import { base, purple, radii, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, popIn, delays, chipPressStyle, pressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categorySectionListContent: {
-    paddingRight: 16,
+    paddingRight: spacing.lg,
   },
   // --- CategoryTabs ---
   tabActive: {
@@ -836,9 +836,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   categoryTabsListContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    gap: 8,
+    paddingHorizontal: spacing['2xl'],
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   tabHoveredActive: {
     backgroundColor: 'rgba(124, 92, 252, 0.18)',
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   slowHintText: {
     color: '#F5A623',
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
   },
   slowHintIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   slowHintRetry: {
     backgroundColor: 'rgba(245, 166, 35, 0.2)',
