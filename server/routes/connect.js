@@ -184,10 +184,14 @@ router.post('/disconnect', requireAuth, async (req, res) => {
         c => c.appName.toLowerCase() === app.toLowerCase() && c.status === 'ACTIVE'
       );
       if (account) {
-        await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        const delRes = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
           method: 'DELETE',
           headers: { 'x-api-key': COMPOSIO_API_KEY },
         });
+        if (!delRes.ok) {
+          console.error(`Composio DELETE failed for account ${account.id}: ${delRes.status} ${delRes.statusText}`);
+          return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
+        }
       }
     }
     await invalidateToolsCache(req.user.id);
@@ -233,10 +237,14 @@ router.delete('/:app', requireAuth, async (req, res) => {
         c => c.appName.toLowerCase() === app && c.status === 'ACTIVE'
       );
       if (account) {
-        await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        const delRes = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
           method: 'DELETE',
           headers: { 'x-api-key': COMPOSIO_API_KEY },
         });
+        if (!delRes.ok) {
+          console.error(`Composio DELETE failed for account ${account.id}: ${delRes.status} ${delRes.statusText}`);
+          return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
+        }
       }
     }
     await invalidateToolsCache(req.user.id);
