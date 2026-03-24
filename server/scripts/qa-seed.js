@@ -8,6 +8,11 @@ const pg = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { createRedisClient } = require('../services/redis');
 
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ QA seed script must not run in production.');
+  process.exit(1);
+}
+
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error('DATABASE_URL environment variable is required. Set it in your .env file.');
@@ -82,9 +87,9 @@ async function seed() {
     console.log('✓ Generated JWT token for test user');
 
     console.log('\n✅ QA Seed Complete! Test user is ready.');
-    console.log('  1. Navigate to http://localhost:8081');
-    console.log('  2. See qa-seed.js constants for test credentials');
-    console.log('  3. Continue through onboarding flow\n');
+    console.log('  Phone: %s', TEST_PHONE);
+    console.log('  Token: [redacted — stored in variable]');
+    console.log('  OTP: [redacted — stored in Redis key %s]', otpKey);
 
     process.exit(0);
   } catch (err) {
