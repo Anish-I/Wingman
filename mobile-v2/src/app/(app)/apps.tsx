@@ -449,10 +449,10 @@ export default function AppsScreen() {
       setLoadingSlow(false);
       return;
     }
-    // Show "slow" hint early so users know something is happening
-    const slowTimer = setTimeout(() => setLoadingSlow(true), 3000);
-    // Treat as failed after 8 seconds — most users abandon before 10s
-    const failTimer = setTimeout(() => setLoadingTimedOut(true), 8000);
+    // Show actionable "slow" hint at 2s so users aren't staring at a blind spinner
+    const slowTimer = setTimeout(() => setLoadingSlow(true), 2000);
+    // Treat as failed after 5s — users abandon well before 8s
+    const failTimer = setTimeout(() => setLoadingTimedOut(true), 5000);
     return () => { clearTimeout(slowTimer); clearTimeout(failTimer); };
   }, [isLoading]);
 
@@ -633,8 +633,17 @@ export default function AppsScreen() {
           <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={styles.slowHintBg}>
             <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
             <Text style={ts.slowHintText}>
-              Still loading — check your connection if this persists
+              Taking longer than usual
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading apps"
+              onPress={() => { setLoadingSlow(false); refetch(); }}
+              className="ml-2 rounded-lg px-3 py-1"
+              style={styles.slowHintRetry}
+            >
+              <Text style={styles.slowHintRetryText}>Retry</Text>
+            </Pressable>
           </View>
         )}
         {/* Skeleton header */}
@@ -850,6 +859,14 @@ const styles = StyleSheet.create({
   },
   slowHintIcon: {
     marginRight: 8,
+  },
+  slowHintRetry: {
+    backgroundColor: 'rgba(245, 166, 35, 0.2)',
+  },
+  slowHintRetryText: {
+    color: '#F5A623',
+    fontSize: 12,
+    fontWeight: '700',
   },
   mutedText: {},
 });
