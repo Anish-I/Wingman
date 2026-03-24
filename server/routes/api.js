@@ -1,5 +1,6 @@
 'use strict';
 const express = require('express');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const logger = require('../services/logger');
 const router = express.Router();
@@ -10,6 +11,7 @@ const { getConnectionStatus, WINGMAN_APPS } = require('../services/composio');
 const { createAndScheduleWorkflow, listWorkflows, stopWorkflow } = require('../services/workflows');
 const { updateUserPreferences } = require('../db/queries');
 const { isValidCron } = require('../lib/validate-cron');
+const { redis } = require('../services/redis');
 
 // Parse pagination query params with sane defaults and bounds
 function parsePagination(query) {
@@ -43,6 +45,27 @@ const workflowLimiter = rateLimit({
 
 // Max chat message length (chars) — prevents LLM cost abuse
 const MAX_CHAT_MESSAGE_LENGTH = 4000;
+
+// Chat idempotency — deduplicates concurrent identical requests (double-tap, network retry).
+// Key format: wingman:chat-idem:<userId>:<idempotencyKey>
+// Values: JSON { status: 'processing' | 'done', reply?: string, error?: object }
+const IDEM_PREFIX = 'wingman:chat-idem:';
+const IDEM_TTL_SECONDS = 120; // cached result TTL
+const IDEM_POLL_INTERVAL_MS = 250;
+const IDEM_POLL_MAX_MS = 130000; // slightly longer than PROCESS_MESSAGE_TIMEOUT
+
+/**
+ * Derive an idempotency key. Prefer client-provided X-Idempotency-Key header;
+ * fall back to sha256(trimmed message) so identical rapid retransmissions
+ * of the same message are caught automatically.
+ */
+function deriveIdempotencyKey(req) {
+  const header = req.headers['x-idempotency-key'];
+  if (header && typeof header === 'string' && header.length > 0 && header.length <= 128) {
+    return header;
+  }
+  return crypto.createHash('sha256').update(req.body.message.trim()).digest('hex').slice(0, 32);
+}
 
 // --- Workflow action input sanitization ---
 // Whitelist: keys must be alphanumeric with underscores, hyphens, or dots (max 128 chars)
@@ -120,16 +143,67 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
       return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: `Message exceeds maximum length of ${MAX_CHAT_MESSAGE_LENGTH} characters.` } });
     }
-    const reply = await processMessage(req.user, message.trim());
-    res.json({ reply });
+
+    // --- Idempotency deduplication ---
+    const idemKey = deriveIdempotencyKey(req);
+    const redisKey = IDEM_PREFIX + req.user.id + ':' + idemKey;
+
+    // Try to claim this request. SET NX returns 'OK' only for the first caller.
+    const claimed = await redis.set(redisKey, JSON.stringify({ status: 'processing' }), 'EX', IDEM_TTL_SECONDS, 'NX');
+
+    if (!claimed) {
+      // Another request with the same key is in flight (or already finished).
+      // Poll until the first request completes, then return its cached result.
+      const start = Date.now();
+      while (Date.now() - start < IDEM_POLL_MAX_MS) {
+        const raw = await redis.get(redisKey);
+        if (raw) {
+          try {
+            const cached = JSON.parse(raw);
+            if (cached.status === 'done') {
+              if (cached.error) return res.status(cached.error.status || 500).json({ error: cached.error.body });
+              return res.json({ reply: cached.reply });
+            }
+          } catch { /* corrupted entry — fall through to poll again */ }
+        } else {
+          // Key expired or was deleted — let this request proceed as a fresh one
+          break;
+        }
+        await new Promise(r => setTimeout(r, IDEM_POLL_INTERVAL_MS));
+      }
+      // If we broke out because the key vanished, try to claim it again
+      const reClaimed = await redis.set(redisKey, JSON.stringify({ status: 'processing' }), 'EX', IDEM_TTL_SECONDS, 'NX');
+      if (!reClaimed) {
+        // Still couldn't claim — give up
+        return res.status(409).json({ error: { code: 'DUPLICATE_REQUEST', message: 'A duplicate request is already being processed.' } });
+      }
+    }
+
+    // We own this idempotency slot — process the message.
+    try {
+      const reply = await processMessage(req.user, message.trim());
+      // Cache the successful result for the TTL window
+      await redis.set(redisKey, JSON.stringify({ status: 'done', reply }), 'EX', IDEM_TTL_SECONDS).catch(e =>
+        logger.error({ err: e.message }, '[api] Failed to cache idempotency result')
+      );
+      res.json({ reply });
+    } catch (err) {
+      const status = err.statusCode || 500;
+      const code = err.statusCode === 429 ? 'TOO_MANY_REQUESTS'
+        : err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
+        : err.message?.includes('timeout') ? 'ORCHESTRATOR_TIMEOUT'
+        : 'ORCHESTRATOR_ERROR';
+      const errorBody = { code, message: status === 429 ? 'Server is overloaded — please try again shortly.' : 'Failed to process chat message.' };
+      // Cache the error so duplicate callers get the same response
+      await redis.set(redisKey, JSON.stringify({ status: 'done', error: { status, body: errorBody } }), 'EX', IDEM_TTL_SECONDS).catch(e =>
+        logger.error({ err: e.message }, '[api] Failed to cache idempotency error')
+      );
+      logger.error({ err: err.message }, '[api] chat error');
+      res.status(status).json({ error: errorBody });
+    }
   } catch (err) {
     logger.error({ err: err.message }, '[api] chat error');
-    const status = err.statusCode || 500;
-    const code = err.statusCode === 429 ? 'TOO_MANY_REQUESTS'
-      : err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
-      : err.message?.includes('timeout') ? 'ORCHESTRATOR_TIMEOUT'
-      : 'ORCHESTRATOR_ERROR';
-    res.status(status).json({ error: { code, message: status === 429 ? 'Server is overloaded — please try again shortly.' : 'Failed to process chat message.' } });
+    res.status(500).json({ error: { code: 'ORCHESTRATOR_ERROR', message: 'Failed to process chat message.' } });
   }
 });
 

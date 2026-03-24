@@ -3,6 +3,12 @@ import { AxiosError } from 'axios';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
 
+let _idemCounter = 0;
+/** Generate a unique idempotency key (timestamp + counter + random). */
+function generateIdempotencyKey(): string {
+  return `${Date.now()}-${++_idemCounter}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 type ChatResponse = { reply: string };
 type ChatVariables = { message: string };
 
@@ -21,7 +27,9 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
     }
 
     try {
-      const { data } = await client.post<ChatResponse>('/api/chat', variables);
+      const { data } = await client.post<ChatResponse>('/api/chat', variables, {
+        headers: { 'X-Idempotency-Key': generateIdempotencyKey() },
+      });
       return data;
     } catch (err) {
       if (err instanceof AxiosError) {
