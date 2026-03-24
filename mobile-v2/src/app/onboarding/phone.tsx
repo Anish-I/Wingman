@@ -90,12 +90,13 @@ export default function PhoneScreen() {
 
   async function handleVerify() {
     if (verifyingRef.current) return;
+    verifyingRef.current = true;
     const otp = code.join('');
     if (otp.length !== 6) {
+      verifyingRef.current = false;
       showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
-    verifyingRef.current = true;
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp, otp_request_id: otpRequestId });
