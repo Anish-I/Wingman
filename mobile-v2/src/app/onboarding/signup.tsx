@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,6 +62,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const codeExchangedRef = useRef(false);
 
   // Theme-dependent styles
   const themed = {
@@ -146,8 +147,12 @@ export default function SignupScreen() {
     }
   }
 
-  // Exchange a short-lived auth code for a JWT via the server
+  // Exchange a short-lived auth code for a JWT via the server.
+  // Guarded by a ref so a double-fire of the OAuth callback cannot
+  // exchange the code twice and cause inconsistent auth state.
   async function exchangeAuthCode(code: string): Promise<boolean> {
+    if (codeExchangedRef.current) return false;
+    codeExchangedRef.current = true;
     try {
       const res = await client.post('/auth/exchange-code', { code });
       const { token } = res.data;
@@ -160,11 +165,13 @@ export default function SignupScreen() {
     } catch (err) {
       console.error('Auth code exchange failed:', err);
     }
+    codeExchangedRef.current = false;
     return false;
   }
 
   async function handleGoogleSignIn() {
     setLoading(true);
+    codeExchangedRef.current = false;
     try {
       // Generate a CSRF token and store it locally with the intended return path.
       // The server echoes this back in the redirect so both the inline (WebBrowser)
