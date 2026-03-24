@@ -356,12 +356,18 @@ async function processMessage(user, messageText) {
       innerPromise
         .catch(err => { logger.error({ err: err.message }, `[user:${userId}] Orphaned inner promise error`); })
         .finally(() => {
-          if (!reaped) {
-            reaped = true;
-            clearTimeout(reapTimer);
-            _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled orphan from Redis`); });
-            console.log(`[user:${userId}] Orphaned promise settled`);
-          }
+          // Always clear the reap timer and remove the orphan token regardless
+          // of whether the reap timer already fired.  Redis ZREM is idempotent
+          // (removing an already-removed member is a no-op), so double-removal
+          // is safe.  Previously, when the promise settled after the reap timer
+          // fired, the `reaped` flag caused this block to skip cleanup, but if
+          // the reap timer's async _removeOrphan had not yet completed (or
+          // failed silently), the orphan entry could linger in Redis and
+          // inflate the user's orphan count.
+          clearTimeout(reapTimer);
+          reaped = true;
+          _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled orphan from Redis`); });
+          console.log(`[user:${userId}] Orphaned promise settled`);
         });
     }
     throw err;
