@@ -8,7 +8,7 @@ SMS/mobile AI assistant. User texts or uses the app → LLM processes → Compos
 - **Mobile/Web**: Expo Router (`mobile-v2/`) — serves both native (iOS/Android) and web
 - **LLM**: Gemini 2.5 Flash (primary), Together AI + Groq as fallbacks (`server/services/llm.js`)
 - **Integrations**: Composio — 1,008 apps with OAuth, tool calling (`server/services/composio.js`)
-- **DB**: PostgreSQL (`postgresql://wingman:wingman@localhost:5432/wingman`)
+- **DB**: PostgreSQL (see `server/.env.example` for connection string template)
 - **Cache**: Redis on `localhost:6379`
 - **SMS**: Twilio (stub mode for local dev)
 - **Auth**: JWT (HS256, 24hr expiry, `jsonwebtoken` library)
@@ -58,7 +58,7 @@ mobile-v2/
 ## Environment Variables (server/.env)
 ```
 PORT=3001
-DATABASE_URL=postgresql://wingman:wingman@localhost:5432/wingman
+DATABASE_URL=postgresql://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:5432/wingman
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=<64+ char random string>
 OTP_SECRET=<64+ char random string>   # REQUIRED: dedicated OTP HMAC key (must differ from JWT_SECRET)
