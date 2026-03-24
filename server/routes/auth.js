@@ -826,8 +826,12 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     // an attacker (token A) from intercepting a victim's OTP to steal their phone.
     // The requester ID was bundled into the OTP value and consumed atomically above,
     // so there is no separate key that can be independently lost or raced.
+    // Only enforce when otpRequester is set (i.e. the OTP was requested by an
+    // authenticated user). When null, the OTP was requested unauthenticated — the
+    // otp_request_id nonce already binds the OTP to the original HTTP caller,
+    // preventing session-fixation even if the verifier is now authenticated.
     if (existingPayload && existingPayload.userId) {
-      if (!otpRequester || String(otpRequester) !== String(existingPayload.userId)) {
+      if (otpRequester && String(otpRequester) !== String(existingPayload.userId)) {
         // Restore the OTP so the legitimate user can still verify.
         // GETDEL already consumed it — put it back with full OTP_TTL so the
         // rightful requester isn't locked out by this mismatched attempt.
