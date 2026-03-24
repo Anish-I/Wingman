@@ -890,6 +890,8 @@ const ALLOWED_WEB_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:8081',
   'http://127.0.0.1:8098',
+  // Include the configured CORS origin (typically the production HTTPS URL)
+  ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : []),
 ];
 
 function buildRedirectUrl(state, params) {
