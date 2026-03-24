@@ -1,5 +1,11 @@
 const { query, withTransaction } = require('./index');
 
+/** Tracks SQL parameter indices automatically — eliminates manual $N bookkeeping. */
+class ParamCollector {
+  constructor() { this.values = []; }
+  add(value) { this.values.push(value); return `$${this.values.length}`; }
+}
+
 // Recognized synthetic phone prefixes used as identity keys for non-phone signups.
 // Real E.164 phones always start with '+', so they can never collide with these.
 const SYNTHETIC_PREFIXES = ['email:', 'google:', 'apple:'];
@@ -49,25 +55,19 @@ async function linkUserIdentity(userId, fields) {
   const setClauses = [];
   const whereClauses = [];
   const conflictClauses = [];
-  const values = [];
-  let idx = 1;
+  const p = new ParamCollector();
 
-  // $1 is always userId — used in WHERE id = $1 and in conflict sub-selects
-  values.push(userId);
-  idx = 2;
+  const userRef = p.add(userId);
 
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined && allowed.includes(key)) {
+      const ref = p.add(value);
       // Only update if the column is NULL or already matches — never overwrite
       // a different existing value (prevents identity hijacking).
-      setClauses.push(`${key} = $${idx}`);
-      whereClauses.push(`(${key} IS NULL OR ${key} = $${idx})`);
+      setClauses.push(`${key} = ${ref}`);
+      whereClauses.push(`(${key} IS NULL OR ${key} = ${ref})`);
       // Atomic conflict check: ensure no *other* user already claims this identity.
-      // Combined into a single query to eliminate TOCTOU race between the old
-      // separate SELECT check and the UPDATE.
-      conflictClauses.push(`NOT EXISTS (SELECT 1 FROM users WHERE ${key} = $${idx} AND id != $1)`);
-      values.push(value);
-      idx++;
+      conflictClauses.push(`NOT EXISTS (SELECT 1 FROM users WHERE ${key} = ${ref} AND id != ${userRef})`);
     }
   }
   if (setClauses.length === 0) return null;
@@ -76,8 +76,8 @@ async function linkUserIdentity(userId, fields) {
   // Single atomic UPDATE that checks ownership, null-guards, AND conflict-free
   // conditions all in one WHERE clause — no separate SELECT needed.
   const result = await query(
-    `UPDATE users SET ${setClauses.join(', ')} WHERE id = $1 AND ${whereClauses.join(' AND ')} AND ${conflictClauses.join(' AND ')} RETURNING *`,
-    values
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = ${userRef} AND ${whereClauses.join(' AND ')} AND ${conflictClauses.join(' AND ')} RETURNING *`,
+    p.values
   );
   return result.rows[0] || null;
 }
@@ -149,19 +149,18 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
 
   if (Object.keys(updates).length > 0) {
     const setClauses = [];
-    const values = [];
-    let idx = 1;
+    const p = new ParamCollector();
     for (const [key, value] of Object.entries(updates)) {
+      const ref = p.add(value);
       if (key === 'preferences') {
-        setClauses.push(`preferences = $${idx++}::jsonb`);
+        setClauses.push(`preferences = ${ref}::jsonb`);
       } else {
-        setClauses.push(`${key} = $${idx++}`);
+        setClauses.push(`${key} = ${ref}`);
       }
-      values.push(value);
     }
     setClauses.push('updated_at = NOW()');
-    values.push(targetUserId);
-    await txQuery(`UPDATE users SET ${setClauses.join(', ')} WHERE id = $${idx}`, values);
+    const targetRef = p.add(targetUserId);
+    await txQuery(`UPDATE users SET ${setClauses.join(', ')} WHERE id = ${targetRef}`, p.values);
   }
 
   // Clear source identity columns to avoid unique constraint violations, then delete
@@ -396,21 +395,20 @@ async function createWorkflowRun(workflowId) {
 
 async function updateWorkflowRun(runId, { status, result: runResult, error, started_at, completed_at }) {
   const fields = [];
-  const values = [];
-  let idx = 1;
+  const p = new ParamCollector();
 
-  if (status !== undefined) { fields.push(`status = $${idx++}`); values.push(status); }
-  if (runResult !== undefined) { fields.push(`result = $${idx++}`); values.push(JSON.stringify(runResult)); }
-  if (error !== undefined) { fields.push(`error = $${idx++}`); values.push(error); }
-  if (started_at !== undefined) { fields.push(`started_at = $${idx++}`); values.push(started_at); }
-  if (completed_at !== undefined) { fields.push(`completed_at = $${idx++}`); values.push(completed_at); }
+  if (status !== undefined) { fields.push(`status = ${p.add(status)}`); }
+  if (runResult !== undefined) { fields.push(`result = ${p.add(JSON.stringify(runResult))}`); }
+  if (error !== undefined) { fields.push(`error = ${p.add(error)}`); }
+  if (started_at !== undefined) { fields.push(`started_at = ${p.add(started_at)}`); }
+  if (completed_at !== undefined) { fields.push(`completed_at = ${p.add(completed_at)}`); }
 
   if (fields.length === 0) return null;
 
-  values.push(runId);
+  const idRef = p.add(runId);
   const res = await query(
-    `UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
-    values
+    `UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = ${idRef} RETURNING *`,
+    p.values
   );
   return res.rows[0];
 }
@@ -450,15 +448,14 @@ async function getWorkflowById(workflowId) {
 
 async function updateWorkflowRunMessages(runId, { messages, step_log, context, status }) {
   const fields = [];
-  const values = [];
-  let idx = 1;
-  if (messages !== undefined) { fields.push(`messages = $${idx++}`); values.push(JSON.stringify(messages)); }
-  if (step_log !== undefined) { fields.push(`step_log = $${idx++}`); values.push(JSON.stringify(step_log)); }
-  if (context !== undefined) { fields.push(`context = $${idx++}`); values.push(JSON.stringify(context)); }
-  if (status !== undefined) { fields.push(`status = $${idx++}`); values.push(status); }
+  const p = new ParamCollector();
+  if (messages !== undefined) { fields.push(`messages = ${p.add(JSON.stringify(messages))}`); }
+  if (step_log !== undefined) { fields.push(`step_log = ${p.add(JSON.stringify(step_log))}`); }
+  if (context !== undefined) { fields.push(`context = ${p.add(JSON.stringify(context))}`); }
+  if (status !== undefined) { fields.push(`status = ${p.add(status)}`); }
   if (fields.length === 0) return null;
-  values.push(runId);
-  const res = await query(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, values);
+  const idRef = p.add(runId);
+  const res = await query(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = ${idRef} RETURNING *`, p.values);
   return res.rows[0];
 }
 
@@ -501,32 +498,31 @@ async function appendWorkflowRunState(runId, { newMessages, newStepLogs, context
 
     if (eventRows.length > 0) {
       const valParts = [];
-      const vals = [runId];
-      let idx = 2;
+      const ep = new ParamCollector();
+      const runRef = ep.add(runId);
       for (const row of eventRows) {
-        valParts.push(`($1, $${idx++}, $${idx++}, $${idx++}::jsonb)`);
-        vals.push(row.seq, row.ev_type, JSON.stringify(row.data));
+        const seqRef = ep.add(row.seq);
+        const typeRef = ep.add(row.ev_type);
+        const dataRef = ep.add(JSON.stringify(row.data));
+        valParts.push(`(${runRef}, ${seqRef}, ${typeRef}, ${dataRef}::jsonb)`);
       }
       await txQuery(
         `INSERT INTO workflow_run_events (run_id, seq, ev_type, data) VALUES ${valParts.join(', ')}`,
-        vals
+        ep.values
       );
     }
 
     const fields = [];
-    const values = [];
-    let fieldIdx = 1;
+    const up = new ParamCollector();
     if (contextPatch && Object.keys(contextPatch).length > 0) {
-      fields.push(`context = COALESCE(context, '{}'::jsonb) || $${fieldIdx++}::jsonb`);
-      values.push(JSON.stringify(contextPatch));
+      fields.push(`context = COALESCE(context, '{}'::jsonb) || ${up.add(JSON.stringify(contextPatch))}::jsonb`);
     }
     if (status !== undefined) {
-      fields.push(`status = $${fieldIdx++}`);
-      values.push(status);
+      fields.push(`status = ${up.add(status)}`);
     }
     if (fields.length > 0) {
-      values.push(runId);
-      await txQuery(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = $${fieldIdx}`, values);
+      const idRef = up.add(runId);
+      await txQuery(`UPDATE workflow_runs SET ${fields.join(', ')} WHERE id = ${idRef}`, up.values);
     }
   });
 }
@@ -582,36 +578,32 @@ async function createTemplate({ name, description, category, steps, variables, s
 
 async function searchTemplates(searchTerm, category, { limit, offset, userId } = {}) {
   // Only return system templates and the current user's own templates
+  const p = new ParamCollector();
   let whereSql = ' WHERE (is_system = true';
-  const values = [];
-  let idx = 1;
   if (userId) {
-    whereSql += ` OR author_user_id = $${idx}`;
-    values.push(userId);
-    idx++;
+    whereSql += ` OR author_user_id = ${p.add(userId)}`;
   }
   whereSql += ')';
   if (searchTerm) {
     const escaped = searchTerm.replace(/[%_\\]/g, '\\$&');
-    whereSql += ` AND (name ILIKE $${idx} ESCAPE '\\' OR description ILIKE $${idx} ESCAPE '\\')`;
-    values.push(`%${escaped}%`);
-    idx++;
+    const termRef = p.add(`%${escaped}%`);
+    whereSql += ` AND (name ILIKE ${termRef} ESCAPE '\\' OR description ILIKE ${termRef} ESCAPE '\\')`;
   }
   if (category) {
-    whereSql += ` AND category = $${idx}`;
-    values.push(category);
-    idx++;
+    whereSql += ` AND category = ${p.add(category)}`;
   }
 
   if (Number.isFinite(limit) && Number.isFinite(offset)) {
-    const countResult = await query(`SELECT COUNT(*) FROM workflow_templates${whereSql}`, values);
+    const countResult = await query(`SELECT COUNT(*) FROM workflow_templates${whereSql}`, p.values);
     const total = parseInt(countResult.rows[0].count, 10);
-    const pageSql = `SELECT * FROM workflow_templates${whereSql} ORDER BY usage_count DESC, created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
-    const result = await query(pageSql, [...values, limit, offset]);
+    const limitRef = p.add(limit);
+    const offsetRef = p.add(offset);
+    const pageSql = `SELECT * FROM workflow_templates${whereSql} ORDER BY usage_count DESC, created_at DESC LIMIT ${limitRef} OFFSET ${offsetRef}`;
+    const result = await query(pageSql, p.values);
     return { rows: result.rows, total };
   }
   const sql = `SELECT * FROM workflow_templates${whereSql} ORDER BY usage_count DESC, created_at DESC`;
-  const result = await query(sql, values);
+  const result = await query(sql, p.values);
   return { rows: result.rows, total: result.rows.length };
 }
 
