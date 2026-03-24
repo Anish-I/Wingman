@@ -55,7 +55,10 @@ const LLM_ITERATION_TIMEOUT = Math.min(
   ITERATION_TIMEOUT - 2000   // must fire before iteration timeout to avoid races
 );
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
-const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
+// Reap timeout should be just above the sliding window so entries are cleaned up
+// shortly after they stop counting — the old 5-min default was far too long and
+// caused Redis key bloat under sustained load.
+const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(90_000), 10); // 90s (window + 30s buffer)
 // Sliding window for orphan counting — limits how long a user stays blocked (default 60s)
 const ORPHAN_WINDOW_MS = parseInt(process.env.ORPHAN_WINDOW_MS || '60000', 10);
 
@@ -103,11 +106,30 @@ async function _getUserOrphanCount(userId) {
   }
 }
 
+// Collect all orphan keys using SCAN (non-blocking) instead of KEYS.
+async function _scanOrphanKeys() {
+  const keys = [];
+  let cursor = '0';
+  do {
+    const [next, batch] = await redis.scan(cursor, 'MATCH', ORPHAN_KEY_PREFIX + '*', 'COUNT', 100);
+    cursor = next;
+    keys.push(...batch);
+  } while (cursor !== '0');
+  return keys;
+}
+
 // Global orphan count across all users.
+// Prunes expired entries first (like _getUserOrphanCount) so stale entries
+// don't inflate the count.
 async function getOrphanedCount() {
   try {
-    const keys = await redis.keys(ORPHAN_KEY_PREFIX + '*');
+    const keys = await _scanOrphanKeys();
     if (keys.length === 0) return 0;
+    const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+    // Prune expired entries before counting.
+    const prunePipeline = redis.pipeline();
+    for (const key of keys) prunePipeline.zremrangebyscore(key, '-inf', cutoff);
+    await prunePipeline.exec();
     const pipeline = redis.pipeline();
     for (const key of keys) pipeline.zcard(key);
     const results = await pipeline.exec();
@@ -123,7 +145,7 @@ async function getOrphanedCount() {
 // never sends another request — solving the silent-user leak.
 async function _sweepOrphans() {
   try {
-    const keys = await redis.keys(ORPHAN_KEY_PREFIX + '*');
+    const keys = await _scanOrphanKeys();
     if (keys.length === 0) return;
     const cutoff = Date.now() - ORPHAN_WINDOW_MS;
     const pipeline = redis.pipeline();
@@ -354,32 +376,17 @@ async function processMessage(user, messageText) {
       // exit quickly — reaching its finally block which drains in-flight
       // appends and releases the lock safely.
 
-      // Track the orphan for backpressure purposes.
-      const orphanToken = await _addOrphan(userId);
-      console.warn(`[user:${userId}] Request timed out, orphaned promise tracked`);
-      let reaped = false;
-      const reapTimer = setTimeout(() => {
-        if (!reaped) {
-          reaped = true;
-          _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove reaped orphan from Redis`); });
-          console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms`);
-        }
-      }, ORPHAN_REAP_TIMEOUT);
-      if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
+      // NOTE: We intentionally do NOT add a request-level orphan here.
+      // Individual tool calls already create their own orphan entries via
+      // _trackInflightOutcome, providing per-tool backpressure tracking.
+      // Adding a request-level orphan on top caused double-counting: a
+      // single request with N timed-out tool calls would create N+1 orphan
+      // entries, rapidly exhausting MAX_ORPHANED_PROMISES and blocking the
+      // user far sooner than intended.
+      console.warn(`[user:${userId}] Request timed out, inner promise orphaned`);
       innerPromise
         .catch(err => { logger.error({ err: err.message }, `[user:${userId}] Orphaned inner promise error`); })
         .finally(() => {
-          // Always clear the reap timer and remove the orphan token regardless
-          // of whether the reap timer already fired.  Redis ZREM is idempotent
-          // (removing an already-removed member is a no-op), so double-removal
-          // is safe.  Previously, when the promise settled after the reap timer
-          // fired, the `reaped` flag caused this block to skip cleanup, but if
-          // the reap timer's async _removeOrphan had not yet completed (or
-          // failed silently), the orphan entry could linger in Redis and
-          // inflate the user's orphan count.
-          clearTimeout(reapTimer);
-          reaped = true;
-          _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled orphan from Redis`); });
           console.log(`[user:${userId}] Orphaned promise settled`);
         });
     }
