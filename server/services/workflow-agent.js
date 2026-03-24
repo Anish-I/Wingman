@@ -393,7 +393,12 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
           return { status: 'waiting', runId: run.id };
         } else if (block.name === 'DELAY') {
           const secs = Math.min(block.input.seconds || 10, 300);
-          // Save state and reschedule via BullMQ instead of blocking the worker
+          // Enqueue resume job BEFORE persisting state — if enqueuing fails,
+          // the error propagates and the run won't be orphaned as 'delayed'.
+          const { getQueue } = require('./workflows');
+          await getQueue().add('resume-delayed', {
+            workflowId, userId, runId: run.id,
+          }, { delay: secs * 1000 });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
@@ -407,10 +412,6 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
             contextPatch: pendingContextPatch,
             status: 'delayed',
           });
-          const { getQueue } = require('./workflows');
-          await getQueue().add('resume-delayed', {
-            workflowId, userId, runId: run.id,
-          }, { delay: secs * 1000 });
           return { status: 'delayed', runId: run.id, delaySeconds: secs };
         } else if (block.name === 'UPDATE_CONTEXT') {
           runContext[block.input.key] = block.input.value;
@@ -672,7 +673,12 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
           return { status: 'waiting', runId };
         } else if (block.name === 'DELAY') {
           const secs = Math.min(block.input.seconds || 10, 300);
-          // Save state and reschedule via BullMQ instead of blocking the worker
+          // Enqueue resume job BEFORE persisting state — if enqueuing fails,
+          // the error propagates and the run won't be orphaned as 'delayed'.
+          const { getQueue } = require('./workflows');
+          await getQueue().add('resume-delayed', {
+            workflowId: workflow.id, userId: workflow.user_id, runId,
+          }, { delay: secs * 1000 });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
@@ -686,10 +692,6 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
             contextPatch: pendingContextPatch,
             status: 'delayed',
           });
-          const { getQueue } = require('./workflows');
-          await getQueue().add('resume-delayed', {
-            workflowId: workflow.id, userId: workflow.user_id, runId,
-          }, { delay: secs * 1000 });
           return { status: 'delayed', runId, delaySeconds: secs };
         } else if (block.name === 'UPDATE_CONTEXT') {
           runContext[block.input.key] = block.input.value;
