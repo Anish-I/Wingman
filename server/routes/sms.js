@@ -164,18 +164,28 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     return respond(200);
   }
 
-  // New user discovery
+  // New user discovery — use atomic Redis flag to prevent duplicate sends
+  // under concurrent requests (both would pass the guard before either writes)
   if (isNewUser || !user.preferences?.onboarded) {
+    const { redis } = require('../services/redis');
+    const claimKey = `discovery:sent:${user.id}`;
+    const claimed = await redis.set(claimKey, '1', 'NX', 'EX', 600);
+    if (claimed === 'OK') {
+      await appendMessage(user.id, 'user', messageText);
+      const discoveryMsg =
+        'Hey! I\'m Wingman 🐦 — your personal AI.\n' +
+        'Get set up in 30 seconds:\n' +
+        'https://wingman.app/start\n\n' +
+        '(or just keep texting me here!)';
+      await provider.sendMessage(phone, discoveryMsg);
+      await appendMessage(user.id, 'assistant', discoveryMsg);
+      const { updateUserPreferences } = require('../db/queries');
+      await updateUserPreferences(user.id, { onboarded: false, discoverySmsSent: true });
+      return respond(200);
+    }
+    // Another request already claimed the discovery send — just append
+    // the user message and return (the discovery SMS is already in flight)
     await appendMessage(user.id, 'user', messageText);
-    const discoveryMsg =
-      'Hey! I\'m Wingman 🐦 — your personal AI.\n' +
-      'Get set up in 30 seconds:\n' +
-      'https://wingman.app/start\n\n' +
-      '(or just keep texting me here!)';
-    await provider.sendMessage(phone, discoveryMsg);
-    await appendMessage(user.id, 'assistant', discoveryMsg);
-    const { updateUserPreferences } = require('../db/queries');
-    await updateUserPreferences(user.id, { onboarded: false, discoverySmsSent: true });
     return respond(200);
   }
 
