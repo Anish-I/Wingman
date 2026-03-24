@@ -335,8 +335,18 @@ async function getPendingReminders() {
   return result.rows;
 }
 
-async function markReminderFired(id) {
-  await query('UPDATE reminders SET fired = true WHERE id = $1', [id]);
+async function markReminderFired(id, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await query('UPDATE reminders SET fired = true WHERE id = $1', [id]);
+      return result;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        throw new Error(`markReminderFired failed after ${maxRetries} attempts for reminder ${id}: ${err.message}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+    }
+  }
 }
 
 async function createWorkflow(userId, { name, description, trigger_type, cron_expression, trigger_config, actions, steps, variables }) {

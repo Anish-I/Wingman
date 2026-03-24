@@ -22,11 +22,12 @@ async function pollReminders() {
           console.warn(`[worker] Reminder ${reminder.id} skipped — user ${reminder.user_id} has no phone`);
           continue;
         }
-        await provider.sendMessage(user.phone, `Reminder: ${reminder.message}`);
+        // Mark fired BEFORE sending to prevent duplicate notifications if send succeeds but mark fails
         await markReminderFired(reminder.id);
+        await provider.sendMessage(user.phone, `Reminder: ${reminder.message}`);
         console.log(`[worker] Fired reminder ${reminder.id} for user ${reminder.user_id}`);
       } catch (err) {
-        logger.error({ err: err.message }, `[worker] Reminder ${reminder.id} delivery failed`);
+        logger.error({ err: err.message, reminderId: reminder.id }, `[worker] Reminder ${reminder.id} failed`);
       }
     }
   } catch (err) {
