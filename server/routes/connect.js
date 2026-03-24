@@ -133,14 +133,29 @@ router.get('/callback', async (req, res) => {
       return res.status(403).json({ error: { code: 'OAUTH_SESSION_MISMATCH', message: 'OAuth session mismatch. Please retry the connection from your app.' } });
     }
     res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
+
+    // Pre-decode JWT to get userId for cache invalidation BEFORE consuming the
+    // nonce.  This closes the race window where the nonce is consumed but
+    // invalidateToolsCache hasn't run yet (concurrent /connect/status reads
+    // stale cache).  If cache invalidation fails (e.g. Redis error) we return
+    // 500 while the nonce is still valid, so the user can safely retry.
+    let prePayload;
+    try {
+      prePayload = jwt.verify(state, JWT_SECRET, { algorithms: ['HS256'] });
+    } catch {
+      return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
+    }
+
+    if (prePayload.userId) {
+      await invalidateToolsCache(prePayload.userId);
+    }
+
+    // Now atomically consume the nonce (single-use verification)
     const payload = await verifyOAuthState(state);
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
-    const { userId, app: appName } = payload;
-    if (userId) {
-      await invalidateToolsCache(userId);
-    }
+    const { app: appName } = payload;
     res.redirect(`${WEB_URL}/connect/success?app=${appName || ''}`);
   } catch (err) {
     console.error('OAuth callback error:', err);
