@@ -144,6 +144,14 @@ router.post('/workflows', requireAuth, async (req, res) => {
     if (!name || !trigger_type || !actions) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
     }
+    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) {
+      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'name must be a non-empty string of at most 200 characters' } });
+    }
+    if (description !== undefined && description !== null) {
+      if (typeof description !== 'string' || description.length > 2000) {
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'description must be a string of at most 2000 characters' } });
+      }
+    }
     if (trigger_type === 'schedule' && cron_expression && !isValidCron(cron_expression)) {
       return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
     }
