@@ -636,7 +636,7 @@ async function createPendingReply({ run_id, workflow_id, user_id, prompt_text })
 
 async function getPendingReplyForUser(userId) {
   const result = await query(
-    'SELECT * FROM workflow_pending_replies WHERE user_id = $1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1',
+    'SELECT * FROM workflow_pending_replies WHERE user_id = $1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1 FOR UPDATE SKIP LOCKED',
     [userId]
   );
   return result.rows[0] || null;
@@ -644,10 +644,10 @@ async function getPendingReplyForUser(userId) {
 
 async function resolvePendingReply(replyId, replyText) {
   const result = await query(
-    'UPDATE workflow_pending_replies SET resolved_at = NOW(), reply_text = $1 WHERE id = $2 RETURNING *',
+    'UPDATE workflow_pending_replies SET resolved_at = NOW(), reply_text = $1 WHERE id = $2 AND resolved_at IS NULL RETURNING *',
     [replyText, replyId]
   );
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 /**
