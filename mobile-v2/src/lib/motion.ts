@@ -82,6 +82,19 @@ export const timing = {
   slow: { type: 'timing' as const, duration: 500 },
 } as const;
 
+// ── Delay presets ─────────────────────────────────────────────
+/** Named delay presets — use instead of arbitrary delay numbers */
+export const delays = {
+  /** No delay */
+  none: 0,
+  /** Quick follow-on (message avatars, secondary elements) */
+  fast: 50,
+  /** Standard section/content entrance */
+  normal: 100,
+  /** Slightly deferred elements (badges, counts, FABs) */
+  slow: 200,
+} as const;
+
 // ── Stagger delay ──────────────────────────────────────────────
 /** Standard stagger delay for list items */
 export const STAGGER_MS = 60;

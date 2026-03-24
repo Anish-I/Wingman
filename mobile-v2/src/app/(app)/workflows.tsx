@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
 import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
-import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -422,7 +422,7 @@ export default function WorkflowsScreen() {
         {...maybeReduce({
           from: { opacity: 0, scale: 0, rotate: '45deg' },
           animate: { opacity: 1, scale: 1, rotate: '0deg' },
-          transition: { ...springs.bouncy, delay: 500 },
+          transition: { ...springs.bouncier, delay: delays.slow },
         }, reduced)}
         className="absolute bottom-6 right-6"
       >

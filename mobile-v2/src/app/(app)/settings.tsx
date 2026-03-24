@@ -9,7 +9,7 @@ import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
 import { semantic, useThemeColors } from '@/components/ui/tokens';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
-import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -199,7 +199,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0, scale: 0.9 },
             animate: { opacity: 1, scale: 1 },
-            transition: { type: 'spring' as const, damping: 12 },
+            transition: springs.gentle,
           }, reducedMotion)}
           className="items-center pt-6 pb-4"
         >
@@ -216,7 +216,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0, translateY: 10 },
             animate: { opacity: 1, translateY: 0 },
-            transition: { delay: 200 },
+            transition: { ...springs.gentle, delay: staggerDelay(1, delays.normal) },
           }, reducedMotion)}
           className="flex-row gap-3 px-4 mb-6"
         >
@@ -230,7 +230,7 @@ export default function SettingsScreen() {
               {...maybeReduce({
                 from: { opacity: 0, scale: 0.8 },
                 animate: { opacity: 1, scale: 1 },
-                transition: { type: 'spring' as const, damping: 12, delay: 300 + i * 80 },
+                transition: { ...springs.bouncy, delay: staggerDelay(2 + i, delays.normal) },
               }, reducedMotion)}
               className="flex-1 rounded-2xl py-3 items-center"
               style={statCardBase}
@@ -246,7 +246,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0, translateX: -15 },
             animate: { opacity: 1, translateX: 0 },
-            transition: { delay: 400 },
+            transition: { ...springs.gentle, delay: staggerDelay(3, delays.normal) },
           }, reducedMotion)}
           className="mt-2 px-4"
         >
@@ -263,7 +263,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0, translateX: -15 },
             animate: { opacity: 1, translateX: 0 },
-            transition: { delay: 500 },
+            transition: { ...springs.gentle, delay: staggerDelay(4, delays.normal) },
           }, reducedMotion)}
           className="mt-6 px-4"
         >
@@ -280,7 +280,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0, translateX: -15 },
             animate: { opacity: 1, translateX: 0 },
-            transition: { delay: 600 },
+            transition: { ...springs.gentle, delay: staggerDelay(5, delays.normal) },
           }, reducedMotion)}
           className="mt-6 px-4"
         >
@@ -297,7 +297,7 @@ export default function SettingsScreen() {
           {...maybeReduce({
             from: { opacity: 0 },
             animate: { opacity: 1 },
-            transition: { delay: 700 },
+            transition: { ...springs.gentle, delay: staggerDelay(6, delays.normal) },
           }, reducedMotion)}
         >
           <Pressable

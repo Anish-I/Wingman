@@ -23,7 +23,7 @@ import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
 import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
-import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { headerEntrance, entrance, popIn, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
 // Category mapping
@@ -694,11 +694,7 @@ export default function AppsScreen() {
             </Text>
           </View>
           <MotiView
-            {...maybeReduce({
-              from: { opacity: 0, scale: 0.7 },
-              animate: { opacity: 1, scale: 1 },
-              transition: { type: 'spring', damping: 10, stiffness: 100, delay: 300 },
-            }, reduced)}
+            {...maybeReduce(popIn(0), reduced)}
           >
             <View className="bg-[#4ADE80]/15 rounded-2xl px-4 py-2 items-center">
               <Text className="text-[#4ADE80] text-[20px] font-extrabold">

@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
-import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { springs, delays, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
 
@@ -30,7 +30,7 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
         {...maybeReduce({
           from: { scale: 0.8, opacity: 0 },
           animate: { scale: 1, opacity: 1 },
-          transition: { type: 'spring' as const, damping: 12 },
+          transition: springs.gentle,
         }, !!reducedMotion)}
         className="flex-row items-center gap-2 rounded-2xl rounded-bl-[4px] px-4 py-3"
         style={[styles.typingDotsContainer, { backgroundColor: surface.card }]}
@@ -249,13 +249,13 @@ export default function ChatScreen() {
         {...maybeReduce({
           from: { opacity: 0, translateY: 12, scale: 0.95 },
           animate: { opacity: 1, translateY: 0, scale: 1 },
-          transition: { ...springs.snappy, delay: 50 },
+          transition: { ...springs.snappy, delay: delays.fast },
         }, reducedMotion)}
       >
         <View className={`my-0.5 flex-row items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {!isUser && (
             <MotiView
-              {...maybeReduce(popIn(0, 50), reducedMotion)}
+              {...maybeReduce(popIn(0, delays.fast), reducedMotion)}
               className="size-7 items-center justify-center overflow-hidden rounded-full"
               style={s.messageAvatarBg}
             >
@@ -361,7 +361,7 @@ export default function ChatScreen() {
             <View className="items-center px-6">
               {/* Pip avatar — floats gently to feel alive */}
               <MotiView
-                {...maybeReduce(popIn(0, 200), reducedMotion)}
+                {...maybeReduce(popIn(0, delays.slow), reducedMotion)}
               >
                 <MotiView {...maybeReduce(gentleFloat(800), reducedMotion)}>
                   <View
@@ -373,7 +373,7 @@ export default function ChatScreen() {
               </MotiView>
 
               <MotiView
-                {...maybeReduce(entrance(0, 400), reducedMotion)}
+                {...maybeReduce(entrance(0, delays.slow * 2), reducedMotion)}
               >
                 <Text style={s.emptyTitle}>
                   Hey! I'm Pip
@@ -385,7 +385,7 @@ export default function ChatScreen() {
 
               {/* Prompt suggestions */}
               <MotiView
-                {...maybeReduce(entrance(0, 550), reducedMotion)}
+                {...maybeReduce(entrance(0, delays.slow * 2 + delays.normal), reducedMotion)}
                 className="mt-4 w-full"
                 style={styles.promptSuggestionsGap}
               >
@@ -396,7 +396,7 @@ export default function ChatScreen() {
                   {examplePrompts.map((prompt, i) => (
                     <MotiView
                       key={prompt.text}
-                      {...maybeReduce(popIn(i, 650), reducedMotion)}
+                      {...maybeReduce(popIn(i, delays.slow * 3), reducedMotion)}
                     >
                       <Pressable
                         accessibilityRole="button"
@@ -436,7 +436,7 @@ export default function ChatScreen() {
 
         {/* Input bar */}
         <MotiView
-          {...maybeReduce(entrance(0, 200), reducedMotion)}
+          {...maybeReduce(entrance(0, delays.slow), reducedMotion)}
         >
           <MotiView
             {...maybeReduce({
