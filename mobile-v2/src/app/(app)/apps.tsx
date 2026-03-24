@@ -428,15 +428,19 @@ export default function AppsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const [loadingSlow, setLoadingSlow] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
       setLoadingTimedOut(false);
+      setLoadingSlow(false);
       return;
     }
-    // Only use timeout as a safety net when loading hangs with no response
-    const timer = setTimeout(() => setLoadingTimedOut(true), 20000);
-    return () => clearTimeout(timer);
+    // Show "slow" hint early so users know something is happening
+    const slowTimer = setTimeout(() => setLoadingSlow(true), 3000);
+    // Treat as failed after 8 seconds — most users abandon before 10s
+    const failTimer = setTimeout(() => setLoadingTimedOut(true), 8000);
+    return () => { clearTimeout(slowTimer); clearTimeout(failTimer); };
   }, [isLoading]);
 
   useEffect(() => {
@@ -611,6 +615,15 @@ export default function AppsScreen() {
     };
     return (
       <SafeAreaView className="flex-1 bg-background">
+        {/* Slow-loading hint */}
+        {loadingSlow && (
+          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={{ backgroundColor: 'rgba(245, 166, 35, 0.12)' }}>
+            <Ionicons name="time-outline" size={18} color="#F5A623" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600', flex: 1 }}>
+              Still loading — check your connection if this persists
+            </Text>
+          </View>
+        )}
         {/* Skeleton header */}
         <View className="px-6 pt-6 pb-4">
           <View className="flex-row items-center justify-between">
