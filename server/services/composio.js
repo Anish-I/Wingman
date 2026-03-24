@@ -485,11 +485,27 @@ async function getConnectionStatus(userId, appNames = null) {
   }
 }
 
+// Pre-compute: app slugs sorted longest-first for greedy prefix matching.
+// This ensures multi-word slugs like 'microsoft_teams' match before 'microsoft'.
+const _KNOWN_APPS_BY_LENGTH = [...WINGMAN_APPS].sort((a, b) => b.length - a.length || a.localeCompare(b));
+
 /**
- * Detect which app a Composio tool belongs to (e.g. GMAIL_SEND_EMAIL → gmail).
+ * Detect which app a Composio tool belongs to (e.g. GMAIL_SEND_EMAIL → gmail,
+ * MICROSOFT_TEAMS_SEND_MESSAGE → microsoft_teams).
+ *
+ * Uses longest-prefix matching against known app slugs so multi-word slugs
+ * (microsoft_teams, google_maps, zoho_books, etc.) resolve correctly.
+ * Falls back to the first underscore segment for unknown/new apps.
  */
 function appFromToolName(toolName) {
-  return toolName.split('_')[0].toLowerCase();
+  const lower = toolName.toLowerCase();
+  for (const app of _KNOWN_APPS_BY_LENGTH) {
+    if (lower.startsWith(app + '_') || lower === app) {
+      return app;
+    }
+  }
+  // Fallback for apps not in WINGMAN_APPS (e.g. newly added by Composio)
+  return lower.split('_')[0];
 }
 
 /**

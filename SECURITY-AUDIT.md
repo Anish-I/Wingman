@@ -193,6 +193,18 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 **Impact:** Rate limit bypass if proxy topology changes.
 **Remediation:** Document the expected proxy chain; consider using `trust proxy` with specific addresses.
 
+### ~~H7. Implicit Trust of LLM Tool Calls — No Access Control Before Execution~~ — FIXED (2026-03-23)
+
+**File:** `server/services/orchestrator.js`, `server/services/composio.js`
+
+The orchestrator previously executed all tool calls returned by the LLM without verifying the tool was in the fetched tools list or that the user had a connected account for that app. A prompt injection via SMS could convince the LLM to call tools the user hadn't authorized.
+
+**Fix (multi-layered):**
+1. **Tool allowlist** — `allowedToolNames` Set built from tools selected for the current turn. Any tool call not in this set is rejected before execution.
+2. **Argument validation** — `validateToolArgs()` checks tool arguments against the JSON Schema to prevent attacker-chosen parameters.
+3. **App connection check** — `connectedApps` Set (from Composio's active connections) is verified before executing any non-local tool. Unconnected apps are blocked and the user receives a connection link.
+4. **Robust app resolution** — `appFromToolName()` uses longest-prefix matching against all known app slugs (sorted by length descending), correctly resolving multi-word slugs like `microsoft_teams`, `google_maps`, `zoho_books` instead of naively splitting on the first underscore.
+
 ---
 
 ## Summary
@@ -200,7 +212,7 @@ Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Clou
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
-| HIGH     | 6 | 6 | 0 | All fixed |
+| HIGH     | 7 | 7 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
 | LOW      | 6 | 4 | 2 | localStorage JWT (L1), trust proxy (L6) |
 
