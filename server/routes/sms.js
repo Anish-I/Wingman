@@ -278,7 +278,9 @@ async function processSingleSMS(phone, messageText, user, isNewUser) {
   try {
     await provider.sendMessage(phone, responseText);
   } catch (sendErr) {
-    logger.error({ err: sendErr.message, phone }, '[sms] Failed to send reply');
+    logger.error({ err: sendErr.message, phone }, '[sms] Failed to send orchestrator reply — user was not notified');
+    // Re-throw so the webhook returns non-200 and the provider can retry
+    throw sendErr;
   }
 }
 
