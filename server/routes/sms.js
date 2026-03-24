@@ -7,6 +7,9 @@ const { appendMessage, deduplicateMessage } = require('../services/redis');
 
 const router = express.Router();
 
+// Replay protection: reject webhooks older than this window (seconds)
+const WEBHOOK_TIMESTAMP_TOLERANCE = 300; // 5 minutes
+
 // SMS webhook rate limit: 20 requests per minute per phone number
 const smsLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -43,6 +46,14 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
         const isValid = twilioProvider.validateIncoming(req);
         if (!isValid) {
           console.warn('[security] Invalid Twilio signature');
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
+
+        // Replay protection: Twilio has no timestamp header, so we rely on
+        // MessageSid as a nonce.  Reject requests without one — the dedup
+        // layer below will block any replayed SID within the 300s TTL window.
+        if (!req.body?.MessageSid) {
+          console.warn('[security] Twilio webhook missing MessageSid nonce');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
@@ -87,6 +98,18 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
         const isValid = telnyxProvider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
           console.warn('[security] Invalid Telnyx signature');
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
+
+        // Replay protection: reject webhooks with stale or missing timestamps
+        const telnyxTimestamp = req.headers['telnyx-timestamp'];
+        if (!telnyxTimestamp) {
+          console.warn('[security] Missing telnyx-timestamp header');
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
+        const webhookAge = Math.abs(Date.now() / 1000 - Number(telnyxTimestamp));
+        if (isNaN(webhookAge) || webhookAge > WEBHOOK_TIMESTAMP_TOLERANCE) {
+          console.warn('[security] Telnyx webhook timestamp outside tolerance window');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
