@@ -258,8 +258,8 @@ export function webFocusRing(focused: boolean, color: string = purple[500]) {
 export function sendButtonAnimate(canSend: boolean) {
   return {
     animate: {
-      scale: canSend ? 1 : 0.7,
-      opacity: canSend ? 1 : 0.2,
+      scale: canSend ? 1 : 0.85,
+      opacity: canSend ? 1 : 0.35,
     },
     transition: springs.micro,
   };

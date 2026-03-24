@@ -718,6 +718,6 @@ const styles = StyleSheet.create({
   },
   sendButtonPressed: {
     opacity: 0.75,
-    transform: [{ scale: 0.85 }],
+    transform: [{ scale: 0.92 }],
   },
 });
