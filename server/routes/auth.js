@@ -720,7 +720,9 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
 const ALLOWED_REDIRECT_URIS = [
   process.env.GOOGLE_REDIRECT_URI,
   ...(process.env.NEXT_PUBLIC_APP_URL ? [`${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`] : []),
-  ...(process.env.CORS_ORIGIN ? [`${process.env.CORS_ORIGIN}/auth/callback`] : []),
+  // NOTE: CORS_ORIGIN is intentionally excluded — it controls cross-origin request policy,
+  // not OAuth redirects. Deriving redirect URIs from it risks open-redirect if misconfigured.
+  // Use GOOGLE_REDIRECT_URI or NEXT_PUBLIC_APP_URL for explicit redirect control.
   ...(process.env.NODE_ENV !== 'production' ? [
     'http://localhost:3000/auth/callback',
     'http://localhost:8081/auth/callback',
