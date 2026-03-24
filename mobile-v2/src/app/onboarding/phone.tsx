@@ -37,6 +37,10 @@ export default function PhoneScreen() {
   const inputs = useRef<TextInput[]>([]);
   const verifyingRef = useRef(false);
 
+  // Stable ref so the auto-submit effect always calls the latest closure
+  // without needing handleVerify in its dependency array.
+  const handleVerifyRef = useRef<(otpOverride?: string) => Promise<void>>(null!);
+
   // Theme-dependent styles
   const themed = {
     safeArea: { backgroundColor: surface.bg },
@@ -119,10 +123,10 @@ export default function PhoneScreen() {
     }
   }
 
-  async function handleVerify() {
+  async function handleVerify(otpOverride?: string) {
     if (verifyingRef.current) return;
     verifyingRef.current = true;
-    const otp = code.join('');
+    const otp = otpOverride ?? code.join('');
     if (otp.length !== 6) {
       verifyingRef.current = false;
       showAlert('Incomplete', 'Please enter all 6 digits.');
@@ -174,11 +178,15 @@ export default function PhoneScreen() {
     }
   }
 
+  handleVerifyRef.current = handleVerify;
+
   useEffect(() => {
-    if (code.every((d) => d !== '') && step === 'verify') {
-      handleVerify();
+    if (step === 'verify' && code.every((d) => d !== '') && !verifyingRef.current) {
+      // Set guard atomically with the effect trigger so concurrent renders
+      // (e.g. React StrictMode double-fire) cannot queue duplicate calls.
+      verifyingRef.current = true;
+      handleVerifyRef.current(code.join(''));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, step]);
 
   return (

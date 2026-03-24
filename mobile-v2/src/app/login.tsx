@@ -130,6 +130,10 @@ export default function LoginScreen() {
 
   const verifyingRef = useRef(false);
 
+  // Stable ref so the auto-submit effect always calls the latest closure
+  // without needing handleVerify in its dependency array.
+  const handleVerifyRef = useRef<(otpOverride?: string) => Promise<void>>(null!);
+
   async function handleVerify(otpOverride?: string) {
     if (verifyingRef.current) return;
     verifyingRef.current = true;
@@ -168,14 +172,15 @@ export default function LoginScreen() {
     }
   }
 
+  handleVerifyRef.current = handleVerify;
+
   useEffect(() => {
-    if (step === 'verify' && code.every(d => d !== '')) {
-      // Snapshot OTP synchronously so the ref guard in handleVerify is set
-      // before React can fire this effect again from a batched state update.
-      const otp = code.join('');
-      handleVerify(otp);
+    if (step === 'verify' && code.every(d => d !== '') && !verifyingRef.current) {
+      // Set guard atomically with the effect trigger so concurrent renders
+      // (e.g. React StrictMode double-fire) cannot queue duplicate calls.
+      verifyingRef.current = true;
+      handleVerifyRef.current(code.join(''));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, step]);
 
   // Declarative redirect: only fires after React re-renders with updated auth
