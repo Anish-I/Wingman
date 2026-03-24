@@ -172,6 +172,79 @@ function throwIfAborted(abortController, label) {
 // Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
 const SIDE_EFFECT_PATTERNS = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_POST|TWILIO_|TELNYX_|.*_SEND_|.*_CREATE_|.*_DELETE_|.*_UPDATE_|.*_POST_|.*_REMOVE_)/i;
 
+// TTL for in-flight outcome records (10 min — outlives any realistic late completion)
+const INFLIGHT_OUTCOME_TTL = parseInt(process.env.INFLIGHT_OUTCOME_TTL || '600', 10);
+
+/**
+ * Build a Redis key for tracking the outcome of a timed-out side-effecting tool.
+ * Uses the same hashing approach as composio idempotency so the key is stable
+ * across retries with identical arguments.
+ */
+function _inflightOutcomeKey(userId, toolName, toolInput) {
+  const payload = `${userId}:${toolName}:${JSON.stringify(toolInput)}`;
+  const hash = crypto.createHash('sha256').update(payload).digest('hex').slice(0, 24);
+  return `tool:outcome:${hash}`;
+}
+
+/**
+ * Record a pending in-flight action in Redis and attach a background handler
+ * to the completionPromise that will update the record with the actual outcome.
+ * This closes the gap where the orchestrator abandons completionPromise after
+ * the 2-second grace period — the system now knows definitively whether the
+ * action completed, failed, or is still pending.
+ */
+async function _trackInflightOutcome(userId, toolName, toolInput, completionPromise) {
+  const key = _inflightOutcomeKey(userId, toolName, toolInput);
+  const pending = JSON.stringify({ status: 'pending', toolName, ts: Date.now() });
+  try {
+    await redis.set(key, pending, 'EX', INFLIGHT_OUTCOME_TTL);
+  } catch (err) {
+    logger.error({ err: err.message }, `[user:${userId}] Failed to write inflight outcome for ${toolName}`);
+  }
+
+  // Fire-and-forget: update Redis when the underlying call eventually settles.
+  // Track as orphan so the system can enforce limits on background promises.
+  const orphanToken = await _addOrphan(userId);
+  if (completionPromise) {
+    completionPromise
+      .then((result) => {
+        const succeeded = result && result.successful !== false;
+        const record = JSON.stringify({
+          status: succeeded ? 'completed' : 'failed',
+          toolName,
+          ts: Date.now(),
+          result: succeeded ? result : undefined,
+          error: !succeeded ? (result?.error || 'Unknown failure') : undefined,
+        });
+        return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL);
+      })
+      .catch((err) => {
+        const record = JSON.stringify({
+          status: 'failed',
+          toolName,
+          ts: Date.now(),
+          error: err?.message || 'Unknown error',
+        });
+        return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL).catch(() => {});
+      })
+      .finally(() => _removeOrphan(userId, orphanToken));
+  }
+}
+
+/**
+ * Check whether a previously timed-out side-effecting tool has since completed.
+ * Returns the outcome record if one exists, or null.
+ */
+async function _getInflightOutcome(userId, toolName, toolInput) {
+  const key = _inflightOutcomeKey(userId, toolName, toolInput);
+  try {
+    const raw = await redis.get(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 const LOCAL_TOOLS = [
   {
     type: 'function',
@@ -475,6 +548,35 @@ async function _processMessageInner(user, messageText, abortController = { abort
           }
         }
 
+        // Before executing a side-effecting tool, check if a prior timed-out
+        // invocation with the same args has since completed in the background.
+        // This prevents duplicate actions when the LLM retries despite the
+        // "do NOT retry" instruction.
+        if (SIDE_EFFECT_PATTERNS.test(block.name)) {
+          const priorOutcome = await _getInflightOutcome(userId, block.name, block.input);
+          if (priorOutcome && priorOutcome.status === 'completed') {
+            console.warn(`[user:${userId}] Suppressing retry of ${block.name} — prior inflight call already completed`);
+            result = priorOutcome.result || { success: true, note: 'Action already completed (from prior timed-out call).' };
+            completedToolIds.add(block.id);
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          } else if (priorOutcome && priorOutcome.status === 'pending') {
+            console.warn(`[user:${userId}] Suppressing retry of ${block.name} — prior call still in-flight`);
+            result = { error: `A prior call to ${block.name} is still in-flight. Do NOT retry — the action may complete shortly.` };
+            completedToolIds.add(block.id);
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
+        }
+
         if (block.name === 'CREATE_WORKFLOW') {
           const workflows = await withTimeout(
             planAndCreateWorkflows(user, block.input.description),
@@ -524,15 +626,27 @@ async function _processMessageInner(user, messageText, abortController = { abort
         // in-flight and may succeed. Tell the LLM NOT to retry.
         if (err.timedOut && SIDE_EFFECT_PATTERNS.test(block.name)) {
           console.warn(`[user:${userId}] Side-effecting tool ${block.name} timed out — suppressing retry`);
-          // Best-effort: wait briefly for late completion so we can give a definitive answer
-          const late = await Promise.race([
-            err.completionPromise,
-            new Promise(resolve => setTimeout(() => resolve(null), 2000)),
-          ]);
-          if (late && late.successful !== false) {
-            result = late;
+
+          // Check if a prior invocation with the same args already completed.
+          const prior = await _getInflightOutcome(userId, block.name, block.input);
+          if (prior && prior.status === 'completed') {
+            console.warn(`[user:${userId}] Prior inflight ${block.name} already completed — returning cached result`);
+            result = prior.result || { success: true, note: 'Action completed (late arrival from prior timeout).' };
+          } else if (prior && prior.status === 'failed') {
+            result = { error: prior.error || 'Action failed after prior timeout.' };
           } else {
-            result = { error: `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.` };
+            // Best-effort: wait briefly for late completion so we can give a definitive answer
+            const late = await Promise.race([
+              err.completionPromise,
+              new Promise(resolve => setTimeout(() => resolve(null), 2000)),
+            ]);
+            if (late && late.successful !== false) {
+              result = late;
+            } else {
+              // Persist the in-flight state so we track eventual completion.
+              await _trackInflightOutcome(userId, block.name, block.input, err.completionPromise);
+              result = { error: `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.` };
+            }
           }
         // Auth errors — feed back into LLM loop so intent is preserved
         } else if (/not connected|no connected account|unauthorized|401/i.test(err.message)) {
@@ -568,6 +682,13 @@ async function _processMessageInner(user, messageText, abortController = { abort
       for (const block of response.toolUseBlocks) {
         if (!completedToolIds.has(block.id)) {
           const hasSideEffects = SIDE_EFFECT_PATTERNS.test(block.name);
+          if (hasSideEffects) {
+            // Track the in-flight side-effecting tool so we know if it
+            // eventually completes.  iterErr.completionPromise covers the
+            // whole iteration; individual tool promises are not available
+            // here, so we record the pending state for dedup purposes.
+            await _trackInflightOutcome(userId, block.name, block.input, iterErr.completionPromise || null);
+          }
           const msg = hasSideEffects
             ? `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.`
             : `Tool execution timed out — result unavailable. Do not retry this tool call; inform the user the operation is still pending.`;
