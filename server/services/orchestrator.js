@@ -418,14 +418,22 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // both call appendMessage() concurrently — producing duplicate/out-of-order messages.
   const LOCK_TTL_SECONDS = Math.ceil((PROCESS_MESSAGE_TIMEOUT + LLM_ITERATION_TIMEOUT + 30000) / 1000);
   const LOCK_SAFETY_MARGIN_MS = 5000; // refuse writes this far before TTL to avoid racing Redis expiry
+  // Retry with exponential back-off up to LOCK_TTL_SECONDS so we can wait
+  // out a stale lock left behind by a crashed process (Redis TTL will expire it).
+  const LOCK_RETRY_CEILING_MS = LOCK_TTL_SECONDS * 1000;
+  const LOCK_RETRY_BASE_MS = 500;
+  const LOCK_RETRY_MAX_INTERVAL_MS = 5000;
   let releaseLock;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  let lockWaitElapsed = 0;
+  for (let attempt = 0; !releaseLock && lockWaitElapsed < LOCK_RETRY_CEILING_MS; attempt++) {
     releaseLock = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
     if (releaseLock) break;
-    if (attempt < 3) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+    const delay = Math.min(LOCK_RETRY_BASE_MS * Math.pow(2, attempt), LOCK_RETRY_MAX_INTERVAL_MS);
+    await new Promise(r => setTimeout(r, delay));
+    lockWaitElapsed += delay;
   }
   if (!releaseLock) {
-    console.warn(`[user:${userId}] Could not acquire conversation lock — concurrent request in progress`);
+    console.warn(`[user:${userId}] Could not acquire conversation lock after ${Math.round(lockWaitElapsed / 1000)}s — concurrent request in progress`);
     return "I'm still working on your previous message — please wait a moment.";
   }
 
