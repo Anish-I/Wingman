@@ -39,58 +39,31 @@ export default function LoginScreen() {
   const [otpRequestId, setOtpRequestId] = useState('');
   const inputs = useRef<TextInput[]>([]);
 
-  // Theme-dependent styles
-  const safeAreaBg = { backgroundColor: surface.bg };
+  // Theme-dependent overrides (static layout in StyleSheet below)
+  const themed = {
+    safeArea: { backgroundColor: surface.bg },
+    headerTitle: [styles.headerTitle, { color: t.primary }],
+    headerSubtitle: [styles.headerSubtitle, { color: t.secondary }],
+    phoneInputContainer: [styles.phoneInputContainer, { backgroundColor: surface.card, borderColor: surface.borderStrong }],
+    phoneCountryCode: [styles.phoneCountryCode, { color: t.primary }],
+    phoneDivider: [styles.phoneDivider, { backgroundColor: surface.border }],
+    phoneInput: [styles.phoneInput, { color: t.primary }],
+    signupText: [styles.signupText, { color: t.muted }],
+  };
   const contentGap = { gap: isLandscape ? 14 : 24 };
-  const headerTitle = {
-    ...typography.hero,
-    color: t.primary,
-  };
-  const headerSubtitle = {
-    fontFamily: 'Inter_400Regular' as const,
-    fontSize: 15,
-    color: t.secondary,
-  };
-  const phoneInputContainer = {
-    height: 56,
-    backgroundColor: surface.card,
-    borderWidth: 1,
-    borderColor: surface.borderStrong,
-  };
-  const phoneCountryCode = {
-    fontFamily: 'Sora_700Bold' as const,
-    fontSize: 16,
-    color: t.primary,
-  };
-  const phoneDivider = {
-    width: 1,
-    height: 32,
-    backgroundColor: surface.border,
-    marginHorizontal: 12,
-  };
-  const phoneInput = {
-    fontFamily: 'Inter_400Regular' as const,
-    fontSize: 16,
-    color: t.primary,
-  };
   const otpRow = { gap: isLandscape ? 6 : 10 };
-  const otpBox = (i: number) => ({
-    width: isLandscape ? 38 : 48,
-    height: isLandscape ? 44 : 56,
-    borderRadius: 10,
-    backgroundColor: surface.card,
-    borderWidth: activeIdx === i ? 2 : 1,
-    borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
-    textAlign: 'center' as const,
-    fontFamily: 'Sora_700Bold' as const,
-    fontSize: isLandscape ? 18 : 24,
-    color: t.primary,
-  });
-  const signupText = {
-    fontFamily: 'Inter_400Regular' as const,
-    fontSize: 13,
-    color: t.muted,
-  };
+  const otpBox = (i: number) => [
+    styles.otpBox,
+    {
+      width: isLandscape ? 38 : 48,
+      height: isLandscape ? 44 : 56,
+      fontSize: isLandscape ? 18 : 24,
+      backgroundColor: surface.card,
+      borderWidth: activeIdx === i ? 2 : 1,
+      borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
+      color: t.primary,
+    },
+  ];
 
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
@@ -193,7 +166,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" style={safeAreaBg}>
+    <SafeAreaView className="flex-1" style={themed.safeArea}>
       <FocusAwareStatusBar />
       <KeyboardAvoidingView
         className="flex-1"
@@ -209,10 +182,10 @@ export default function LoginScreen() {
           <View className="px-8" style={contentGap}>
         {/* Header */}
         <View style={styles.headerGroup}>
-          <Text style={headerTitle}>
+          <Text style={themed.headerTitle}>
             Welcome back
           </Text>
-          <Text style={headerSubtitle}>
+          <Text style={themed.headerSubtitle}>
             {step === 'phone'
               ? 'Enter your phone number to sign in'
               : `Enter the 6-digit code sent to ${e164Phone}`}
@@ -224,13 +197,13 @@ export default function LoginScreen() {
             {/* Phone input */}
             <View
               className="flex-row items-center rounded-lg px-4"
-              style={phoneInputContainer}
+              style={themed.phoneInputContainer}
             >
-              <Text style={phoneCountryCode}>+1</Text>
-              <View style={phoneDivider} />
+              <Text style={themed.phoneCountryCode}>+1</Text>
+              <View style={themed.phoneDivider} />
               <TextInput
                 className="flex-1"
-                style={phoneInput}
+                style={themed.phoneInput}
                 placeholder="(555) 123-4567"
                 placeholderTextColor={t.muted}
                 keyboardType="phone-pad"
@@ -314,7 +287,7 @@ export default function LoginScreen() {
         )}
         {/* Sign up link */}
         <View className="mt-4 flex-row items-center justify-center">
-          <Text style={signupText}>
+          <Text style={themed.signupText}>
             Don't have an account?{' '}
           </Text>
           <Button
@@ -341,5 +314,38 @@ const styles = StyleSheet.create({
   },
   headerGroup: {
     gap: 8,
+  },
+  headerTitle: {
+    ...typography.hero,
+  },
+  headerSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+  },
+  phoneInputContainer: {
+    height: 56,
+    borderWidth: 1,
+  },
+  phoneCountryCode: {
+    fontFamily: 'Sora_700Bold',
+    fontSize: 16,
+  },
+  phoneDivider: {
+    width: 1,
+    height: 32,
+    marginHorizontal: 12,
+  },
+  phoneInput: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+  },
+  otpBox: {
+    borderRadius: 10,
+    textAlign: 'center',
+    fontFamily: 'Sora_700Bold',
+  },
+  signupText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
   },
 });

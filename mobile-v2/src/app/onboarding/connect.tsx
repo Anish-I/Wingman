@@ -41,33 +41,16 @@ export default function ConnectScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
     safeArea: { backgroundColor: surface.bg },
     headerTitle: { color: t.primary },
-    infoBanner: {
-      backgroundColor: `${semantic.info}15`,
-      paddingVertical: 8,
-      gap: 6,
-    },
-    infoText: { fontFamily: 'Inter_400Regular' as const, fontSize: 12, color: t.muted },
-    searchBar: {
-      height: 44,
-      backgroundColor: surface.section,
-      borderWidth: 1,
-      borderColor: surface.border,
-      paddingHorizontal: 14,
-      gap: 10,
-    },
-    searchInput: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.primary },
-    appCard: {
-      height: 80,
-      backgroundColor: surface.section,
-      borderWidth: 1,
-      borderColor: surface.border,
-      gap: 6,
-    },
-    appName: { fontFamily: 'Inter_500Medium' as const, fontSize: 10, color: t.primary },
+    infoBanner: [styles.infoBanner, { backgroundColor: `${semantic.info}15` }],
+    infoText: [styles.infoText, { color: t.muted }],
+    searchBar: [styles.searchBar, { backgroundColor: surface.section, borderColor: surface.border }],
+    searchInput: [styles.searchInput, { color: t.primary }],
+    appCard: [styles.appCard, { backgroundColor: surface.section, borderColor: surface.border }],
+    appName: [styles.appName, { color: t.primary }],
   };
 
   const filtered = search
@@ -162,6 +145,35 @@ export default function ConnectScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  infoBanner: {
+    paddingVertical: 8,
+    gap: 6,
+  },
+  infoText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  searchBar: {
+    height: 44,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  searchInput: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+  appCard: {
+    height: 80,
+    borderWidth: 1,
+    gap: 6,
+  },
+  appName: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+  },
+  // --- Original static styles ---
   mainContainer: {
     gap: 20,
   },

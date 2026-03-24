@@ -53,14 +53,17 @@ export default function ConnectAppScreen() {
     })();
   }, [app]);
 
-  const errorContainerStyle = { backgroundColor: surface.bg };
-  const goBackButtonStyle = { backgroundColor: surface.section };
-  const goBackLabelStyle = { color: t.primary };
-  const loadingContainerStyle = { backgroundColor: surface.bg };
+  // Theme-dependent overrides (static layout in StyleSheet below)
+  const themed = {
+    errorContainer: { backgroundColor: surface.bg },
+    goBackButton: { backgroundColor: surface.section },
+    goBackLabel: { color: t.primary },
+    loadingContainer: { backgroundColor: surface.bg },
+  };
 
   if (error) {
     return (
-      <View style={[styles.errorContainer, errorContainerStyle]}>
+      <View style={[styles.errorContainer, themed.errorContainer]}>
         <Text style={styles.errorText}>
           {error}
         </Text>
@@ -68,18 +71,18 @@ export default function ConnectAppScreen() {
           onPress={() => router.back()}
           style={[
             styles.goBackButton,
-            goBackButtonStyle,
+            themed.goBackButton,
             Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined,
           ]}
         >
-          <Text style={[styles.goBackLabel, goBackLabelStyle]}>Go Back</Text>
+          <Text style={[styles.goBackLabel, themed.goBackLabel]}>Go Back</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={[styles.loadingContainer, loadingContainerStyle]}>
+    <View style={[styles.loadingContainer, themed.loadingContainer]}>
       <ActivityIndicator color={semantic.info} size="large" />
     </View>
   );

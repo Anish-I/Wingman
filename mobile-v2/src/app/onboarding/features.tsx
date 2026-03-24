@@ -24,22 +24,18 @@ export default function FeaturesScreen() {
   const reducedMotion = useReducedMotion();
   const { surface, text: t } = useThemeColors();
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
-    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
+    safeArea: [styles.safeAreaFlex, { backgroundColor: surface.bg }],
     mainTitle: { color: t.primary },
     subTitle: { color: t.secondary },
-    featureCard: (i: number) => ({
-      height: 56,
-      borderRadius: 14,
-      backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
-      borderWidth: 1,
-      borderColor: surface.border,
-      paddingHorizontal: 14,
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 12,
-    }),
+    featureCard: (i: number) => [
+      styles.featureCard,
+      {
+        backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
+        borderColor: surface.border,
+      },
+    ],
     featureTitle: { color: t.primary },
   };
 
@@ -103,6 +99,20 @@ export default function FeaturesScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  safeAreaFlex: {
+    flex: 1,
+  },
+  featureCard: {
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  // --- Original static styles ---
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,

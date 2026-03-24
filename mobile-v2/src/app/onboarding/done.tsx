@@ -85,15 +85,17 @@ export default function DoneScreen() {
                 loop: true,
                 repeatReverse: true,
               }}
-              style={{
-                position: 'absolute',
-                width: piece.width,
-                height: piece.height,
-                borderRadius: piece.borderRadius,
-                backgroundColor: piece.color,
-                top: piece.top,
-                left: (piece.leftPct / 100) * SCREEN_WIDTH,
-              }}
+              style={[
+                styles.confettiPiece,
+                {
+                  width: piece.width,
+                  height: piece.height,
+                  borderRadius: piece.borderRadius,
+                  backgroundColor: piece.color,
+                  top: piece.top,
+                  left: (piece.leftPct / 100) * SCREEN_WIDTH,
+                },
+              ]}
             />
           ))}
         </View>
@@ -163,6 +165,9 @@ const styles = StyleSheet.create({
   hintText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
+  },
+  confettiPiece: {
+    position: 'absolute',
   },
   // --- Original static styles ---
   confettiLayer: {

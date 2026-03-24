@@ -20,32 +20,15 @@ export default function WelcomeScreen() {
     SplashScreen.hideAsync();
   }, []);
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
-    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
-    entranceContainer: { width: '100%' as const, gap: 16 },
-    welcomeCard: {
-      backgroundColor: surface.card,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: surface.border,
-      padding: 24,
-      width: '100%' as const,
-      marginTop: 24,
-    },
+    safeArea: [styles.safeAreaFlex, { backgroundColor: surface.bg }],
+    entranceContainer: styles.entranceContainer,
+    welcomeCard: [styles.welcomeCard, { backgroundColor: surface.card, borderColor: surface.border }],
     meetPipTitle: { color: t.primary },
     assistantSubtitle: { color: t.primary },
     description: { color: t.secondary },
-    trustCard: {
-      backgroundColor: surface.section,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: surface.border,
-      flexDirection: 'row' as const,
-      alignItems: 'flex-start' as const,
-      gap: 12,
-      padding: 14,
-    },
+    trustCard: [styles.trustCard, { backgroundColor: surface.section, borderColor: surface.border }],
     trustTitle: { color: t.primary },
     trustDescription: { color: t.secondary },
   };
@@ -102,6 +85,30 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  safeAreaFlex: {
+    flex: 1,
+  },
+  entranceContainer: {
+    width: '100%',
+    gap: 16,
+  },
+  welcomeCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    width: '100%',
+    marginTop: 24,
+  },
+  trustCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 14,
+  },
+  // --- Original static styles ---
   meetPipTitle: {
     fontSize: 24,
     textAlign: 'center',
