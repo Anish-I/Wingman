@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { provider, PROVIDER } = require('../services/messaging');
+const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, deduplicateMessage } = require('../services/redis');
 
@@ -29,19 +29,24 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
 
     if (isTwilio) {
       // --- Twilio path ---
+      // Use a Twilio-specific provider for validation/parsing regardless of
+      // which PROVIDER env var was set at startup.  This prevents a provider
+      // switch (e.g. twilio→telnyx) from routing Twilio webhooks through the
+      // wrong signature validator, which would silently drop every message.
+      const twilioProvider = new TwilioProvider();
       if (PROVIDER !== 'stub') {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
-        const isValid = provider.validateIncoming(req);
+        const isValid = twilioProvider.validateIncoming(req);
         if (!isValid) {
           console.warn('[security] Invalid Twilio signature');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
 
-      const parsed = provider.parseIncoming(req.body);
+      const parsed = twilioProvider.parseIncoming(req.body);
       const phone = parsed.from;
       const messageText = parsed.body;
       const msgId = parsed.messageId;
@@ -65,6 +70,9 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
       // --- Telnyx path ---
+      // Use a Telnyx-specific provider for validation regardless of startup
+      // PROVIDER value — mirrors the Twilio fix above.
+      const telnyxProvider = new TelnyxProvider();
       if (PROVIDER !== 'stub') {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
@@ -75,7 +83,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
           console.warn('[security] Missing rawBody for Telnyx signature verification');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
-        const isValid = provider.validateIncoming(rawBody, req.headers);
+        const isValid = telnyxProvider.validateIncoming(rawBody, req.headers);
         if (!isValid) {
           console.warn('[security] Invalid Telnyx signature');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });

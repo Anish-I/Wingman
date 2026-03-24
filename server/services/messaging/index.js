@@ -30,4 +30,4 @@ if (PROVIDER === 'stub') {
 }
 
 console.log(`[messaging] provider: ${PROVIDER}`);
-module.exports = { provider, PROVIDER };
+module.exports = { provider, PROVIDER, TwilioProvider, TelnyxProvider, StubProvider };
