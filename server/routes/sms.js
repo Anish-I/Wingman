@@ -181,17 +181,19 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   // Process through orchestrator
   let responseText;
-  let orchestratorFailed = false;
   try {
     const orchestrator = require('../services/orchestrator');
     responseText = await orchestrator.processMessage(user, messageText);
   } catch (err) {
-    orchestratorFailed = true;
     logger.error({ err: err.message }, 'Orchestrator error');
-    responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
-    // Orchestrator failed before persisting — save messages here
-    await appendMessage(user.id, 'user', messageText).catch(e => logger.error({ err: e.message }, `[sms] Failed to persist user message for user ${user.id}`));
-    await appendMessage(user.id, 'assistant', responseText).catch(e => logger.error({ err: e.message }, `[sms] Failed to persist assistant message for user ${user.id}`));
+    const fallbackMsg = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
+    // Fire-and-forget: persist messages and send error reply without delaying the 500 response
+    Promise.allSettled([
+      appendMessage(user.id, 'user', messageText),
+      appendMessage(user.id, 'assistant', fallbackMsg),
+      provider.sendMessage(phone, fallbackMsg),
+    ]).catch(() => {});  // guard against allSettled itself throwing
+    return respond(500);
   }
 
   // Send reply — wrap in try/catch so a delivery failure doesn't mask the outcome
@@ -199,16 +201,11 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     await provider.sendMessage(phone, responseText);
   } catch (sendErr) {
     logger.error({ err: sendErr.message, phone }, '[sms] Failed to send reply');
-    // If orchestrator already failed, we can't do much more — return 500
-    if (orchestratorFailed) {
-      return respond(500);
-    }
     // Re-throw so the outer route handler returns an appropriate status
     throw sendErr;
   }
 
-  // Return 500 when orchestration failed so the provider can retry the webhook
-  return respond(orchestratorFailed ? 500 : 200);
+  return respond(200);
 }
 
 module.exports = router;
