@@ -338,7 +338,15 @@ router.post('/signup', signupLimiter, async (req, res) => {
       if (!claimed) {
         return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
       }
-      user = await linkUserIdentity(user.id, { email: normalizedEmail }) || claimed;
+      try {
+        const linked = await linkUserIdentity(user.id, { email: normalizedEmail });
+        user = linked || claimed;
+      } catch (linkErr) {
+        if (linkErr.code === '23505') {
+          return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
+        }
+        throw linkErr;
+      }
     } else {
       // Atomically insert with email set to prevent concurrent-signup race.
       // createUserByEmail catches unique constraint violations and returns
@@ -436,7 +444,15 @@ router.post('/login', loginLimiter, async (req, res) => {
     await redis.del(loginCumulativeKey);
     await redis.del(loginLockoutKey);
     if (!user.email) {
-      user = await linkUserIdentity(user.id, { email: normalizedEmail }) || user;
+      try {
+        const linked = await linkUserIdentity(user.id, { email: normalizedEmail });
+        if (linked) user = linked;
+      } catch (linkErr) {
+        if (linkErr.code === '23505') {
+          return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'This email is already linked to another account.' } });
+        }
+        throw linkErr;
+      }
     }
     const token = signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
@@ -915,7 +931,15 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
       user = await createUser(googlePhone, googleUser.name || googleUser.email);
-      user = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id }) || user;
+      try {
+        const linked = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id });
+        if (linked) user = linked;
+      } catch (linkErr) {
+        if (linkErr.code === '23505') {
+          return res.status(409).json({ error: { code: 'IDENTITY_CONFLICT', message: 'This email or Google account is already linked to another user.' } });
+        }
+        throw linkErr;
+      }
     }
 
     const token = signToken({ userId: user.id, phone: user.phone });
@@ -1107,7 +1131,15 @@ router.get('/google/callback', async (req, res) => {
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
       user = await createUser(googlePhone, googleUser.name || googleUser.email);
-      user = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id }) || user;
+      try {
+        const linked = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id });
+        if (linked) user = linked;
+      } catch (linkErr) {
+        if (linkErr.code === '23505') {
+          return res.redirect(buildRedirectUrl(state, { error: 'identity_conflict' }));
+        }
+        throw linkErr;
+      }
     }
 
     // Generate a short-lived, single-use auth code instead of putting the JWT in the URL.
@@ -1220,7 +1252,15 @@ router.post('/social', socialAuthLimiter, async (req, res) => {
     if (!user) {
       const syntheticPhone = `${authProvider}:${socialId}`;
       user = await createUser(syntheticPhone, socialName);
-      user = await linkUserIdentity(user.id, identifiers) || user;
+      try {
+        const linked = await linkUserIdentity(user.id, identifiers);
+        if (linked) user = linked;
+      } catch (linkErr) {
+        if (linkErr.code === '23505') {
+          return res.status(409).json({ error: { code: 'IDENTITY_CONFLICT', message: 'This email or social account is already linked to another user.' } });
+        }
+        throw linkErr;
+      }
     }
 
     const jwtToken = signToken({ userId: user.id, phone: user.phone });
