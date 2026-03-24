@@ -6,6 +6,7 @@ import { signOut } from '@/features/auth/use-auth-store';
 
 export const client = axios.create({
   baseURL: Env.EXPO_PUBLIC_API_URL,
+  timeout: 10_000,
 });
 
 client.interceptors.request.use((config) => {
