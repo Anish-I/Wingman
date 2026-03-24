@@ -6,7 +6,7 @@ import { useCallback } from 'react';
 import {
   I18nManager,
   Pressable,
-
+  StyleSheet,
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -78,13 +78,11 @@ export function CheckboxIcon({ checked = false }: IconProps) {
   const color = checked ? colors.primary[300] : colors.charcoal[400];
   const reduced = useReducedMotion();
   const duration = reduced ? 0 : 100;
+  const checkboxBorderStyle = { borderColor: color };
+
   return (
     <MotiView
-      style={{
-        height: SIZE,
-        width: SIZE,
-        borderColor: color,
-      }}
+      style={[styles.checkboxIcon, checkboxBorderStyle]}
       className="items-center justify-center rounded-[5px] border-2"
       from={{ backgroundColor: 'transparent', borderColor: color }}
       animate={{
@@ -153,13 +151,11 @@ export function RadioIcon({ checked = false }: IconProps) {
   const color = checked ? colors.primary[300] : colors.charcoal[400];
   const reduced = useReducedMotion();
   const duration = reduced ? 0 : 100;
+  const radioBorderStyle = { borderColor: color };
+
   return (
     <MotiView
-      style={{
-        height: SIZE,
-        width: SIZE,
-        borderColor: color,
-      }}
+      style={[styles.checkboxIcon, radioBorderStyle]}
       className="items-center justify-center rounded-[20px] border-2 bg-transparent"
       from={{ borderColor: color }}
       animate={{
@@ -217,26 +213,17 @@ export function SwitchIcon({ checked = false }: IconProps) {
   const backgroundColor = checked ? colors.primary[300] : colors.charcoal[400];
   const reduced = useReducedMotion();
 
+  const trackColorStyle = { backgroundColor };
+
   return (
     <View className="w-[50px] justify-center">
       <View className="overflow-hidden rounded-full">
         <View
-          style={{
-            width: WIDTH,
-            height: HEIGHT,
-            backgroundColor,
-          }}
+          style={[styles.switchTrack, trackColorStyle]}
         />
       </View>
       <MotiView
-        style={{
-          height: THUMB_HEIGHT,
-          width: THUMB_WIDTH,
-          position: 'absolute',
-          backgroundColor: 'white',
-          borderRadius: 13,
-          right: 0,
-        }}
+        style={styles.switchThumb}
         animate={{
           translateX: I18nManager.isRTL ? translateX : -translateX,
         }}
@@ -275,4 +262,23 @@ export const Switch = Object.assign(SwitchBase, {
   Icon: SwitchIcon,
   Root: SwitchRoot,
   Label,
+});
+
+const styles = StyleSheet.create({
+  checkboxIcon: {
+    height: SIZE,
+    width: SIZE,
+  },
+  switchTrack: {
+    width: WIDTH,
+    height: HEIGHT,
+  },
+  switchThumb: {
+    height: THUMB_HEIGHT,
+    width: THUMB_WIDTH,
+    position: 'absolute',
+    backgroundColor: 'white',
+    borderRadius: 13,
+    right: 0,
+  },
 });

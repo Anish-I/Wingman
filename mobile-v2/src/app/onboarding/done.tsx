@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,18 +49,33 @@ export default function DoneScreen() {
   const [_, setIsFirstTime] = useIsFirstTime();
   const reduced = useReducedMotion();
 
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { backgroundColor: surface.bg },
+    hintBanner: {
+      height: 38,
+      backgroundColor: surface.section,
+      borderWidth: 1,
+      borderColor: surface.border,
+      gap: 8,
+    },
+    hintText: { fontFamily: 'Inter_400Regular' as const, fontSize: 12, color: t.muted },
+    title: { color: t.primary },
+    subtitle: { color: t.muted },
+  };
+
   function handleStart() {
     setIsFirstTime(false);
     router.replace('/(app)/chat');
   }
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
+    <SafeAreaView className="flex-1 items-center" style={themed.safeArea}>
       <ProgressBar step={7} variant="green" />
 
       {/* Confetti layer */}
       {!reduced && (
-        <View className="absolute w-full" style={{ height: 80, zIndex: 10 }}>
+        <View className="absolute w-full" style={styles.confettiLayer}>
           {CONFETTI_PIECES.map((piece, i) => (
             <MotiView
               key={i}
@@ -91,50 +106,27 @@ export default function DoneScreen() {
       )}
 
       {/* Content */}
-      <View className="flex-1 items-center justify-center px-6" style={{ gap: 24 }}>
+      <View className="flex-1 items-center justify-center px-6" style={styles.contentGap}>
         {/* Pip */}
         <MotiView {...maybeReduce(popIn(0, 200), reduced)}>
           <PipCard expression="clap" size="large" className="" />
         </MotiView>
 
         {/* Header */}
-        <MotiView {...maybeReduce(entrance(0, 400), reduced)} className="items-center" style={{ gap: 12 }}>
+        <MotiView {...maybeReduce(entrance(0, 400), reduced)} className="items-center" style={styles.headerGap}>
           {/* Section label with lines on both sides */}
-          <View className="flex-row items-center" style={{ gap: 12 }}>
-            <View style={{ width: 24, height: 2, backgroundColor: '#32D74B', borderRadius: 1 }} />
-            <Text
-              style={{
-                fontFamily: 'Inter_700Bold',
-                fontSize: 11,
-                letterSpacing: 2,
-                color: '#32D74B',
-              }}
-            >
+          <View className="flex-row items-center" style={styles.completeLabelRow}>
+            <View style={styles.completeLine} />
+            <Text style={styles.completeLabel}>
               COMPLETE
             </Text>
-            <View style={{ width: 24, height: 2, backgroundColor: '#32D74B', borderRadius: 1 }} />
+            <View style={styles.completeLine} />
           </View>
 
-          <Text
-            style={{
-              fontFamily: 'Sora_700Bold',
-              fontSize: 32,
-              color: t.primary,
-              letterSpacing: -1.5,
-              textAlign: 'center',
-            }}
-          >
+          <Text style={[styles.title, themed.title]}>
             You're all set!
           </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_400Regular',
-              fontSize: 15,
-              color: t.muted,
-              lineHeight: 21,
-              textAlign: 'center',
-            }}
-          >
+          <Text style={[styles.subtitle, themed.subtitle]}>
             {'Just text me anytime.\nWelcome to the flock!'}
           </Text>
         </MotiView>
@@ -143,16 +135,10 @@ export default function DoneScreen() {
         <MotiView {...maybeReduce(popIn(0, 600), reduced)}>
           <View
             className="flex-row items-center rounded-lg px-4"
-            style={{
-              height: 38,
-              backgroundColor: surface.section,
-              borderWidth: 1,
-              borderColor: surface.border,
-              gap: 8,
-            }}
+            style={themed.hintBanner}
           >
             <Ionicons name="apps-outline" size={14} color="#6B9BEF" />
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: t.muted }}>
+            <Text style={themed.hintText}>
               Connect your apps from the Apps tab
             </Text>
           </View>
@@ -172,3 +158,43 @@ export default function DoneScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  confettiLayer: {
+    height: 80,
+    zIndex: 10,
+  },
+  contentGap: {
+    gap: 24,
+  },
+  headerGap: {
+    gap: 12,
+  },
+  completeLabelRow: {
+    gap: 12,
+  },
+  completeLine: {
+    width: 24,
+    height: 2,
+    backgroundColor: '#32D74B',
+    borderRadius: 1,
+  },
+  completeLabel: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    letterSpacing: 2,
+    color: '#32D74B',
+  },
+  title: {
+    fontFamily: 'Sora_700Bold',
+    fontSize: 32,
+    letterSpacing: -1.5,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+});

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, blue, purple, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -24,39 +24,43 @@ export default function FeaturesScreen() {
   const reducedMotion = useReducedMotion();
   const { surface, text: t } = useThemeColors();
 
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
+    mainTitle: { color: t.primary },
+    subTitle: { color: t.secondary },
+    featureCard: (i: number) => ({
+      height: 56,
+      borderRadius: 14,
+      backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
+      borderWidth: 1,
+      borderColor: surface.border,
+      paddingHorizontal: 14,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 12,
+    }),
+    featureTitle: { color: t.primary },
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
+    <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={2} />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <PipCard expression="thumbsup" size="tiny" />
 
         <View className="mt-4">
           <SectionLabel text="WHAT I CAN DO" />
         </View>
 
-        <Text
-          style={{
-            color: t.primary,
-            fontSize: 30,
-            fontFamily: 'Sora_700Bold',
-            letterSpacing: -1.5,
-            marginTop: 12,
-          }}
-        >
+        <Text style={[styles.mainTitle, themed.mainTitle]}>
           Automate Everything
         </Text>
-        <Text
-          style={{
-            color: t.secondary,
-            fontSize: 18,
-            fontFamily: 'Sora_700Bold',
-            marginBottom: 20,
-          }}
-        >
+        <Text style={[styles.subTitle, themed.subTitle]}>
           through SMS.
         </Text>
 
-        <View style={{ gap: 11 }}>
+        <View style={styles.featureList}>
           {FEATURES.map((feat, i) => (
             <MotiView
               key={i}
@@ -65,40 +69,21 @@ export default function FeaturesScreen() {
               <View
                 accessible
                 accessibilityLabel={feat.title}
-                style={{
-                  height: 56,
-                  borderRadius: 14,
-                  backgroundColor: i % 2 === 0 ? surface.card : surface.cardAlt,
-                  borderWidth: 1,
-                  borderColor: surface.border,
-                  paddingHorizontal: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
+                style={themed.featureCard(i)}
               >
                 <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: `${feat.accent}20`,
-                    borderWidth: 1,
-                    borderColor: `${feat.accent}30`,
-                  }}
+                  style={[
+                    styles.featureIconCircle,
+                    {
+                      backgroundColor: `${feat.accent}20`,
+                      borderWidth: 1,
+                      borderColor: `${feat.accent}30`,
+                    },
+                  ]}
                 >
                   <Ionicons name={feat.icon} size={20} color={feat.accent} />
                 </View>
-                <Text
-                  style={{
-                    color: t.primary,
-                    fontSize: 15,
-                    fontFamily: 'Inter_600SemiBold',
-                    flex: 1,
-                  }}
-                >
+                <Text style={[styles.featureTitle, themed.featureTitle]}>
                   {feat.title}
                 </Text>
               </View>
@@ -116,3 +101,36 @@ export default function FeaturesScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+  },
+  mainTitle: {
+    fontSize: 30,
+    fontFamily: 'Sora_700Bold',
+    letterSpacing: -1.5,
+    marginTop: 12,
+  },
+  subTitle: {
+    fontSize: 18,
+    fontFamily: 'Sora_700Bold',
+    marginBottom: 20,
+  },
+  featureList: {
+    gap: 11,
+  },
+  featureIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    flex: 1,
+  },
+});

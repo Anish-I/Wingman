@@ -5,7 +5,7 @@ import Env from 'env';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
@@ -49,11 +49,11 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
                 delay: i * 120,
               },
             }, !!reducedMotion)}
-            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teal[200] }}
+            style={styles.typingDot}
           />
         ))}
       </MotiView>
-      <Text style={{ color: teal[200], fontSize: 13, fontFamily: 'Inter_600SemiBold', marginLeft: 4 }}>
+      <Text style={styles.typingLabel}>
         Pip is thinking...
       </Text>
     </View>
@@ -73,6 +73,108 @@ export default function ChatScreen() {
   const [greeting] = useState(() => PIP_GREETINGS[Math.floor(Math.random() * PIP_GREETINGS.length)]);
   const listRef = useRef<FlatList>(null);
   const sendMutation = useSendMessage();
+
+  // Theme-dependent styles
+  const s = React.useMemo(() => ({
+    safeArea: { flex: 1, backgroundColor: surface.bg } as const,
+    headerBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: surface.bg,
+      borderBottomWidth: 1,
+      borderBottomColor: surface.border,
+      gap: 12,
+    },
+    headerAvatar: {
+      backgroundColor: surface.card,
+      borderWidth: 1.5,
+      borderColor: purple.muted,
+    },
+    headerName: { color: t.primary, fontSize: 18, fontFamily: 'Sora_700Bold' as const },
+    headerOnline: { color: teal[200], fontSize: 12, fontFamily: 'Inter_500Medium' as const },
+    typingDotsContainer: { backgroundColor: surface.card },
+    messageAvatarBg: { backgroundColor: surface.card },
+    messageBubbleAssistant: {
+      backgroundColor: surface.card,
+      borderBottomLeftRadius: 4,
+      borderWidth: 1,
+      borderColor: surface.border,
+    },
+    messageTextUser: { fontSize: 15, lineHeight: 22, color: '#FFFFFF' },
+    messageTextAssistant: { fontSize: 15, lineHeight: 22, color: t.primary },
+    statusSending: { fontSize: 11, color: t.muted, fontFamily: 'Inter_500Medium' as const },
+    emptyTitle: {
+      color: t.primary,
+      fontSize: 24,
+      fontFamily: 'Sora_700Bold' as const,
+      textAlign: 'center' as const,
+      marginBottom: 4,
+    },
+    emptySubtitle: {
+      color: t.secondary,
+      fontSize: 15,
+      textAlign: 'center' as const,
+      marginBottom: 8,
+      lineHeight: 22,
+    },
+    tryAskingLabel: {
+      color: t.muted,
+      fontSize: 11,
+      fontFamily: 'Inter_600SemiBold' as const,
+      letterSpacing: 1.5,
+      textAlign: 'center' as const,
+      marginBottom: 4,
+    },
+    promptChipBase: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 8,
+      backgroundColor: surface.card,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: surface.border,
+    },
+    promptChipText: { color: t.primary, fontSize: 13, fontFamily: 'Inter_600SemiBold' as const },
+    emptyAvatarBorder: {
+      backgroundColor: surface.card,
+      borderWidth: 2,
+      borderColor: purple.muted,
+    },
+    inputBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'flex-end' as const,
+      backgroundColor: surface.card,
+      margin: 12,
+      marginBottom: 16,
+      borderRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      gap: 8,
+      borderWidth: 1.5,
+      borderColor: surface.border,
+    },
+    textInputColor: { maxHeight: 120, color: t.primary },
+    sendButtonActive: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: purple[500],
+    },
+    sendButtonInactive: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: surface.elevated,
+    },
+  }), [surface, t]);
 
   // Hard mutex — refs update synchronously across renders, so two rapid
   // invocations before re-render cannot both pass the guard.
@@ -233,55 +335,51 @@ export default function ChatScreen() {
             <MotiView
               {...maybeReduce(popIn(0, 50), reducedMotion)}
               className="size-7 items-center justify-center overflow-hidden rounded-full"
-              style={{ backgroundColor: surface.card }}
+              style={s.messageAvatarBg}
             >
-              <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 32, height: 32, resizeMode: 'cover' }} />
+              <Image source={require('../../../assets/pip/pip-happy.png')} style={styles.messageAvatarImage} />
             </MotiView>
           )}
           <View style={{ maxWidth: chatMaxWidth }}>
             <View
               style={[
-                {
-                  borderRadius: 18,
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                },
+                styles.messageBubbleBase,
                 isUser
                   ? {
                       backgroundColor: isFailed ? '#7C3AED80' : purple[500],
                       borderBottomRightRadius: 4,
                     }
-                  : { backgroundColor: surface.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: surface.border },
+                  : s.messageBubbleAssistant,
               ]}
             >
-              <Text style={{ fontSize: 15, lineHeight: 22, color: isUser ? '#FFFFFF' : t.primary }}>
+              <Text style={isUser ? s.messageTextUser : s.messageTextAssistant}>
                 {item.content}
               </Text>
             </View>
             {isUser && status && (
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 3, gap: 4 }}>
+              <View style={styles.statusRow}>
                 {status === 'sending' && (
-                  <Text style={{ fontSize: 11, color: t.muted, fontFamily: 'Inter_500Medium' }}>Sending…</Text>
+                  <Text style={s.statusSending}>Sending…</Text>
                 )}
                 {status === 'sent' && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <View style={styles.statusSentRow}>
                     <Ionicons name="checkmark-done-outline" size={13} color={teal[200]} />
-                    <Text style={{ fontSize: 11, color: teal[200], fontFamily: 'Inter_500Medium' }}>Sent</Text>
+                    <Text style={styles.statusSentText}>Sent</Text>
                   </View>
                 )}
                 {isFailed && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={styles.statusFailedRow}>
                     <Ionicons name="alert-circle-outline" size={13} color={semantic.error} />
-                    <Text style={{ fontSize: 11, color: semantic.error, fontFamily: 'Inter_500Medium' }}>Failed</Text>
+                    <Text style={styles.statusFailedText}>Failed</Text>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Retry sending message"
                       onPress={() => retry(item.id)}
                       hitSlop={12}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 4, minHeight: 44, minWidth: 44, justifyContent: 'center' }}
+                      style={styles.retryButton}
                     >
                       <Ionicons name="refresh-outline" size={13} color={purple[400]} />
-                      <Text style={{ fontSize: 11, color: purple[400], fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
+                      <Text style={styles.retryText}>Retry</Text>
                     </Pressable>
                   </View>
                 )}
@@ -294,7 +392,7 @@ export default function ChatScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
+    <SafeAreaView style={s.safeArea}>
       {/* Header */}
       <MotiView
         {...maybeReduce({
@@ -302,16 +400,7 @@ export default function ChatScreen() {
           animate: { opacity: 1, translateY: 0 },
           transition: springs.gentle,
         }, reducedMotion)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: surface.bg,
-          borderBottomWidth: 1,
-          borderBottomColor: surface.border,
-          gap: 12,
-        }}
+        style={s.headerBar}
       >
         <MotiView
           {...maybeReduce({
@@ -319,26 +408,22 @@ export default function ChatScreen() {
             animate: { rotate: '0deg' },
           }, reducedMotion)}
           className="size-11 items-center justify-center overflow-hidden rounded-full"
-          style={{
-            backgroundColor: surface.card,
-            borderWidth: 1.5,
-            borderColor: purple.muted,
-          }}
+          style={s.headerAvatar}
         >
-          <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 48, height: 48, resizeMode: 'cover' }} />
+          <Image source={require('../../../assets/pip/pip-happy.png')} style={styles.headerAvatarImage} />
         </MotiView>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: t.primary, fontSize: 18, fontFamily: 'Sora_700Bold' }}>Pip</Text>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: semantic.success }} />
+        <View style={styles.flex1}>
+          <View style={styles.headerNameRow}>
+            <Text style={s.headerName}>Pip</Text>
+            <View style={styles.onlineDot} />
           </View>
-          <Text style={{ color: teal[200], fontSize: 12, fontFamily: 'Inter_500Medium' }}>
+          <Text style={s.headerOnline}>
             Online
           </Text>
         </View>
         {IS_STUB && (
-          <View style={{ backgroundColor: '#F5A62318', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ color: '#F5A623', fontSize: 10, fontFamily: 'Inter_700Bold' }}>DEMO</Text>
+          <View style={styles.demoBadge}>
+            <Text style={styles.demoBadgeText}>DEMO</Text>
           </View>
         )}
       </MotiView>
@@ -350,7 +435,7 @@ export default function ChatScreen() {
           keyExtractor={m => m.id}
           renderItem={renderItem}
           contentContainerClassName="p-4 gap-1"
-          contentContainerStyle={messages.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : undefined}
+          contentContainerStyle={messages.length === 0 ? styles.emptyContentContainer : undefined}
           ListEmptyComponent={(
             <View className="items-center px-6">
               {/* Pip avatar — floats gently to feel alive */}
@@ -359,20 +444,9 @@ export default function ChatScreen() {
               >
                 <MotiView {...maybeReduce(gentleFloat(800), reducedMotion)}>
                   <View
-                    style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 50,
-                      backgroundColor: surface.card,
-                      borderWidth: 2,
-                      borderColor: purple.muted,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      overflow: 'hidden',
-                      marginBottom: 12,
-                    }}
+                    style={[styles.emptyAvatar, s.emptyAvatarBorder]}
                   >
-                    <Image source={require('../../../assets/pip/pip-wave.png')} style={{ width: 110, height: 110, resizeMode: 'cover' }} />
+                    <Image source={require('../../../assets/pip/pip-wave.png')} style={styles.emptyAvatarImage} />
                   </View>
                 </MotiView>
               </MotiView>
@@ -380,10 +454,10 @@ export default function ChatScreen() {
               <MotiView
                 {...maybeReduce(entrance(0, 400), reducedMotion)}
               >
-                <Text style={{ color: t.primary, fontSize: 24, fontFamily: 'Sora_700Bold', textAlign: 'center', marginBottom: 4 }}>
+                <Text style={s.emptyTitle}>
                   Hey! I'm Pip
                 </Text>
-                <Text style={{ color: t.secondary, fontSize: 15, textAlign: 'center', marginBottom: 8, lineHeight: 22 }}>
+                <Text style={s.emptySubtitle}>
                   {greeting}
                 </Text>
               </MotiView>
@@ -392,9 +466,9 @@ export default function ChatScreen() {
               <MotiView
                 {...maybeReduce(entrance(0, 550), reducedMotion)}
                 className="mt-4 w-full"
-                style={{ gap: 8 }}
+                style={styles.promptSuggestionsGap}
               >
-                <Text style={{ color: t.muted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 }}>
+                <Text style={s.tryAskingLabel}>
                   TRY ASKING
                 </Text>
                 <View className="flex-row flex-wrap justify-center gap-2">
@@ -408,17 +482,7 @@ export default function ChatScreen() {
                         accessibilityLabel={prompt.text}
                         accessibilityHint="Double tap to send this message"
                         style={({ pressed, hovered, focused }: any) => [
-                          {
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 8,
-                            backgroundColor: surface.card,
-                            borderRadius: 16,
-                            paddingHorizontal: 16,
-                            paddingVertical: 12,
-                            borderWidth: 1,
-                            borderColor: surface.border,
-                          },
+                          s.promptChipBase,
                           ...cardPressStyle({ pressed }),
                           webInteractive(),
                           Platform.OS === 'web' && hovered && !pressed
@@ -431,18 +495,11 @@ export default function ChatScreen() {
                         onPress={() => send(prompt.text)}
                       >
                         <View
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: `${prompt.color}18`,
-                          }}
+                          style={[styles.promptIconContainer, { backgroundColor: `${prompt.color}18` }]}
                         >
                           <Ionicons name={prompt.icon} size={15} color={prompt.color} />
                         </View>
-                        <Text style={{ color: t.primary, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>
+                        <Text style={s.promptChipText}>
                           {prompt.text}
                         </Text>
                       </Pressable>
@@ -468,23 +525,11 @@ export default function ChatScreen() {
               },
               transition: { type: 'timing' as const, duration: 160 },
             }, reducedMotion)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'flex-end',
-              backgroundColor: surface.card,
-              margin: 12,
-              marginBottom: 16,
-              borderRadius: 18,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              gap: 8,
-              borderWidth: 1.5,
-              borderColor: surface.border,
-            }}
+            style={s.inputBar}
           >
             <TextInput
               className="flex-1 py-1.5 text-[15px]"
-              style={{ maxHeight: 120, color: t.primary }}
+              style={s.textInputColor}
               value={input}
               onChangeText={setInput}
               placeholder="Text Pip..."
@@ -504,15 +549,8 @@ export default function ChatScreen() {
                 accessibilityLabel="Send message"
                 accessibilityState={{ disabled: !canSend }}
                 style={({ pressed, hovered, focused }: any) => [
-                  {
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: canSend ? purple[500] : surface.elevated,
-                  },
-                  canSend && pressed ? { opacity: 0.75, transform: [{ scale: 0.85 }] } : undefined,
+                  canSend ? s.sendButtonActive : s.sendButtonInactive,
+                  canSend && pressed ? styles.sendButtonPressed : undefined,
                   canSend && hovered && !pressed
                     ? { boxShadow: `0 4px 12px ${purple[500]}40`, transform: [{ scale: 1.05 }] } as any
                     : undefined,
@@ -533,3 +571,131 @@ export default function ChatScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: teal[200],
+  },
+  typingLabel: {
+    color: teal[200],
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    marginLeft: 4,
+  },
+  messageAvatarImage: {
+    width: 32,
+    height: 32,
+    resizeMode: 'cover',
+  },
+  messageBubbleBase: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 4,
+  },
+  statusSentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  statusSentText: {
+    fontSize: 11,
+    color: teal[200],
+    fontFamily: 'Inter_500Medium',
+  },
+  statusFailedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusFailedText: {
+    fontSize: 11,
+    color: semantic.error,
+    fontFamily: 'Inter_500Medium',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: 4,
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+  },
+  retryText: {
+    fontSize: 11,
+    color: purple[400],
+    fontFamily: 'Inter_600SemiBold',
+  },
+  headerAvatarImage: {
+    width: 48,
+    height: 48,
+    resizeMode: 'cover',
+  },
+  flex1: {
+    flex: 1,
+  },
+  headerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: semantic.success,
+  },
+  demoBadge: {
+    backgroundColor: '#F5A62318',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  demoBadgeText: {
+    color: '#F5A623',
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
+  },
+  emptyContentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  emptyAvatarImage: {
+    width: 110,
+    height: 110,
+    resizeMode: 'cover',
+  },
+  promptSuggestionsGap: {
+    gap: 8,
+  },
+  promptIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.85 }],
+  },
+});

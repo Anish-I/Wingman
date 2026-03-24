@@ -35,7 +35,7 @@ import type {
 } from '@gorhom/bottom-sheet';
 import { BottomSheetModal, useBottomSheet } from '@gorhom/bottom-sheet';
 import * as React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
@@ -178,7 +178,7 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
     >
       <View
         ref={focusTrapRef}
-        style={{ flex: 1 }}
+        style={modalStyles.flex1}
         accessibilityRole="none"
         {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true } : {})}
       >
@@ -201,7 +201,7 @@ function CustomBackdrop({ style }: BottomSheetBackdropProps) {
       onPress={() => close()}
       entering={FadeIn.duration(50).reduceMotion(ReduceMotion.System)}
       exiting={FadeOut.duration(20).reduceMotion(ReduceMotion.System)}
-      style={[style, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
+      style={[style, modalStyles.backdrop]}
       aria-hidden={true}
     />
   );
@@ -275,3 +275,12 @@ function CloseButton({ close }: { close: () => void }) {
     </Pressable>
   );
 }
+
+const modalStyles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  backdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+});

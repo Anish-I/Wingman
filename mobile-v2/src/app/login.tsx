@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
@@ -33,6 +33,61 @@ export default function LoginScreen() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [otpRequestId, setOtpRequestId] = useState('');
   const inputs = useRef<TextInput[]>([]);
+
+  // Theme-dependent styles
+  const safeAreaBg = { backgroundColor: surface.bg };
+  const contentGap = { gap: isLandscape ? 14 : 24 };
+  const headerTitle = {
+    fontFamily: 'Sora_700Bold' as const,
+    fontSize: 28,
+    color: t.primary,
+    letterSpacing: -1,
+  };
+  const headerSubtitle = {
+    fontFamily: 'Inter_400Regular' as const,
+    fontSize: 15,
+    color: t.secondary,
+  };
+  const phoneInputContainer = {
+    height: 56,
+    backgroundColor: surface.card,
+    borderWidth: 1,
+    borderColor: surface.borderStrong,
+  };
+  const phoneCountryCode = {
+    fontFamily: 'Sora_700Bold' as const,
+    fontSize: 16,
+    color: t.primary,
+  };
+  const phoneDivider = {
+    width: 1,
+    height: 32,
+    backgroundColor: surface.border,
+    marginHorizontal: 12,
+  };
+  const phoneInput = {
+    fontFamily: 'Inter_400Regular' as const,
+    fontSize: 16,
+    color: t.primary,
+  };
+  const otpRow = { gap: isLandscape ? 6 : 10 };
+  const otpBox = (i: number) => ({
+    width: isLandscape ? 38 : 48,
+    height: isLandscape ? 44 : 56,
+    borderRadius: 10,
+    backgroundColor: surface.card,
+    borderWidth: activeIdx === i ? 2 : 1,
+    borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
+    textAlign: 'center' as const,
+    fontFamily: 'Sora_700Bold' as const,
+    fontSize: isLandscape ? 18 : 24,
+    color: t.primary,
+  });
+  const signupText = {
+    fontFamily: 'Inter_400Regular' as const,
+    fontSize: 13,
+    color: t.muted,
+  };
 
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
@@ -131,40 +186,26 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: surface.bg }}>
+    <SafeAreaView className="flex-1" style={safeAreaBg}>
       <FocusAwareStatusBar />
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingVertical: isLandscape ? 16 : 0,
-          }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingVertical: isLandscape ? 16 : 0 },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="px-8" style={{ gap: isLandscape ? 14 : 24 }}>
+          <View className="px-8" style={contentGap}>
         {/* Header */}
-        <View style={{ gap: 8 }}>
-          <Text
-            style={{
-              fontFamily: 'Sora_700Bold',
-              fontSize: 28,
-              color: t.primary,
-              letterSpacing: -1,
-            }}
-          >
+        <View style={styles.headerGroup}>
+          <Text style={headerTitle}>
             Welcome back
           </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_400Regular',
-              fontSize: 15,
-              color: t.secondary,
-            }}
-          >
+          <Text style={headerSubtitle}>
             {step === 'phone'
               ? 'Enter your phone number to sign in'
               : `Enter the 6-digit code sent to ${e164Phone}`}
@@ -176,22 +217,13 @@ export default function LoginScreen() {
             {/* Phone input */}
             <View
               className="flex-row items-center rounded-lg px-4"
-              style={{
-                height: 56,
-                backgroundColor: surface.card,
-                borderWidth: 1,
-                borderColor: surface.borderStrong,
-              }}
+              style={phoneInputContainer}
             >
-              <Text style={{ fontFamily: 'Sora_700Bold', fontSize: 16, color: t.primary }}>+1</Text>
-              <View style={{ width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 }} />
+              <Text style={phoneCountryCode}>+1</Text>
+              <View style={phoneDivider} />
               <TextInput
                 className="flex-1"
-                style={{
-                  fontFamily: 'Inter_400Regular',
-                  fontSize: 16,
-                  color: t.primary,
-                }}
+                style={phoneInput}
                 placeholder="(555) 123-4567"
                 placeholderTextColor={t.muted}
                 keyboardType="phone-pad"
@@ -215,7 +247,7 @@ export default function LoginScreen() {
         ) : (
           <>
             {/* OTP boxes */}
-            <View className="flex-row justify-center" style={{ gap: isLandscape ? 6 : 10 }}>
+            <View className="flex-row justify-center" style={otpRow}>
               {code.map((digit, i) => (
                 <TextInput
                   key={i}
@@ -223,18 +255,7 @@ export default function LoginScreen() {
                     if (r)
                       inputs.current[i] = r;
                   }}
-                  style={{
-                    width: isLandscape ? 38 : 48,
-                    height: isLandscape ? 44 : 56,
-                    borderRadius: 10,
-                    backgroundColor: surface.card,
-                    borderWidth: activeIdx === i ? 2 : 1,
-                    borderColor: activeIdx === i ? purple[500] : surface.borderStrong,
-                    textAlign: 'center',
-                    fontFamily: 'Sora_700Bold',
-                    fontSize: isLandscape ? 18 : 24,
-                    color: t.primary,
-                  }}
+                  style={otpBox(i)}
                   value={digit}
                   onChangeText={txt => handleCodeChange(txt, i)}
                   onFocus={() => setActiveIdx(i)}
@@ -286,7 +307,7 @@ export default function LoginScreen() {
         )}
         {/* Sign up link */}
         <View className="mt-4 flex-row items-center justify-center">
-          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: t.muted }}>
+          <Text style={signupText}>
             Don't have an account?{' '}
           </Text>
           <Button
@@ -305,3 +326,13 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  headerGroup: {
+    gap: 8,
+  },
+});

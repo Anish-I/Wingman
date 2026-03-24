@@ -9,6 +9,7 @@ import {
   Image,
   Alert,
   Platform,
+  StyleSheet,
 } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -208,31 +209,54 @@ const AppCard = React.memo(function AppCard({
 }: AppCardProps) {
   const { surface } = useThemeColors();
   const { appCardWidth, appIconSize, appLogoSize } = useResponsive();
+
+  // Theme-dependent styles
+  const s = {
+    appCardConnected: {
+      width: appCardWidth,
+      backgroundColor: surface.card,
+      borderWidth: 1.5,
+      borderColor: 'rgba(50, 215, 75, 0.35)',
+    },
+    appCardDisconnected: {
+      width: appCardWidth,
+      backgroundColor: surface.cardAlt,
+      borderWidth: 1,
+      borderColor: surface.border,
+    },
+    appCardHovered: {
+      borderColor: surface.borderStrong,
+      boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
+      transform: [{ scale: 1.03 }],
+    } as any,
+    iconContainer: {
+      width: appIconSize,
+      height: appIconSize,
+      backgroundColor: surface.card,
+    },
+    logo: {
+      width: appLogoSize,
+      height: appLogoSize,
+      borderRadius: 8,
+    },
+  };
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
       className="rounded-2xl p-3 items-center relative mr-2.5"
       style={({ pressed, hovered, focused }: any) => [
-        {
-          width: appCardWidth,
-          backgroundColor: isConnected ? surface.card : surface.cardAlt,
-          borderWidth: isConnected ? 1.5 : 1,
-          borderColor: isConnected ? 'rgba(50, 215, 75, 0.35)' : surface.border,
-        },
+        isConnected ? s.appCardConnected : s.appCardDisconnected,
         ...chipPressStyle({ pressed }),
         webInteractive(isConnecting),
         // Web hover: subtle lift with glow
         Platform.OS === 'web' && hovered && !pressed && !isConnecting
-          ? {
-              borderColor: surface.borderStrong,
-              boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
-              transform: [{ scale: 1.03 }],
-            } as any
+          ? s.appCardHovered
           : undefined,
         // Web focus ring
         Platform.OS === 'web' && focused && !isConnecting
-          ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)' } as any
+          ? styles.appCardFocusRing
           : undefined,
       ]}
       onPress={() => onPress(app.slug)}
@@ -248,10 +272,10 @@ const AppCard = React.memo(function AppCard({
           <ActivityIndicator size="small" color="#7C5CFC" />
         </View>
       )}
-      <View className="rounded-2xl items-center justify-center mb-2" style={{ width: appIconSize, height: appIconSize, backgroundColor: surface.card }}>
+      <View className="rounded-2xl items-center justify-center mb-2" style={s.iconContainer}>
         <Image
           source={{ uri: app.logo }}
-          style={{ width: appLogoSize, height: appLogoSize, borderRadius: 8 }}
+          style={s.logo}
           resizeMode="contain"
         />
       </View>
@@ -292,6 +316,18 @@ const CategorySection = React.memo(function CategorySection({
     connected.includes(a.slug),
   ).length;
 
+  // Theme-dependent styles (meta.color)
+  const s = {
+    categoryBadge: {
+      backgroundColor: meta.color + '20',
+    },
+    categoryBadgeText: {
+      color: meta.color,
+      fontSize: 11,
+      fontWeight: '700' as const,
+    },
+  };
+
   return (
     <View className="mb-6">
       {/* Category header */}
@@ -302,11 +338,9 @@ const CategorySection = React.memo(function CategorySection({
         </Text>
         <View
           className="rounded-full px-2 py-0.5"
-          style={{ backgroundColor: meta.color + '20' }}
+          style={s.categoryBadge}
         >
-          <Text
-            style={{ color: meta.color, fontSize: 11, fontWeight: '700' }}
-          >
+          <Text style={s.categoryBadgeText}>
             {connectedCount}/{section.apps.length}
           </Text>
         </View>
@@ -318,7 +352,7 @@ const CategorySection = React.memo(function CategorySection({
         data={section.apps}
         keyExtractor={(a) => a.slug}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingRight: 16 }}
+        contentContainerStyle={styles.categorySectionListContent}
         initialNumToRender={6}
         maxToRenderPerBatch={10}
         windowSize={3}
@@ -353,13 +387,54 @@ const CategoryTabs = React.memo(function CategoryTabs({
   onSelect,
 }: CategoryTabsProps) {
   const { surface, text: t } = useThemeColors();
+
+  // Theme-dependent styles
+  const s = {
+    tabActive: {
+      backgroundColor: 'rgba(124, 92, 252, 0.22)',
+      borderWidth: 1,
+      borderColor: '#7C5CFC',
+    },
+    tabInactive: {
+      backgroundColor: surface.card,
+      borderWidth: 1,
+      borderColor: surface.border,
+    },
+    tabHoveredInactive: {
+      backgroundColor: surface.section,
+      borderColor: surface.borderStrong,
+    } as any,
+    tabTextActive: {
+      color: '#7C5CFC',
+      fontSize: 12,
+      fontWeight: '600' as const,
+    },
+    tabTextInactive: {
+      color: t.muted,
+      fontSize: 12,
+      fontWeight: '600' as const,
+    },
+    tabCountActive: {
+      color: '#7C5CFC',
+      fontSize: 10,
+      fontWeight: '700' as const,
+      marginLeft: 4,
+    },
+    tabCountInactive: {
+      color: t.muted,
+      fontSize: 10,
+      fontWeight: '700' as const,
+      marginLeft: 4,
+    },
+  };
+
   return (
     <FlatList
       horizontal
       data={['All', ...categories]}
       keyExtractor={(c) => c}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 12, gap: 8 }}
+      contentContainerStyle={styles.categoryTabsListContent}
       renderItem={({ item: cat }) => {
         const isAll = cat === 'All';
         const active = isAll ? selected === null : selected === cat;
@@ -374,41 +449,24 @@ const CategoryTabs = React.memo(function CategoryTabs({
             onPress={() => onSelect(isAll ? null : cat)}
             className="rounded-full px-3 py-1.5 flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
-              {
-                backgroundColor: active ? 'rgba(124, 92, 252, 0.22)' : surface.card,
-                borderWidth: 1,
-                borderColor: active ? '#7C5CFC' : surface.border,
-              },
+              active ? s.tabActive : s.tabInactive,
               ...chipPressStyle({ pressed }),
               webInteractive(),
               Platform.OS === 'web' && hovered && !pressed && !active
-                ? { backgroundColor: surface.section, borderColor: surface.borderStrong } as any
+                ? s.tabHoveredInactive
                 : undefined,
               Platform.OS === 'web' && hovered && !pressed && active
-                ? { backgroundColor: 'rgba(124, 92, 252, 0.18)' } as any
+                ? styles.tabHoveredActive
                 : undefined,
               Platform.OS === 'web' && focused
-                ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)' } as any
+                ? styles.tabFocusRing
                 : undefined,
             ]}
           >
-            <Text
-              style={{
-                color: active ? '#7C5CFC' : t.muted,
-                fontSize: 12,
-                fontWeight: '600',
-              }}
-            >
+            <Text style={active ? s.tabTextActive : s.tabTextInactive}>
               {cat}
             </Text>
-            <Text
-              style={{
-                color: active ? '#7C5CFC' : t.muted,
-                fontSize: 10,
-                fontWeight: '700',
-                marginLeft: 4,
-              }}
-            >
+            <Text style={active ? s.tabCountActive : s.tabCountInactive}>
               {count}
             </Text>
           </Pressable>
@@ -433,6 +491,27 @@ export default function AppsScreen() {
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [loadingSlow, setLoadingSlow] = useState(false);
+
+  // Theme-dependent styles for main screen
+  const ts = {
+    searchBar: {
+      backgroundColor: surface.card,
+      borderWidth: 1,
+      borderColor: surface.border,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    skeletonBg: {
+      backgroundColor: surface.card,
+    },
+    slowHintText: {
+      color: '#F5A623',
+      fontSize: 13,
+      fontWeight: '600' as const,
+      flex: 1,
+    },
+  };
 
   useEffect(() => {
     if (!isLoading) {
@@ -621,9 +700,9 @@ export default function AppsScreen() {
       <SafeAreaView className="flex-1 bg-background">
         {/* Slow-loading hint */}
         {loadingSlow && (
-          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={{ backgroundColor: 'rgba(245, 166, 35, 0.12)' }}>
-            <Ionicons name="time-outline" size={18} color="#F5A623" style={{ marginRight: 8 }} />
-            <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600', flex: 1 }}>
+          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={styles.slowHintBg}>
+            <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
+            <Text style={ts.slowHintText}>
               Still loading — check your connection if this persists
             </Text>
           </View>
@@ -632,32 +711,32 @@ export default function AppsScreen() {
         <View className="px-6 pt-6 pb-4">
           <View className="flex-row items-center justify-between">
             <View>
-              <MotiView {...pulse} className="h-7 w-36 rounded-lg" style={{ backgroundColor: surface.card }} />
-              <MotiView {...pulse} className="h-4 w-28 rounded-md mt-2" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="h-7 w-36 rounded-lg" style={ts.skeletonBg} />
+              <MotiView {...pulse} className="h-4 w-28 rounded-md mt-2" style={ts.skeletonBg} />
             </View>
-            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={{ backgroundColor: surface.card }} />
+            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={ts.skeletonBg} />
           </View>
         </View>
         {/* Skeleton search bar */}
         <View className="mx-6 mb-3">
-          <MotiView {...pulse} className="h-12 rounded-2xl" style={{ backgroundColor: surface.card }} />
+          <MotiView {...pulse} className="h-12 rounded-2xl" style={ts.skeletonBg} />
         </View>
         {/* Skeleton category tabs */}
         <View className="flex-row px-6 mb-4 gap-2">
           {[72, 88, 96, 64, 80].map((w, i) => (
-            <MotiView key={i} {...pulse} className="h-8 rounded-full" style={{ backgroundColor: surface.card, width: w }} />
+            <MotiView key={i} {...pulse} className="h-8 rounded-full" style={[ts.skeletonBg, { width: w }]} />
           ))}
         </View>
         {/* Skeleton category sections */}
         {[0, 1, 2].map((section) => (
           <View key={section} className="px-6 mb-6">
             <View className="flex-row items-center gap-2 mb-3">
-              <MotiView {...pulse} className="w-6 h-6 rounded-md" style={{ backgroundColor: surface.card }} />
-              <MotiView {...pulse} className="h-5 w-28 rounded-md" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="w-6 h-6 rounded-md" style={ts.skeletonBg} />
+              <MotiView {...pulse} className="h-5 w-28 rounded-md" style={ts.skeletonBg} />
             </View>
             <View className="flex-row gap-2.5">
               {[0, 1, 2, 3].map((card) => (
-                <MotiView key={card} {...pulse} className="rounded-2xl" style={{ backgroundColor: surface.card, width: appCardWidth, height: appCardWidth * 1.1 }} />
+                <MotiView key={card} {...pulse} className="rounded-2xl" style={[ts.skeletonBg, { width: appCardWidth, height: appCardWidth * 1.1 }]} />
               ))}
             </View>
           </View>
@@ -707,13 +786,13 @@ export default function AppsScreen() {
       <MotiView
         {...maybeReduce(entrance(0, 100), reduced)}
         className="flex-row items-center rounded-2xl mx-6 mb-3 px-4"
-        style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}
+        style={ts.searchBar}
       >
         <Ionicons
           name="search-outline"
           size={18}
           color={t.muted}
-          style={{ marginRight: 8 }}
+          style={ts.searchIcon}
         />
         <TextInput
           className="flex-1 py-3.5 text-foreground text-[15px]"
@@ -766,3 +845,33 @@ export default function AppsScreen() {
     </SafeAreaView>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Static styles (no theme/state dependency)
+// ---------------------------------------------------------------------------
+
+const styles = StyleSheet.create({
+  appCardFocusRing: {
+    boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)',
+  } as any,
+  categorySectionListContent: {
+    paddingRight: 16,
+  },
+  categoryTabsListContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  tabHoveredActive: {
+    backgroundColor: 'rgba(124, 92, 252, 0.18)',
+  } as any,
+  tabFocusRing: {
+    boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)',
+  } as any,
+  slowHintBg: {
+    backgroundColor: 'rgba(245, 166, 35, 0.12)',
+  },
+  slowHintIcon: {
+    marginRight: 8,
+  },
+});

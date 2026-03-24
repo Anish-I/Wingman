@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, purple, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -58,6 +58,42 @@ export default function PermissionsScreen() {
   const reduced = useReducedMotion();
   const [notificationsGranted, setNotificationsGranted] = useState(false);
 
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
+    speechBubble: {
+      flex: 1 as const,
+      backgroundColor: surface.cardAlt,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: surface.border,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    speechText: { color: t.primary },
+    permissionCard: (isGranted: boolean, isComingSoon: boolean) => ({
+      borderRadius: 14,
+      backgroundColor: surface.card,
+      borderWidth: 1,
+      borderColor: isGranted ? 'rgba(50, 215, 75, 0.2)' : surface.border,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      opacity: isComingSoon ? 0.5 : 1,
+    }),
+    permTitle: { color: t.primary },
+    permSubtitle: { color: t.secondary },
+    comingSoonBadge: {
+      backgroundColor: surface.cardAlt,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    comingSoonText: { color: t.muted },
+  };
+
   // Check existing notification permission on mount
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -82,30 +118,14 @@ export default function PermissionsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
+    <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={4} />
       <View className="flex-1 px-6">
         {/* Pip speech bubble row */}
         <View className="mt-4 flex-row items-center gap-3">
           <PipCard expression="question" size="mini" />
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: surface.cardAlt,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: surface.border,
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-            }}
-          >
-            <Text
-              style={{
-                color: t.primary,
-                fontSize: 13,
-                fontFamily: 'Inter_500Medium',
-              }}
-            >
+          <View style={themed.speechBubble}>
+            <Text style={[styles.speechText, themed.speechText]}>
               I need a few permissions to help you out!
             </Text>
           </View>
@@ -116,7 +136,7 @@ export default function PermissionsScreen() {
         </View>
 
         {/* Permission cards */}
-        <View style={{ gap: 10, marginTop: 16 }}>
+        <View style={styles.cardList}>
           {PERMISSIONS.map((perm, i) => {
             const isGranted = perm.type === 'notifications' && notificationsGranted;
             const isComingSoon = perm.type === 'coming-soon';
@@ -126,68 +146,26 @@ export default function PermissionsScreen() {
                 key={i}
                 {...maybeReduce(entrance(i, 100), reduced)}
               >
-                <View
-                  style={{
-                    borderRadius: 14,
-                    backgroundColor: surface.card,
-                    borderWidth: 1,
-                    borderColor: isGranted ? 'rgba(50, 215, 75, 0.2)' : surface.border,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    opacity: isComingSoon ? 0.5 : 1,
-                  }}
-                >
+                <View style={themed.permissionCard(isGranted, isComingSoon)}>
                   <View
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 10,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: `${perm.accent}14`,
-                    }}
+                    style={[
+                      styles.iconCircle,
+                      { backgroundColor: `${perm.accent}14` },
+                    ]}
                   >
                     <Ionicons name={perm.icon} size={20} color={perm.accent} />
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text
-                      style={{
-                        color: t.primary,
-                        fontSize: 14,
-                        fontFamily: 'Inter_600SemiBold',
-                      }}
-                    >
+                  <View style={styles.permTextContainer}>
+                    <Text style={[styles.permTitle, themed.permTitle]}>
                       {perm.title}
                     </Text>
-                    <Text
-                      style={{
-                        color: t.secondary,
-                        fontSize: 12,
-                        fontFamily: 'Inter_400Regular',
-                      }}
-                    >
+                    <Text style={[styles.permSubtitle, themed.permSubtitle]}>
                       {perm.subtitle}
                     </Text>
                   </View>
                   {isComingSoon ? (
-                    <View
-                      style={{
-                        backgroundColor: surface.cardAlt,
-                        borderRadius: 8,
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: t.muted,
-                          fontSize: 10,
-                          fontFamily: 'Inter_500Medium',
-                        }}
-                      >
+                    <View style={themed.comingSoonBadge}>
+                      <Text style={[styles.comingSoonText, themed.comingSoonText]}>
                         Soon
                       </Text>
                     </View>
@@ -199,7 +177,7 @@ export default function PermissionsScreen() {
                       style={({ pressed }) => [
                         ...chipPressStyle({ pressed }),
                         webInteractive(),
-                        { minHeight: 44, justifyContent: 'center' as const },
+                        styles.permActionButton,
                       ]}
                     >
                       {isGranted
@@ -210,40 +188,16 @@ export default function PermissionsScreen() {
                                 animate: { scale: 1 },
                                 transition: springs.bouncy,
                               }, reduced)}
-                              style={{
-                                backgroundColor: semantic.success,
-                                borderRadius: 8,
-                                paddingHorizontal: 12,
-                                paddingVertical: 6,
-                              }}
+                              style={styles.grantedBadge}
                             >
-                              <Text
-                                style={{
-                                  color: '#FFFFFF',
-                                  fontSize: 11,
-                                  fontFamily: 'Inter_600SemiBold',
-                                }}
-                              >
+                              <Text style={styles.badgeText}>
                                 Done
                               </Text>
                             </MotiView>
                           )
                         : (
-                            <View
-                              style={{
-                                backgroundColor: purple[500],
-                                borderRadius: 8,
-                                paddingHorizontal: 12,
-                                paddingVertical: 6,
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  color: '#FFFFFF',
-                                  fontSize: 11,
-                                  fontFamily: 'Inter_600SemiBold',
-                                }}
-                              >
+                            <View style={styles.allowBadge}>
+                              <Text style={styles.badgeText}>
                                 Allow
                               </Text>
                             </View>
@@ -266,3 +220,58 @@ export default function PermissionsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  speechText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+  cardList: {
+    gap: 10,
+    marginTop: 16,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  permTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  permSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  comingSoonText: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+  },
+  permActionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  grantedBadge: {
+    backgroundColor: semantic.success,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  allowBadge: {
+    backgroundColor: purple[500],
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+  },
+});

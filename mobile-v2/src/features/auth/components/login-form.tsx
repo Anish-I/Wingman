@@ -5,7 +5,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import * as z from 'zod';
 
 import { Button, Input, View } from '@/components/ui';
-import { Text as RNText } from 'react-native';
+import { StyleSheet, Text as RNText } from 'react-native';
 import { getFieldError } from '@/components/ui/form-utils';
 
 const schema = z.object({
@@ -48,7 +48,7 @@ export function LoginForm({ onSubmit = () => {} }: LoginFormProps) {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={formStyles.flex1}
       behavior="padding"
       keyboardVerticalOffset={10}
     >
@@ -126,3 +126,9 @@ export function LoginForm({ onSubmit = () => {} }: LoginFormProps) {
     </KeyboardAvoidingView>
   );
 }
+
+const formStyles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+});

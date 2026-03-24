@@ -92,22 +92,15 @@ function ResponsiveWebShell({ children }: { children: React.ReactNode }) {
   const maxWidth =
     width < 768 ? '100%' : width < 1200 ? Math.round(width * 0.92) : Math.min(Math.round(width * 0.8), 1400);
 
+  const outerDynamicStyle = { backgroundColor: surface.bg };
+  const innerDynamicStyle = { maxWidth } as any;
+
   return (
     <View
-      style={{
-        flex: 1,
-        backgroundColor: surface.bg,
-        alignItems: 'center',
-        minHeight: '100vh' as any,
-      }}
+      style={[styles.shellOuter, outerDynamicStyle]}
     >
       <View
-        style={{
-          width: '100%',
-          maxWidth,
-          flex: 1,
-          overflow: 'hidden' as any,
-        }}
+        style={[styles.shellInner, innerDynamicStyle]}
       >
         {children}
       </View>
@@ -140,5 +133,15 @@ function Providers({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  shellOuter: {
+    flex: 1,
+    alignItems: 'center',
+    minHeight: '100vh' as any,
+  },
+  shellInner: {
+    width: '100%',
+    flex: 1,
+    overflow: 'hidden' as any,
   },
 });

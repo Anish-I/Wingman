@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable } from 'react-native';
+import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,6 +46,32 @@ export default function WorkflowsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [nlInput, setNlInput] = useState('');
   const modalContentRef = useRef<View>(null);
+
+  // Theme-dependent styles
+  const s = {
+    skeletonCardBg: { backgroundColor: surface.card } as const,
+    skeletonSectionBg: { backgroundColor: surface.section } as const,
+    mutedText: { color: t.muted } as const,
+    slowHintBg: { backgroundColor: 'rgba(245, 166, 35, 0.12)' } as const,
+    slowHintIcon: { marginRight: 8 } as const,
+    slowHintText: { color: '#F5A623', fontSize: 13, fontWeight: '600' as const, flex: 1 } as const,
+    workflowCard: { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border } as const,
+    templateCardBase: { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border } as const,
+    modalContent: {
+      backgroundColor: surface.card,
+      borderTopWidth: 1,
+      borderTopColor: surface.border,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 24,
+      paddingBottom: 48,
+    } as const,
+    modalInput: { backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border, textAlignVertical: 'top' as const, minHeight: 100 } as const,
+    activeStatusColor: { color: '#32D74B' } as const,
+    inactiveStatusColor: { color: t.muted } as const,
+    switchTrackColor: { false: surface.elevated, true: '#32D74B' } as const,
+    togglingSwitch: { opacity: 0.5 } as const,
+  };
 
   // Trap keyboard focus within the modal on web
   useEffect(() => {
@@ -192,7 +218,7 @@ export default function WorkflowsScreen() {
         <Text className="text-foreground text-base font-bold mt-4">
           Failed to load
         </Text>
-        <Text style={{ color: t.muted }} className="text-sm text-center mt-1">
+        <Text style={s.mutedText} className="text-sm text-center mt-1">
           {fetchError
             ? 'Could not load workflows. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -219,9 +245,9 @@ export default function WorkflowsScreen() {
       <SafeAreaView className="flex-1 bg-background">
         {/* Slow-loading hint */}
         {loadingSlow && (
-          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={{ backgroundColor: 'rgba(245, 166, 35, 0.12)' }}>
-            <Ionicons name="time-outline" size={18} color="#F5A623" style={{ marginRight: 8 }} />
-            <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600', flex: 1 }}>
+          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={s.slowHintBg}>
+            <Ionicons name="time-outline" size={18} color="#F5A623" style={s.slowHintIcon} />
+            <Text style={s.slowHintText}>
               Still loading — check your connection if this persists
             </Text>
           </View>
@@ -230,26 +256,26 @@ export default function WorkflowsScreen() {
         <View className="px-6 pt-6 pb-2">
           <View className="flex-row items-center justify-between">
             <View>
-              <MotiView {...pulse} className="h-7 w-40 rounded-lg" style={{ backgroundColor: surface.card }} />
-              <MotiView {...pulse} className="h-4 w-52 rounded-md mt-2" style={{ backgroundColor: surface.card }} />
+              <MotiView {...pulse} className="h-7 w-40 rounded-lg" style={s.skeletonCardBg} />
+              <MotiView {...pulse} className="h-4 w-52 rounded-md mt-2" style={s.skeletonCardBg} />
             </View>
-            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={{ backgroundColor: surface.card }} />
+            <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={s.skeletonCardBg} />
           </View>
         </View>
         {/* Skeleton workflow cards */}
         <View className="px-4 gap-3 mt-2">
           {[0, 1, 2, 3].map((i) => (
-            <MotiView key={i} {...pulse} className="rounded-2xl p-4" style={{ backgroundColor: surface.card }}>
+            <MotiView key={i} {...pulse} className="rounded-2xl p-4" style={s.skeletonCardBg}>
               <View className="flex-row items-center gap-3">
-                <View className="w-[42px] h-[42px] rounded-xl" style={{ backgroundColor: surface.section }} />
+                <View className="w-[42px] h-[42px] rounded-xl" style={s.skeletonSectionBg} />
                 <View className="flex-1">
-                  <View className="h-4 w-40 rounded-md" style={{ backgroundColor: surface.section }} />
-                  <View className="h-3 w-56 rounded-md mt-2" style={{ backgroundColor: surface.section }} />
+                  <View className="h-4 w-40 rounded-md" style={s.skeletonSectionBg} />
+                  <View className="h-3 w-56 rounded-md mt-2" style={s.skeletonSectionBg} />
                 </View>
-                <View className="w-12 h-7 rounded-full" style={{ backgroundColor: surface.section }} />
+                <View className="w-12 h-7 rounded-full" style={s.skeletonSectionBg} />
               </View>
               <View className="flex-row items-center gap-2 mt-3">
-                <View className="h-6 w-20 rounded-full" style={{ backgroundColor: surface.section }} />
+                <View className="h-6 w-20 rounded-full" style={s.skeletonSectionBg} />
               </View>
             </MotiView>
           ))}
@@ -268,7 +294,7 @@ export default function WorkflowsScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text style={{ color: t.muted }} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
+            <Text style={s.mutedText} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
             {...maybeReduce(popIn(0, 200), reduced)}
@@ -295,13 +321,13 @@ export default function WorkflowsScreen() {
               >
                 <PipCard expression="thinking" size="small" />
                 <Text className="text-foreground text-lg font-bold mt-2">No automations yet</Text>
-                <Text style={{ color: t.muted }} className="text-sm text-center mt-1">
+                <Text style={s.mutedText} className="text-sm text-center mt-1">
                   Tell me what to automate, or try a template:
                 </Text>
               </MotiView>
 
               {/* Quick templates */}
-              <View style={{ gap: 8 }}>
+              <View style={styles.templateList}>
                 {TEMPLATES.map((t, i) => (
                   <MotiView
                     key={t.title}
@@ -313,7 +339,7 @@ export default function WorkflowsScreen() {
                       className="flex-row items-center rounded-2xl p-4 gap-3"
                       onPress={() => createWorkflow(t.title)}
                       style={({ pressed, hovered }: any) => [
-                        { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border },
+                        s.templateCardBase,
                         ...pressStyle({ pressed }),
                         webInteractive(),
                         Platform.OS === 'web' && hovered && !pressed
@@ -342,7 +368,7 @@ export default function WorkflowsScreen() {
             <MotiView
               {...maybeReduce(entrance(index, 100), reduced)}
             >
-              <View className="rounded-2xl p-4 gap-3" style={{ backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border }}>
+              <View className="rounded-2xl p-4 gap-3" style={s.workflowCard}>
                 <View className="flex-row items-center gap-3">
                   <View
                     className="w-[42px] h-[42px] rounded-xl items-center justify-center"
@@ -353,12 +379,12 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text style={{ color: t.muted }} className="text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
+                      <Text style={s.mutedText} className="text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
                   <View className="flex-row items-center gap-1.5">
                     <Text
-                      style={{ color: item.active ? '#32D74B' : t.muted }}
+                      style={item.active ? s.activeStatusColor : s.inactiveStatusColor}
                       className="text-[11px] font-semibold"
                       accessibilityElementsHidden
                       importantForAccessibility="no"
@@ -369,11 +395,11 @@ export default function WorkflowsScreen() {
                       value={item.active}
                       onValueChange={(v) => toggleWorkflow(item.id, v)}
                       disabled={togglingIds.has(item.id)}
-                      trackColor={{ false: surface.elevated, true: '#32D74B' }}
+                      trackColor={s.switchTrackColor}
                       thumbColor="#fff"
                       accessibilityLabel={`${item.name} is ${item.active ? 'on' : 'off'}`}
                       accessibilityRole="switch"
-                      style={togglingIds.has(item.id) ? { opacity: 0.5 } : undefined}
+                      style={togglingIds.has(item.id) ? s.togglingSwitch : undefined}
                     />
                   </View>
                 </View>
@@ -422,7 +448,7 @@ export default function WorkflowsScreen() {
             colors={['#7C5CFC', '#6545DB', '#4F32B3']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+            style={styles.fabGradient}
           >
             <Ionicons name="sparkles" size={24} color="#FFFFFF" />
           </LinearGradient>
@@ -434,7 +460,7 @@ export default function WorkflowsScreen() {
         <View className="flex-1 bg-black/70 justify-end">
           <View
             ref={modalContentRef}
-            style={{ backgroundColor: surface.card, borderTopWidth: 1, borderTopColor: surface.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 }}
+            style={s.modalContent}
             {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'New Automation' } as any : {})}
           >
             <View className="flex-row items-center gap-3 mb-5">
@@ -443,12 +469,12 @@ export default function WorkflowsScreen() {
               </View>
               <View>
                 <Text className="text-foreground text-lg font-bold">New Automation</Text>
-                <Text style={{ color: t.muted }} className="text-xs">Describe it in plain English</Text>
+                <Text style={s.mutedText} className="text-xs">Describe it in plain English</Text>
               </View>
             </View>
             <TextInput
               className="rounded-2xl p-4 text-foreground text-[15px] mb-4"
-              style={{ backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border, textAlignVertical: 'top', minHeight: 100 }}
+              style={s.modalInput}
               placeholder="e.g., Every morning, summarize my calendar in Slack..."
               placeholderTextColor={t.muted}
               value={nlInput}
@@ -472,7 +498,7 @@ export default function WorkflowsScreen() {
                 colors={['#7C5CFC', '#6545DB']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                style={styles.createButtonGradient}
               />
               <Text className="text-white text-base font-bold">
                 {isPending ? 'Creating magic...' : 'Create Automation'}
@@ -488,7 +514,7 @@ export default function WorkflowsScreen() {
                 webInteractive(),
               ]}
             >
-              <Text style={{ color: t.muted }} className="text-[15px] font-medium">Cancel</Text>
+              <Text style={s.mutedText} className="text-[15px] font-medium">Cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -496,3 +522,23 @@ export default function WorkflowsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  templateList: {
+    gap: 8,
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+});

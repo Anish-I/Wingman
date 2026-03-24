@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, Pressable, Platform } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, Pressable, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +36,37 @@ export default function PhoneScreen() {
   const [otpRequestId, setOtpRequestId] = useState('');
   const inputs = useRef<TextInput[]>([]);
   const verifyingRef = useRef(false);
+
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { backgroundColor: surface.bg },
+    headerTitle: { color: t.primary },
+    headerSubtitle: { color: t.muted },
+    phoneRow: {
+      height: 56,
+      backgroundColor: surface.section,
+      borderWidth: 1,
+      borderColor: surface.borderStrong,
+    },
+    countryLabel: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.muted },
+    divider: { width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 },
+    phoneInput: { color: t.primary },
+    otpLabel: { color: t.muted },
+    otpHint: { color: t.disabled },
+    otpBoxBase: {
+      width: 48,
+      height: 56,
+      borderRadius: 8,
+      backgroundColor: surface.section,
+      textAlign: 'center' as const,
+      fontFamily: 'Sora_700Bold' as const,
+      fontSize: 24,
+      color: t.primary,
+    },
+    resendLabel: { fontFamily: 'Inter_400Regular' as const, fontSize: 13, color: t.disabled },
+    successTitle: { color: t.primary },
+    successSubtitle: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.muted },
+  };
 
   async function handleSendCode() {
     const cleaned = phone.replace(/\D/g, '');
@@ -151,40 +182,24 @@ export default function PhoneScreen() {
   }, [code, step]);
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
+    <SafeAreaView className="flex-1 items-center" style={themed.safeArea}>
       <ProgressBar step={5} />
       <ScrollView
         className="flex-1 w-full"
         contentContainerClassName="px-6 items-center"
-        contentContainerStyle={{ gap: 28 }}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         {/* Pip */}
         <PipCard expression="thumbsup" size="medium" />
 
         {/* Header */}
-        <View className="items-center" style={{ gap: 8 }}>
+        <View className="items-center" style={styles.headerGap}>
           <SectionLabel text="VERIFY PHONE" />
-          <Text
-            style={{
-              fontFamily: 'Sora_700Bold',
-              fontSize: 32,
-              color: t.primary,
-              letterSpacing: -1.5,
-              lineHeight: 32,
-              textAlign: 'center',
-            }}
-          >
+          <Text style={[styles.headerTitle, themed.headerTitle]}>
             {"What's your\nnumber?"}
           </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_400Regular',
-              fontSize: 14,
-              color: t.muted,
-              textAlign: 'center',
-            }}
-          >
+          <Text style={[styles.headerSubtitle, themed.headerSubtitle]}>
             I'll send you a quick text to verify
           </Text>
         </View>
@@ -192,27 +207,17 @@ export default function PhoneScreen() {
         {/* Phone input row */}
         <View
           className="w-full flex-row items-center rounded-lg px-4"
-          style={{
-            height: 56,
-            backgroundColor: surface.section,
-            borderWidth: 1,
-            borderColor: surface.borderStrong,
-          }}
+          style={themed.phoneRow}
         >
           {/* US-only country indicator (static) */}
-          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
+          <Text style={themed.countryLabel}>
             +1 (US)
           </Text>
           {/* Divider */}
-          <View style={{ width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 }} />
+          <View style={themed.divider} />
           <TextInput
             className="flex-1"
-            style={{
-              fontFamily: 'Inter_400Regular',
-              fontSize: 16,
-              color: t.primary,
-              marginLeft: 8,
-            }}
+            style={[styles.phoneInput, themed.phoneInput]}
             placeholder="(555) 123-4567"
             placeholderTextColor={t.disabled}
             keyboardType="phone-pad"
@@ -244,51 +249,31 @@ export default function PhoneScreen() {
                 exit: { opacity: 0 },
               })}
               className="w-full items-center"
-              style={{ gap: 16 }}
+              style={styles.otpSection}
             >
               {/* Label */}
-              <Text
-                style={{
-                  fontFamily: 'Inter_700Bold',
-                  fontSize: 11,
-                  color: t.muted,
-                  letterSpacing: 2,
-                }}
-              >
+              <Text style={[styles.otpLabel, themed.otpLabel]}>
                 ENTER CODE
               </Text>
-              <Text
-                style={{
-                  fontFamily: 'Inter_400Regular',
-                  fontSize: 13,
-                  color: t.disabled,
-                  textAlign: 'center',
-                  marginTop: -8,
-                }}
-              >
+              <Text style={[styles.otpHint, themed.otpHint]}>
                 {loading ? 'Verifying...' : 'Verifies automatically after entering all 6 digits'}
               </Text>
 
               {/* OTP boxes */}
-              <View className="flex-row justify-center" style={{ gap: 12 }}>
+              <View className="flex-row justify-center" style={styles.otpBoxRow}>
                 {code.map((digit, i) => (
                   <TextInput
                     key={i}
                     ref={(r) => {
                       if (r) inputs.current[i] = r;
                     }}
-                    style={{
-                      width: 48,
-                      height: 56,
-                      borderRadius: 8,
-                      backgroundColor: surface.section,
-                      borderWidth: activeIdx === i ? 2 : 1,
-                      borderColor: activeIdx === i ? '#6B9BEF' : surface.borderStrong,
-                      textAlign: 'center',
-                      fontFamily: 'Sora_700Bold',
-                      fontSize: 24,
-                      color: t.primary,
-                    }}
+                    style={[
+                      themed.otpBoxBase,
+                      {
+                        borderWidth: activeIdx === i ? 2 : 1,
+                        borderColor: activeIdx === i ? '#6B9BEF' : surface.borderStrong,
+                      },
+                    ]}
                     value={digit}
                     onChangeText={(t) => handleCodeChange(t, i)}
                     onFocus={() => setActiveIdx(i)}
@@ -301,8 +286,8 @@ export default function PhoneScreen() {
               </View>
 
               {/* Resend row */}
-              <View className="flex-row items-center" style={{ gap: 4 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: t.disabled }}>
+              <View className="flex-row items-center" style={styles.resendRow}>
+                <Text style={themed.resendLabel}>
                   Didn't get it?
                 </Text>
                 <Pressable
@@ -313,7 +298,7 @@ export default function PhoneScreen() {
                   }}
                   style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
                 >
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#6B9BEF' }}>
+                  <Text style={styles.resendLink}>
                     Resend
                   </Text>
                 </Pressable>
@@ -332,25 +317,18 @@ export default function PhoneScreen() {
                 transition: { type: 'spring', damping: 10, stiffness: 100 },
               })}
               className="items-center"
-              style={{ gap: 12 }}
+              style={styles.successSection}
             >
               <View
                 className="rounded-full items-center justify-center"
-                style={{ width: 56, height: 56, backgroundColor: '#32D74B' }}
+                style={styles.successIcon}
               >
                 <Ionicons name="checkmark" size={28} color="#FFFFFF" />
               </View>
-              <Text
-                style={{
-                  fontFamily: 'Sora_700Bold',
-                  fontSize: 22,
-                  color: t.primary,
-                  letterSpacing: -0.5,
-                }}
-              >
+              <Text style={[styles.successTitle, themed.successTitle]}>
                 Connected!
               </Text>
-              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
+              <Text style={themed.successSubtitle}>
                 Your phone is verified
               </Text>
             </MotiView>
@@ -360,3 +338,67 @@ export default function PhoneScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    gap: 28,
+  },
+  headerGap: {
+    gap: 8,
+  },
+  headerTitle: {
+    fontFamily: 'Sora_700Bold',
+    fontSize: 32,
+    letterSpacing: -1.5,
+    lineHeight: 32,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  phoneInput: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  otpSection: {
+    gap: 16,
+  },
+  otpLabel: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    letterSpacing: 2,
+  },
+  otpHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: -8,
+  },
+  otpBoxRow: {
+    gap: 12,
+  },
+  resendRow: {
+    gap: 4,
+  },
+  resendLink: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#6B9BEF',
+  },
+  successSection: {
+    gap: 12,
+  },
+  successIcon: {
+    width: 56,
+    height: 56,
+    backgroundColor: '#32D74B',
+  },
+  successTitle: {
+    fontFamily: 'Sora_700Bold',
+    fontSize: 22,
+    letterSpacing: -0.5,
+  },
+});

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput } from 'react-native';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +41,35 @@ export default function ConnectScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
 
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { backgroundColor: surface.bg },
+    headerTitle: { color: t.primary },
+    infoBanner: {
+      backgroundColor: '#6B9BEF15',
+      paddingVertical: 8,
+      gap: 6,
+    },
+    infoText: { fontFamily: 'Inter_400Regular' as const, fontSize: 12, color: t.muted },
+    searchBar: {
+      height: 44,
+      backgroundColor: surface.section,
+      borderWidth: 1,
+      borderColor: surface.border,
+      paddingHorizontal: 14,
+      gap: 10,
+    },
+    searchInput: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.primary },
+    appCard: {
+      height: 80,
+      backgroundColor: surface.section,
+      borderWidth: 1,
+      borderColor: surface.border,
+      gap: 6,
+    },
+    appName: { fontFamily: 'Inter_500Medium' as const, fontSize: 10, color: t.primary },
+  };
+
   const filtered = search
     ? ALL_APPS.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()))
     : ALL_APPS;
@@ -52,35 +81,22 @@ export default function ConnectScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 items-center" style={{ backgroundColor: surface.bg }}>
+    <SafeAreaView className="flex-1 items-center" style={themed.safeArea}>
       <ProgressBar step={6} />
-      <View className="flex-1 w-full px-6" style={{ gap: 20 }}>
+      <View className="flex-1 w-full px-6" style={styles.mainContainer}>
         {/* Header */}
-        <View className="items-center" style={{ gap: 8 }}>
+        <View className="items-center" style={styles.headerGap}>
           <SectionLabel text="INTEGRATIONS" />
-          <Text
-            style={{
-              fontFamily: 'Sora_700Bold',
-              fontSize: 32,
-              color: t.primary,
-              letterSpacing: -1.5,
-              lineHeight: 32,
-              textAlign: 'center',
-            }}
-          >
+          <Text style={[styles.headerTitle, themed.headerTitle]}>
             {'Your Apps\nAwait'}
           </Text>
           {/* Info banner */}
           <View
             className="flex-row items-center rounded-lg px-3"
-            style={{
-              backgroundColor: '#6B9BEF15',
-              paddingVertical: 8,
-              gap: 6,
-            }}
+            style={themed.infoBanner}
           >
             <Ionicons name="information-circle-outline" size={16} color="#6B9BEF" />
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: t.muted }}>
+            <Text style={themed.infoText}>
               You'll connect these after setup
             </Text>
           </View>
@@ -89,19 +105,12 @@ export default function ConnectScreen() {
         {/* Search bar */}
         <View
           className="flex-row items-center rounded-lg"
-          style={{
-            height: 44,
-            backgroundColor: surface.section,
-            borderWidth: 1,
-            borderColor: surface.border,
-            paddingHorizontal: 14,
-            gap: 10,
-          }}
+          style={themed.searchBar}
         >
           <Ionicons name="search" size={18} color={t.disabled} />
           <TextInput
             className="flex-1"
-            style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.primary }}
+            style={themed.searchInput}
             placeholder="Search apps..."
             placeholderTextColor={t.disabled}
             value={search}
@@ -110,24 +119,18 @@ export default function ConnectScreen() {
         </View>
 
         {/* App grid — preview only, no toggles */}
-        <View style={{ gap: 10 }}>
+        <View style={styles.gridContainer}>
           {rows.map((row, rowIdx) => (
-            <View key={rowIdx} className="flex-row" style={{ gap: 10 }}>
+            <View key={rowIdx} className="flex-row" style={styles.gridRow}>
               {row.map((app) => (
                 <View
                   key={app.slug}
                   className="flex-1 items-center justify-center rounded-xl"
-                  style={{
-                    height: 80,
-                    backgroundColor: surface.section,
-                    borderWidth: 1,
-                    borderColor: surface.border,
-                    gap: 6,
-                  }}
+                  style={themed.appCard}
                 >
                   <AppIcon iconName={app.iconName} iconFamily={app.iconFamily} size={24} color={app.color} />
                   <Text
-                    style={{ fontFamily: 'Inter_500Medium', fontSize: 10, color: t.primary }}
+                    style={themed.appName}
                     numberOfLines={1}
                   >
                     {app.name}
@@ -157,3 +160,25 @@ export default function ConnectScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  mainContainer: {
+    gap: 20,
+  },
+  headerGap: {
+    gap: 8,
+  },
+  headerTitle: {
+    fontFamily: 'Sora_700Bold',
+    fontSize: 32,
+    letterSpacing: -1.5,
+    lineHeight: 32,
+    textAlign: 'center',
+  },
+  gridContainer: {
+    gap: 10,
+  },
+  gridRow: {
+    gap: 10,
+  },
+});

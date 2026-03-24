@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, View, Text, ActivityIndicator } from 'react-native';
+import { Platform, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
 import { signIn } from '@/features/auth/use-auth-store';
@@ -106,12 +106,28 @@ export default function OAuthCallbackScreen() {
       });
   }, [params.code, params.error, params.clientState, router]);
 
+  const containerStyle = { backgroundColor: surface.bg };
+  const statusTextStyle = { color: t.muted };
+
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: surface.bg }}>
+    <View style={[styles.container, containerStyle]}>
       <ActivityIndicator size="large" color="#7C5CFC" />
-      <Text style={{ color: t.muted, marginTop: 16, fontFamily: 'Inter_400Regular', fontSize: 14 }}>
+      <Text style={[styles.statusText, statusTextStyle]}>
         Completing sign-in...
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusText: {
+    marginTop: 16,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+});

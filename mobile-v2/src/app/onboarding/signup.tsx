@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -62,6 +62,57 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Theme-dependent styles
+  const themed = {
+    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
+    title: { color: t.primary },
+    formContainer: { gap: 14, width: '100%' as const },
+    inputRow: {
+      height: 52,
+      borderRadius: 12,
+      backgroundColor: surface.elevated,
+      borderWidth: 1,
+      borderColor: surface.border,
+      paddingHorizontal: 16,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 12,
+    },
+    inputText: { color: t.primary },
+    dividerLine: { flex: 1 as const, height: 1, backgroundColor: surface.border },
+    dividerText: { color: t.muted },
+    socialContainer: { gap: 12, width: '100%' as const },
+    googleButton: {
+      height: 52,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: surface.borderStrong,
+      backgroundColor: surface.card,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 10,
+    },
+    googleButtonHovered: { backgroundColor: surface.cardAlt, borderColor: surface.border },
+    socialButtonText: { color: t.primary },
+    trustBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginTop: 24,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: surface.section,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: surface.border,
+      gap: 8,
+      width: '100%' as const,
+    },
+    trustText: { color: t.secondary },
+    footerText: { color: t.secondary },
+  };
 
   async function handleSignUp() {
     if (!email || !password) {
@@ -190,7 +241,7 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: surface.bg }}>
+    <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={3} />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerClassName="px-6 pb-8 items-center" keyboardShouldPersistTaps="handled">
@@ -200,39 +251,18 @@ export default function SignupScreen() {
             <SectionLabel text="JOIN THE FLOCK" />
           </View>
 
-          <Text
-            style={{
-              color: t.primary,
-              fontSize: 28,
-              fontFamily: 'Sora_700Bold',
-              letterSpacing: -1,
-              textAlign: 'center',
-              marginBottom: 20,
-            }}
-          >
+          <Text style={[styles.title, themed.title]}>
             {'Create Your\nAccount'}
           </Text>
 
           {/* Form */}
-          <View style={{ gap: 14, width: '100%' }}>
+          <View style={themed.formContainer}>
             {/* Email input */}
-            <View
-              style={{
-                height: 52,
-                borderRadius: 12,
-                backgroundColor: surface.elevated,
-                borderWidth: 1,
-                borderColor: surface.border,
-                paddingHorizontal: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
+            <View style={themed.inputRow}>
               <Ionicons name="mail-outline" size={18} color={t.secondary} />
               <TextInput
                 className="flex-1 text-[14px]"
-                style={{ color: t.primary }}
+                style={themed.inputText}
                 placeholder="Email address"
                 placeholderTextColor={t.disabled}
                 value={email}
@@ -245,23 +275,11 @@ export default function SignupScreen() {
             </View>
 
             {/* Password input */}
-            <View
-              style={{
-                height: 52,
-                borderRadius: 12,
-                backgroundColor: surface.elevated,
-                borderWidth: 1,
-                borderColor: surface.border,
-                paddingHorizontal: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
+            <View style={themed.inputRow}>
               <Ionicons name="lock-closed-outline" size={18} color={t.secondary} />
               <TextInput
                 className="flex-1 text-[14px]"
-                style={{ color: t.primary }}
+                style={themed.inputText}
                 placeholder="Password (A-z, 0-9, special, 8+ chars)"
                 placeholderTextColor={t.disabled}
                 value={password}
@@ -285,129 +303,63 @@ export default function SignupScreen() {
 
           {/* Divider */}
           <View className="my-5 w-full flex-row items-center">
-            <View style={{ flex: 1, height: 1, backgroundColor: surface.border }} />
-            <Text
-              style={{
-                color: t.muted,
-                fontSize: 13,
-                fontFamily: 'Inter_500Medium',
-                marginHorizontal: 16,
-              }}
-            >
+            <View style={themed.dividerLine} />
+            <Text style={[styles.dividerText, themed.dividerText]}>
               or continue with
             </Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: surface.border }} />
+            <View style={themed.dividerLine} />
           </View>
 
           {/* Social buttons */}
-          <MotiView {...maybeReduce(entrance(0, 280), reduced)} style={{ gap: 12, width: '100%' }}>
+          <MotiView {...maybeReduce(entrance(0, 280), reduced)} style={themed.socialContainer}>
             <Pressable
               style={({ pressed, hovered }) => [
-                {
-                  height: 52,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: surface.borderStrong,
-                  backgroundColor: surface.card,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                },
+                themed.googleButton,
                 ...pressStyle({ pressed }),
                 webInteractive(),
                 Platform.OS === 'web' && hovered && !pressed
-                  ? { backgroundColor: surface.cardAlt, borderColor: surface.border }
+                  ? themed.googleButtonHovered
                   : undefined,
               ]}
               onPress={handleGoogleSignIn}
               disabled={loading}
             >
               <GoogleIcon />
-              <Text
-                style={{
-                  color: t.primary,
-                  fontSize: 15,
-                  fontFamily: 'Inter_500Medium',
-                }}
-              >
+              <Text style={[styles.socialButtonText, themed.socialButtonText]}>
                 Google
               </Text>
             </Pressable>
 
             <Pressable
               style={({ pressed, hovered }) => [
-                {
-                  height: 52,
-                  borderRadius: 12,
-                  backgroundColor: '#FFFFFF',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                },
+                styles.appleButton,
                 ...pressStyle({ pressed }),
                 webInteractive(),
                 Platform.OS === 'web' && hovered && !pressed
-                  ? { backgroundColor: '#F5F5F5' }
+                  ? styles.appleButtonHovered
                   : undefined,
               ]}
               onPress={handleAppleSignIn}
               disabled={loading}
             >
               <AppleIcon />
-              <Text
-                style={{
-                  color: '#000000',
-                  fontSize: 15,
-                  fontFamily: 'Inter_500Medium',
-                }}
-              >
+              <Text style={styles.appleButtonText}>
                 Apple
               </Text>
             </Pressable>
           </MotiView>
 
           {/* Trust / security note — elevated badge style */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 24,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              backgroundColor: surface.section,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: surface.border,
-              gap: 8,
-              width: '100%',
-            }}
-          >
+          <View style={themed.trustBadge}>
             <Ionicons name="shield-checkmark-outline" size={16} color={purple[500]} />
-            <Text
-              style={{
-                color: t.secondary,
-                fontSize: 13,
-                fontFamily: 'Inter_500Medium',
-                flex: 1,
-                textAlign: 'center',
-              }}
-            >
+            <Text style={[styles.trustText, themed.trustText]}>
               Your data is encrypted and secure
             </Text>
           </View>
 
           {/* Footer — link to login */}
           <View className="mt-4 mb-4 flex-row items-center justify-center">
-            <Text
-              style={{
-                color: t.secondary,
-                fontSize: 14,
-                fontFamily: 'Inter_400Regular',
-              }}
-            >
+            <Text style={[styles.footerText, themed.footerText]}>
               Already have an account?
               {' '}
             </Text>
@@ -419,14 +371,7 @@ export default function SignupScreen() {
                 Platform.OS === 'web' && hovered && !pressed ? { opacity: 0.8 } : undefined,
               ]}
             >
-              <Text
-                style={{
-                  color: purple[400],
-                  fontSize: 14,
-                  fontFamily: 'Inter_600SemiBold',
-                  textDecorationLine: 'underline',
-                }}
-              >
+              <Text style={styles.signInLink}>
                 Sign In
               </Text>
             </Pressable>
@@ -436,3 +381,55 @@ export default function SignupScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  title: {
+    fontSize: 28,
+    fontFamily: 'Sora_700Bold',
+    letterSpacing: -1,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    marginHorizontal: 16,
+  },
+  socialButtonText: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  appleButton: {
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  appleButtonHovered: {
+    backgroundColor: '#F5F5F5',
+  },
+  appleButtonText: {
+    color: '#000000',
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  trustText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    flex: 1,
+    textAlign: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  signInLink: {
+    color: purple[400],
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+    textDecorationLine: 'underline',
+  },
+});

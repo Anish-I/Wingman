@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform, Text, Pressable } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, Pressable, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
 import * as WebBrowser from 'expo-web-browser';
@@ -53,28 +53,64 @@ export default function ConnectAppScreen() {
     })();
   }, [app]);
 
+  const errorContainerStyle = { backgroundColor: surface.bg };
+  const goBackButtonStyle = { backgroundColor: surface.section };
+  const goBackLabelStyle = { color: t.primary };
+  const loadingContainerStyle = { backgroundColor: surface.bg };
+
   if (error) {
     return (
-      <View style={{ flex: 1, backgroundColor: surface.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ color: '#FF6B6B', fontSize: 16, fontFamily: 'Inter_600SemiBold', textAlign: 'center', marginBottom: 16 }}>
+      <View style={[styles.errorContainer, errorContainerStyle]}>
+        <Text style={styles.errorText}>
           {error}
         </Text>
         <Pressable
           onPress={() => router.back()}
           style={[
-            { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, backgroundColor: surface.section },
+            styles.goBackButton,
+            goBackButtonStyle,
             Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined,
           ]}
         >
-          <Text style={{ color: t.primary, fontSize: 14, fontFamily: 'Inter_500Medium' }}>Go Back</Text>
+          <Text style={[styles.goBackLabel, goBackLabelStyle]}>Go Back</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: surface.bg, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={[styles.loadingContainer, loadingContainerStyle]}>
       <ActivityIndicator color="#6B9BEF" size="large" />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  goBackButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  goBackLabel: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

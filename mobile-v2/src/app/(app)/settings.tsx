@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -28,13 +28,38 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
   const { surface, text: t } = useThemeColors();
   const isInteractive = typeof onPress === 'function';
   const shouldShowChevron = showChevron && isInteractive;
+
+  // Theme-dependent styles
+  const themedRow = {
+    backgroundColor: surface.section,
+  };
+  const valueBadge = {
+    backgroundColor: surface.elevated,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  };
+  const valueBadgeText = {
+    color: t.muted,
+    fontSize: 12,
+    fontWeight: '600' as const,
+  };
+  const settingsRowDivider = {
+    height: 1,
+    backgroundColor: surface.border,
+    marginLeft: 56,
+  };
+  const rowHovered = {
+    backgroundColor: surface.elevated,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+  } as any;
+
   const containerStyle = [
-    {
-      backgroundColor: surface.section,
-    },
-    isFirst && { borderTopLeftRadius: 16, borderTopRightRadius: 16 },
-    isLast && { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+    themedRow,
+    isFirst && styles.settingsRowFirstRadius,
+    isLast && styles.settingsRowLastRadius,
   ];
+
   const content = (
     <>
       <View
@@ -46,8 +71,8 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
       <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
       <View className="flex-row items-center gap-1.5">
         {value ? (
-          <View style={{ backgroundColor: surface.elevated, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ color: t.muted, fontSize: 12, fontWeight: '600' }}>{value}</Text>
+          <View style={valueBadge}>
+            <Text style={valueBadgeText}>{value}</Text>
           </View>
         ) : null}
         {shouldShowChevron && <Ionicons name="chevron-forward" size={16} color={t.disabled} />}
@@ -67,7 +92,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
         >
           {content}
         </View>
-        {!isLast && <View style={{ height: 1, backgroundColor: surface.border, marginLeft: 56 }} />}
+        {!isLast && <View style={settingsRowDivider} />}
       </>
     );
   }
@@ -85,18 +110,18 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
           webInteractive(),
           // Web hover: subtle lift and background change
           Platform.OS === 'web' && hovered && !pressed
-            ? { backgroundColor: surface.elevated, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' } as any
+            ? rowHovered
             : undefined,
           // Web focus ring
           Platform.OS === 'web' && focused
-            ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
+            ? styles.webFocusRing as any
             : undefined,
         ]}
         onPress={onPress}
       >
         {content}
       </Pressable>
-      {!isLast && <View style={{ height: 1, backgroundColor: surface.border, marginLeft: 56 }} />}
+      {!isLast && <View style={settingsRowDivider} />}
     </>
   );
 }
@@ -178,6 +203,15 @@ export default function SettingsScreen() {
     ]);
   }
 
+  // Theme-dependent styles
+  const sectionLabel = { color: t.muted };
+  const sectionBorder = { borderWidth: 1, borderColor: surface.border };
+  const statCardBase = { backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border };
+  const logoutHovered = {
+    backgroundColor: '#FF3B30/20',
+    boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)',
+  } as any;
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="pb-12">
@@ -220,10 +254,10 @@ export default function SettingsScreen() {
                 transition: { type: 'spring' as const, damping: 12, delay: 300 + i * 80 },
               }, reducedMotion)}
               className="flex-1 rounded-2xl py-3 items-center"
-              style={{ backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border }}
+              style={statCardBase}
             >
-              <Text style={{ color: stat.color, fontSize: 22, fontWeight: '800' }}>{stat.num}</Text>
-              <Text style={{ color: t.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 }}>{stat.label}</Text>
+              <Text style={[styles.statNumber, { color: stat.color }]}>{stat.num}</Text>
+              <Text style={[styles.statLabel, { color: t.muted }]}>{stat.label}</Text>
             </MotiView>
           ))}
         </MotiView>
@@ -237,8 +271,8 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-2 px-4"
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Account</Text>
-          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
+          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>Account</Text>
+          <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
             <SettingsRow icon="apps-outline" iconColor="#6B9BEF" label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
@@ -254,8 +288,8 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>Preferences</Text>
-          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
+          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>Preferences</Text>
+          <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" value={notificationsEnabled ? 'On' : 'Off'} onPress={handleToggleNotifications} isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value={currentTheme} onPress={handleSelectTheme} />
             <SettingsRow icon="language-outline" iconColor="#6B9BEF" label="Language" value={currentLanguage} onPress={handleSelectLanguage} isLast />
@@ -271,8 +305,8 @@ export default function SettingsScreen() {
           }, reducedMotion)}
           className="mt-6 px-4"
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={{ color: t.muted }}>About</Text>
-          <View className="rounded-2xl overflow-hidden" style={{ borderWidth: 1, borderColor: surface.border }}>
+          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>About</Text>
+          <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="information-circle-outline" iconColor="#6B9BEF" label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />
             <SettingsRow icon="document-text-outline" iconColor="#8A8A8A" label="Terms" isLast />
@@ -297,10 +331,10 @@ export default function SettingsScreen() {
               webInteractive(),
               // Web hover: enhance background
               Platform.OS === 'web' && hovered && !pressed
-                ? { backgroundColor: '#FF3B30/20', boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)' } as any
+                ? logoutHovered
                 : undefined,
               Platform.OS === 'web' && focused
-                ? { boxShadow: '0 0 0 2px rgba(255, 59, 48, 0.3)' } as any
+                ? styles.logoutFocusRing as any
                 : undefined,
             ]}
           >
@@ -312,3 +346,30 @@ export default function SettingsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  settingsRowFirstRadius: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  settingsRowLastRadius: {
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  statNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  webFocusRing: {
+    boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)',
+  } as any,
+  logoutFocusRing: {
+    boxShadow: '0 0 0 2px rgba(255, 59, 48, 0.3)',
+  } as any,
+});

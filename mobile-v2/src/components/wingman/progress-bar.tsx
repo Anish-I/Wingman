@@ -1,6 +1,6 @@
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { purple, semantic, useThemeColors } from '@/components/ui/tokens';
 import { useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -19,6 +19,19 @@ export default function ProgressBar({ step, total = 7, variant = 'purple' }: Pro
     <View className="flex-row gap-2 px-6 pt-3 pb-2">
       {Array.from({ length: total }, (_, i) => {
         const isActive = i < step;
+
+        const segmentStyle = {
+          ...styles.segment,
+          height: isActive ? 3.5 : 2,
+          backgroundColor: isActive ? activeColor : surface.border,
+          // Subtle glow on active segments
+          ...(isActive && variant === 'purple'
+            ? {
+              ...styles.activeGlow,
+            }
+            : {}),
+        };
+
         return (
           <MotiView
             key={i}
@@ -33,24 +46,23 @@ export default function ProgressBar({ step, total = 7, variant = 'purple' }: Pro
                 delay: i * 30,
               },
             }, reduced)}
-            style={{
-              height: isActive ? 3.5 : 2,
-              borderRadius: 2.5,
-              backgroundColor: isActive ? activeColor : surface.border,
-              // Subtle glow on active segments
-              ...(isActive && variant === 'purple'
-                ? {
-                  shadowColor: purple[500],
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 3,
-                  elevation: 1,
-                }
-                : {}),
-            }}
+            style={segmentStyle}
           />
         );
       })}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  segment: {
+    borderRadius: 2.5,
+  },
+  activeGlow: {
+    shadowColor: purple[500],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+});

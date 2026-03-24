@@ -2,7 +2,7 @@ import type { ImageSourcePropType } from 'react-native';
 import type { PipExpression } from '@/types';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { purple, useThemeColors } from '@/components/ui/tokens';
 import { useReducedMotion } from '@/lib/motion';
 
@@ -71,6 +71,32 @@ export default function PipCard({ expression = 'happy', size = 'large', classNam
 
   const shouldBreathe = (size === 'large' || size === 'medium') && !reduced;
 
+  const avatarContainerStyle = {
+    ...styles.avatarContainer,
+    width: imageSize,
+    height: imageSize,
+    borderRadius: imageSize / 2,
+    backgroundColor: surface.section,
+    borderWidth: showBorder ? 1.5 : 0,
+    borderColor: showBorder ? purple[500] : 'transparent',
+    // Premium glow for larger sizes
+    ...(showBorder
+      ? {
+        shadowColor: purple[500],
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 2,
+      }
+      : {}),
+  };
+
+  const imageStyle = {
+    ...styles.image,
+    width: scaledSize,
+    height: scaledSize,
+  };
+
   return (
     <View className={`items-center ${className ?? ''}`}>
       <MotiView
@@ -82,35 +108,24 @@ export default function PipCard({ expression = 'happy', size = 'large', classNam
             : undefined
         }
       >
-        <View
-          style={{
-            width: imageSize,
-            height: imageSize,
-            borderRadius: imageSize / 2,
-            backgroundColor: surface.section,
-            borderWidth: showBorder ? 1.5 : 0,
-            borderColor: showBorder ? purple[500] : 'transparent',
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-            // Premium glow for larger sizes
-            ...(showBorder
-              ? {
-                shadowColor: purple[500],
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.12,
-                shadowRadius: 8,
-                elevation: 2,
-              }
-              : {}),
-          }}
-        >
+        <View style={avatarContainerStyle}>
           <Image
             source={pipImages[expression] || pipImages.happy}
-            style={{ width: scaledSize, height: scaledSize, resizeMode: 'cover' }}
+            style={imageStyle}
           />
         </View>
       </MotiView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  avatarContainer: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  image: {
+    resizeMode: 'cover',
+  },
+});

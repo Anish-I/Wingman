@@ -3,7 +3,7 @@ import type { PressableProps, View } from 'react-native';
 import type { VariantProps } from 'tailwind-variants';
 import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, Text } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
 import { shadows } from '@/components/ui/tokens';
 import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
@@ -194,7 +194,7 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
                 : (
                     <>
                       {icon
-                        ? <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        ? <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" style={buttonStyles.iconMargin} />
                         : null}
                       <Text
                         testID={testID ? `${testID}-label` : undefined}
@@ -203,7 +203,7 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
                         {text}
                       </Text>
                       {showArrow
-                        ? <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
+                        ? <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={buttonStyles.arrowMargin} />
                         : null}
                     </>
                   )}
@@ -212,3 +212,12 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
     </Pressable>
   );
 }
+
+const buttonStyles = StyleSheet.create({
+  iconMargin: {
+    marginRight: 4,
+  },
+  arrowMargin: {
+    marginLeft: 4,
+  },
+});
