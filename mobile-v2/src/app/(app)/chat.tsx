@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
-import { springs, delays, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
 
@@ -46,7 +46,7 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
                 duration: 350,
                 loop: true,
                 repeatReverse: true,
-                delay: i * 120,
+                delay: staggerDelay(i, delays.normal),
               },
             }, !!reducedMotion)}
             style={styles.typingDot}

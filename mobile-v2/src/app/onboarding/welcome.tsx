@@ -9,7 +9,7 @@ import { useThemeColors, purple, radii } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
-import { popIn, entrance, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { popIn, entrance, gentleFloat, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -38,14 +38,14 @@ export default function WelcomeScreen() {
       <ProgressBar step={1} />
       <View className="flex-1 items-center justify-center px-6">
         {/* Pip avatar with floating animation */}
-        <MotiView {...maybeReduce(popIn(0, 50), reduced)}>
-          <MotiView {...maybeReduce(gentleFloat(300), reduced)}>
+        <MotiView {...maybeReduce(popIn(0, delays.fast), reduced)}>
+          <MotiView {...maybeReduce(gentleFloat(delays.sequence), reduced)}>
             <PipCard expression="wave" size="large" />
           </MotiView>
         </MotiView>
 
         {/* Welcome card with smooth entrance and micro-delay */}
-        <MotiView {...maybeReduce(entrance(0, 250), reduced)} style={themed.entranceContainer}>
+        <MotiView {...maybeReduce(entrance(0, delays.slow), reduced)} style={themed.entranceContainer}>
           <View style={themed.welcomeCard}>
             <Text style={[styles.meetPipTitle, themed.meetPipTitle]}>
               {'Meet Pip'}

@@ -23,7 +23,7 @@ import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
 import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
-import { headerEntrance, entrance, popIn, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { headerEntrance, entrance, popIn, delays, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
 // Category mapping
@@ -724,7 +724,7 @@ export default function AppsScreen() {
 
       {/* Search */}
       <MotiView
-        {...maybeReduce(entrance(0, 100), reduced)}
+        {...maybeReduce(entrance(0, delays.normal), reduced)}
         className="flex-row items-center rounded-2xl mx-6 mb-3 px-4"
         style={ts.searchBar}
       >

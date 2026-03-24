@@ -289,7 +289,7 @@ export default function WorkflowsScreen() {
             <Text style={s.mutedText} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
-            {...maybeReduce(popIn(0, 200), reduced)}
+            {...maybeReduce(popIn(0, delays.slow), reduced)}
           >
             <View className="bg-pip-purple/15 rounded-2xl px-4 py-2 items-center">
               <Text className="text-pip-purple text-[20px] font-extrabold">{workflows.length}</Text>
@@ -308,7 +308,7 @@ export default function WorkflowsScreen() {
             <View className="mt-4 mb-2">
               {/* Empty state with templates */}
               <MotiView
-                {...maybeReduce(popIn(0, 200), reduced)}
+                {...maybeReduce(popIn(0, delays.slow), reduced)}
                 className="items-center mb-6"
               >
                 <PipCard expression="thinking" size="small" />
@@ -323,7 +323,7 @@ export default function WorkflowsScreen() {
                 {TEMPLATES.map((t, i) => (
                   <MotiView
                     key={t.title}
-                    {...maybeReduce(slideIn(i, 350), reduced)}
+                    {...maybeReduce(slideIn(i, delays.slow), reduced)}
                   >
                     <Pressable
                       accessibilityRole="button"
@@ -358,7 +358,7 @@ export default function WorkflowsScreen() {
           const trigger = getTriggerIcon(item.trigger_type);
           return (
             <MotiView
-              {...maybeReduce(entrance(index, 100), reduced)}
+              {...maybeReduce(entrance(index, delays.normal), reduced)}
             >
               <View className="rounded-2xl p-4 gap-3" style={s.workflowCard}>
                 <View className="flex-row items-center gap-3">

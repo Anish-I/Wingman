@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { springs, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { springs, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type GradientButtonProps = {
   title: string;
@@ -32,7 +32,7 @@ export default function GradientButton({
       {...maybeReduce({
         from: { opacity: 0, translateY: 12 },
         animate: { opacity: disabled ? 0.5 : 1, translateY: 0 },
-        transition: { ...springs.snappy, delay: 80 },
+        transition: { ...springs.snappy, delay: delays.fast },
       }, reduced)}
     >
       <Button

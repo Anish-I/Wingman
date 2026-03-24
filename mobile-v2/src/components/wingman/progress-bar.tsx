@@ -2,7 +2,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { purple, semantic, useThemeColors } from '@/components/ui/tokens';
-import { useReducedMotion, maybeReduce } from '@/lib/motion';
+import { springs, staggerDelay, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type ProgressBarProps = {
   step: number;
@@ -40,10 +40,8 @@ export default function ProgressBar({ step, total = 7, variant = 'purple' }: Pro
               from: { opacity: isActive ? 0.2 : 0.5, scaleX: isActive ? 0.4 : 1 },
               animate: { opacity: 1, scaleX: 1 },
               transition: {
-                type: 'spring' as const,
-                damping: 16,
-                stiffness: 150,
-                delay: i * 30,
+                ...springs.progress,
+                delay: staggerDelay(i),
               },
             }, reduced)}
             style={segmentStyle}

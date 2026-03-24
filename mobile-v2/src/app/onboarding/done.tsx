@@ -10,7 +10,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { blue, semantic, teal, typography, useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
-import { popIn, entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { popIn, entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const CONFETTI_COLORS = [semantic.info, semantic.success, '#9B7EC8', '#F5A623', teal[300], blue[500]];
 
@@ -104,12 +104,12 @@ export default function DoneScreen() {
       {/* Content */}
       <View className="flex-1 items-center justify-center px-6" style={styles.contentGap}>
         {/* Pip */}
-        <MotiView {...maybeReduce(popIn(0, 200), reduced)}>
+        <MotiView {...maybeReduce(popIn(0, delays.none), reduced)}>
           <PipCard expression="clap" size="large" className="" />
         </MotiView>
 
         {/* Header */}
-        <MotiView {...maybeReduce(entrance(0, 400), reduced)} className="items-center" style={styles.headerGap}>
+        <MotiView {...maybeReduce(entrance(0, delays.slow), reduced)} className="items-center" style={styles.headerGap}>
           {/* Section label with lines on both sides */}
           <View className="flex-row items-center" style={styles.completeLabelRow}>
             <View style={styles.completeLine} />
@@ -128,7 +128,7 @@ export default function DoneScreen() {
         </MotiView>
 
         {/* Hint to connect apps */}
-        <MotiView {...maybeReduce(popIn(0, 600), reduced)}>
+        <MotiView {...maybeReduce(popIn(0, delays.sequence), reduced)}>
           <View
             className="flex-row items-center rounded-lg px-4"
             style={themed.hintBanner}

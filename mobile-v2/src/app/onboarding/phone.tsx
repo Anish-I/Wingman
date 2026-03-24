@@ -13,7 +13,7 @@ import { base, semantic, typography, useThemeColors } from '@/components/ui/toke
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
-import { useReducedMotion } from '@/lib/motion';
+import { springs, useReducedMotion } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -307,7 +307,7 @@ export default function PhoneScreen() {
               {...(reduced ? {} : {
                 from: { scale: 0, opacity: 0 },
                 animate: { scale: 1, opacity: 1 },
-                transition: { type: 'spring', damping: 10, stiffness: 100 },
+                transition: springs.bouncy,
               })}
               className="items-center"
               style={styles.successSection}

@@ -73,6 +73,8 @@ export const springs = {
   micro: { type: 'spring' as const, damping: 22, stiffness: 280 },
   /** Extra bouncy for emphasis (FABs, important CTAs) */
   bouncier: { type: 'spring' as const, damping: 8, stiffness: 110 },
+  /** Progress bar / segment reveal — snappy with slight settle */
+  progress: { type: 'spring' as const, damping: 16, stiffness: 150 },
 } as const;
 
 // ── Timing presets ─────────────────────────────────────────────
@@ -93,6 +95,8 @@ export const delays = {
   normal: 100,
   /** Slightly deferred elements (badges, counts, FABs) */
   slow: 200,
+  /** Sequential content after main entrance (headers after hero, hint banners) */
+  sequence: 300,
 } as const;
 
 // ── Stagger delay ──────────────────────────────────────────────
@@ -127,7 +131,7 @@ export function entrance(index = 0, baseDelay = 0) {
 }
 
 /** Scale-up pop entrance (avatars, badges, FABs) */
-export function popIn(index = 0, baseDelay = 200) {
+export function popIn(index = 0, baseDelay: number = delays.fast) {
   return {
     from: { opacity: 0, scale: 0.7 },
     animate: { opacity: 1, scale: 1 },
@@ -136,7 +140,7 @@ export function popIn(index = 0, baseDelay = 200) {
 }
 
 /** Slide-in from left (template rows, side content) */
-export function slideIn(index = 0, baseDelay = 200) {
+export function slideIn(index = 0, baseDelay: number = delays.fast) {
   return {
     from: { opacity: 0, translateX: -20 },
     animate: { opacity: 1, translateX: 0 },
@@ -145,7 +149,7 @@ export function slideIn(index = 0, baseDelay = 200) {
 }
 
 /** Slide-in from right (secondary actions, trailing elements) */
-export function slideInRight(index = 0, baseDelay = 200) {
+export function slideInRight(index = 0, baseDelay: number = delays.fast) {
   return {
     from: { opacity: 0, translateX: 20 },
     animate: { opacity: 1, translateX: 0 },
@@ -270,11 +274,7 @@ export function sendButtonPulse() {
   return {
     from: { scale: 1 },
     animate: { scale: 1.08 },
-    transition: {
-      type: 'spring' as const,
-      damping: 14,
-      stiffness: 180,
-    },
+    transition: springs.snappy,
   } as const;
 }
 

@@ -9,7 +9,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
-import { entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const FEATURES = [
   { icon: 'calendar-outline' as const, title: 'Schedule meetings', accent: blue[400] },
@@ -60,7 +60,7 @@ export default function FeaturesScreen() {
           {FEATURES.map((feat, i) => (
             <MotiView
               key={i}
-              {...maybeReduce(entrance(i, 180), reducedMotion)}
+              {...maybeReduce(entrance(i, delays.normal), reducedMotion)}
             >
               <View
                 accessible

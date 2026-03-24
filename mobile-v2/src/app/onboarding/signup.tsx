@@ -17,7 +17,7 @@ import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { setItem, removeItem, getItem } from '@/lib/storage';
-import { entrance, pressStyle, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { entrance, delays, pressStyle, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 /** Generate a cryptographically random hex string for OAuth CSRF protection. */
 function generateOAuthState(): string {
@@ -293,7 +293,7 @@ export default function SignupScreen() {
           </View>
 
           {/* Social buttons */}
-          <MotiView {...maybeReduce(entrance(0, 280), reduced)} style={themed.socialContainer}>
+          <MotiView {...maybeReduce(entrance(0, delays.sequence), reduced)} style={themed.socialContainer}>
             <Pressable
               style={({ pressed, hovered }) => [
                 themed.googleButton,
