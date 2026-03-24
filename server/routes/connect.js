@@ -11,7 +11,6 @@ const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_SECRET = process.env.OTP_SECRET; // Dedicated HMAC key — avoids reusing JWT_SECRET for non-JWT operations
-const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
 const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
 // HMAC to bind OAuth callback to the browser that initiated the flow (IDOR fix)
@@ -142,8 +141,7 @@ router.get('/initiate', requireAuth, async (req, res) => {
       return res.status(403).json({ error: { code: 'USER_MISMATCH', message: 'Connect token does not belong to the authenticated user.' } });
     }
     const state = await generateOAuthState(userId, app);
-    const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
-    const url = await getConnectionLink(userId, app, redirectUrl);
+    const url = await getConnectionLink(userId, app, state);
     res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
@@ -257,8 +255,7 @@ router.get('/:app', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'INVALID_APP', message: 'Unsupported app.' } });
     }
     const state = await generateOAuthState(req.user.id, app);
-    const redirectUrl = `${BASE_URL}/connect/callback?state=${state}`;
-    const url = await getConnectionLink(req.user.id, app, redirectUrl);
+    const url = await getConnectionLink(req.user.id, app, state);
     res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
