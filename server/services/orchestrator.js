@@ -602,11 +602,14 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
 
   // Fire-and-forget: extract memory with AbortController timeout (best-effort, must never crash)
+  // Snapshot messages so extraction works on a frozen copy — the live array
+  // may be mutated by subsequent requests after the lock is released.
   const MEMORY_EXTRACTION_TIMEOUT = 30000;
   const memoryAC = new AbortController();
   const memoryTimer = setTimeout(() => memoryAC.abort(new Error('memory extraction timed out')), MEMORY_EXTRACTION_TIMEOUT);
   if (memoryTimer.unref) memoryTimer.unref();
-  extractAndSaveMemory(user, messages, { signal: memoryAC.signal })
+  const messagesSnapshot = messages.map(m => ({ ...m }));
+  extractAndSaveMemory(user, messagesSnapshot, { signal: memoryAC.signal })
     .finally(() => clearTimeout(memoryTimer))
     .catch(err => { logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`); });
 
