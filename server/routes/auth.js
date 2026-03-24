@@ -463,6 +463,135 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
+// Rate limit password reset requests: 3 per 15 minutes per IP
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many password reset requests, please try again later.' } },
+});
+
+const PASSWORD_RESET_TTL = 900; // 15 minutes
+
+// POST /auth/request-password-reset — send a reset token to user's email
+router.post('/request-password-reset', passwordResetLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email is required.' } });
+    }
+    const normalizedEmail = email.toLowerCase();
+
+    // Per-email rate limiting in Redis (prevents distributed reset-spam)
+    const emailKey = `pw_reset_attempts:${normalizedEmail}`;
+    const attempts = await redis.incr(emailKey);
+    if (attempts === 1) await redis.expire(emailKey, PASSWORD_RESET_TTL);
+    if (attempts > 3) {
+      // Still return 200 to avoid email enumeration
+      return res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent.' });
+    }
+
+    const user = await getUserByEmail(normalizedEmail);
+
+    // Always return success to prevent email enumeration
+    if (!user || !user.pin_hash) {
+      return res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent.' });
+    }
+
+    // Generate a 6-digit reset code (same pattern as OTP)
+    const resetCode = String(crypto.randomInt(100000, 999999));
+    const resetHash = crypto.createHmac('sha256', OTP_SECRET).update(resetCode).digest('hex');
+    const redisKey = `pw_reset:${normalizedEmail}`;
+    await redis.set(redisKey, JSON.stringify({ hash: resetHash }), 'EX', PASSWORD_RESET_TTL);
+
+    // Send via messaging provider (stub mode logs to console)
+    if (user.phone && !user.phone.startsWith('email:') && !user.phone.startsWith('google:') && !user.phone.startsWith('apple:')) {
+      try {
+        await provider.send(user.phone, `Your Wingman password reset code is: ${resetCode}. It expires in 15 minutes.`);
+      } catch (sendErr) {
+        logger.error({ err: sendErr.message }, 'Failed to send password reset code via SMS');
+      }
+    }
+
+    // In stub/dev mode, also log to console for convenience
+    if (process.env.MESSAGING_PROVIDER === 'stub' || !process.env.MESSAGING_PROVIDER) {
+      console.log(`[PASSWORD RESET] Code for ${normalizedEmail}: ${resetCode}`);
+    }
+
+    res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent.' });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Password reset request error');
+    res.status(500).json({ error: { code: 'RESET_ERROR', message: 'Password reset request failed. Please try again.' } });
+  }
+});
+
+// POST /auth/reset-password — verify reset code and set new password
+router.post('/reset-password', passwordResetLimiter, async (req, res) => {
+  try {
+    const { email, code, password } = req.body;
+    if (!email || !code || !password) {
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email, code, and new password are required.' } });
+    }
+    if (typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: { code: 'INVALID_CODE', message: 'Reset code must be 6 digits.' } });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: { code: 'PASSWORD_TOO_SHORT', message: 'Password must be at least 8 characters.' } });
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return res.status(400).json({ error: { code: 'PASSWORD_TOO_WEAK', message: 'Password must include uppercase, lowercase, digit, and special character.' } });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Rate limit verification attempts per email
+    const attemptKey = `pw_reset_verify:${normalizedEmail}`;
+    const verifyAttempts = await redis.incr(attemptKey);
+    if (verifyAttempts === 1) await redis.expire(attemptKey, PASSWORD_RESET_TTL);
+    if (verifyAttempts > 5) {
+      // Burn the token after too many failed attempts
+      await redis.del(`pw_reset:${normalizedEmail}`);
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed attempts. Please request a new reset code.' } });
+    }
+
+    const redisKey = `pw_reset:${normalizedEmail}`;
+    // Atomically retrieve AND delete the reset token (single-use)
+    const storedRaw = await redis.call('GETDEL', redisKey);
+    if (!storedRaw) {
+      return res.status(400).json({ error: { code: 'INVALID_OR_EXPIRED', message: 'Reset code is invalid or has expired.' } });
+    }
+
+    let storedHash;
+    try {
+      storedHash = JSON.parse(storedRaw).hash;
+    } catch {
+      return res.status(400).json({ error: { code: 'INVALID_OR_EXPIRED', message: 'Reset code is invalid or has expired.' } });
+    }
+
+    const codeHash = crypto.createHmac('sha256', OTP_SECRET).update(code).digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(codeHash, 'hex'), Buffer.from(storedHash, 'hex'))) {
+      return res.status(400).json({ error: { code: 'INVALID_CODE', message: 'Incorrect reset code.' } });
+    }
+
+    const user = await getUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(400).json({ error: { code: 'INVALID_OR_EXPIRED', message: 'Reset code is invalid or has expired.' } });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await updateUserPin(user.id, passwordHash);
+
+    // Clear verification attempt counters
+    await redis.del(attemptKey);
+
+    res.json({ success: true, message: 'Password has been reset successfully. Please sign in with your new password.' });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Password reset error');
+    res.status(500).json({ error: { code: 'RESET_ERROR', message: 'Password reset failed. Please try again.' } });
+  }
+});
+
 // POST /auth/request-otp
 router.post('/request-otp', otpLimiter, async (req, res) => {
   try {
