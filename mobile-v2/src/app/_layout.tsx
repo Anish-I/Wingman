@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useThemeConfig } from '@/components/ui/use-theme-config';
 import { useThemeColors } from '@/components/ui/tokens';
-import { hydrateAuth } from '@/features/auth/use-auth-store';
+import { hydrateAuth, useAuthStore } from '@/features/auth/use-auth-store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
 import { initStorage } from '@/lib/storage';
@@ -33,15 +33,21 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     async function bootstrap() {
+      let storageReady = true;
       try {
         await initStorage();
       } catch (error) {
         console.error('[bootstrap] Failed to initialize app storage:', error);
+        storageReady = false;
       }
-      // Always hydrate auth even if storage init failed — hydrate() has its
-      // own try/catch and will fall back to signOut, which prevents the app
-      // from being stuck on 'idle' (rendering nothing) indefinitely.
-      hydrateAuth();
+      if (storageReady) {
+        hydrateAuth();
+      } else {
+        // Storage is unavailable — skip hydration (which would throw accessing
+        // null storage) and force signOut directly so the app never stays in
+        // the 'idle' state rendering nothing.
+        useAuthStore.setState({ status: 'signOut', token: null });
+      }
       loadSelectedTheme();
       setReady(true);
     }

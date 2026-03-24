@@ -104,9 +104,13 @@ const _useAuthStore = create<AuthState>((set, get) => ({
       set({ status: 'signOut', token: null });
     }
     // Drain any tokens that failed to blacklist before the app was killed
-    const pending = getPendingBlacklist();
-    for (const tok of pending) {
-      blacklistToken(tok);
+    try {
+      const pending = getPendingBlacklist();
+      for (const tok of pending) {
+        blacklistToken(tok);
+      }
+    } catch {
+      // Storage may be unavailable — skip blacklist drain
     }
   },
 }));
