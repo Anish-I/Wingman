@@ -550,11 +550,18 @@ async function getWorkflowRun(runId) {
 }
 
 async function claimWorkflowRunForResume(runId) {
-  const result = await query(
-    "UPDATE workflow_runs SET status = 'running' WHERE id = $1 AND status IN ('waiting', 'delayed') RETURNING *",
-    [runId]
-  );
-  return result.rows[0] || null;
+  return withTransaction(async (txQuery) => {
+    const lock = await txQuery(
+      "SELECT id FROM workflow_runs WHERE id = $1 AND status IN ('waiting', 'delayed') FOR UPDATE SKIP LOCKED",
+      [runId]
+    );
+    if (lock.rows.length === 0) return null;
+    const result = await txQuery(
+      "UPDATE workflow_runs SET status = 'running' WHERE id = $1 RETURNING *",
+      [runId]
+    );
+    return result.rows[0] || null;
+  });
 }
 
 async function getLastWorkflowRunContext(workflowId) {
