@@ -258,9 +258,19 @@ const server = app.listen(PORT, () => {
 async function shutdown(signal) {
   logger.info(`${signal} received. Shutting down gracefully...`);
 
-  // 1. Stop accepting new connections
-  server.close(() => {
-    logger.info('HTTP server closed.');
+  // Force-exit after 15 seconds if graceful shutdown stalls
+  const forceTimer = setTimeout(() => {
+    logger.error('Graceful shutdown timed out after 15s, forcing exit');
+    process.exit(1);
+  }, 15_000);
+  forceTimer.unref();
+
+  // 1. Stop accepting new connections and wait for in-flight requests to finish
+  await new Promise((resolve) => {
+    server.close(() => {
+      logger.info('HTTP server closed.');
+      resolve();
+    });
   });
 
   try {
