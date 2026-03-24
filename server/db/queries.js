@@ -655,6 +655,15 @@ async function claimPendingReplyForUser(userId, replyText) {
   return result.rows[0] || null;
 }
 
+async function unclaimPendingReply(replyId) {
+  await query(
+    `UPDATE workflow_pending_replies
+     SET resolved_at = NULL, reply_text = NULL
+     WHERE id = $1`,
+    [replyId]
+  );
+}
+
 module.exports = {
   getUserByPhone,
   getUserByEmail,
@@ -698,6 +707,7 @@ module.exports = {
   getPendingReplyForUser,
   resolvePendingReply,
   claimPendingReplyForUser,
+  unclaimPendingReply,
   mergeUserAccounts,
   isSyntheticPhone,
   isRealPhone,

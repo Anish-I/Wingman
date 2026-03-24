@@ -143,21 +143,24 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   const { user, created: isNewUser } = await getOrCreateUserByPhone(phone);
 
   // Check for pending workflow replies (atomic claim prevents duplicate processing on concurrent webhooks)
-  const { claimPendingReplyForUser } = require('../db/queries');
+  const { claimPendingReplyForUser, unclaimPendingReply } = require('../db/queries');
   const pendingReply = await claimPendingReplyForUser(user.id, messageText);
   if (pendingReply) {
     const { resumeWorkflowRun } = require('../services/workflow-agent');
-    await appendMessage(user.id, 'user', messageText);
-    await provider.sendMessage(phone, 'Got it! Processing your reply...');
-    await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
     try {
       await resumeWorkflowRun(pendingReply.run_id, messageText);
     } catch (err) {
+      // Unclaim so the next retry (or manual re-send) can pick it up
+      try { await unclaimPendingReply(pendingReply.id); } catch (_) { /* best-effort */ }
       logger.error({ err: err.message }, '[sms] Workflow resume error');
       const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';
       await provider.sendMessage(phone, failMsg);
       await appendMessage(user.id, 'assistant', failMsg);
+      return respond(200);
     }
+    await appendMessage(user.id, 'user', messageText);
+    await provider.sendMessage(phone, 'Got it! Processing your reply...');
+    await appendMessage(user.id, 'assistant', 'Got it! Processing your reply...');
     return respond(200);
   }
 
