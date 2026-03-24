@@ -8,7 +8,11 @@ const pg = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { createRedisClient } = require('../services/redis');
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://wingman:wingman@localhost:5432/wingman';
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('DATABASE_URL environment variable is required. Set it in your .env file.');
+  process.exit(1);
+}
 
 const TEST_PHONE = '+15005550006';
 const TEST_OTP = '1234';

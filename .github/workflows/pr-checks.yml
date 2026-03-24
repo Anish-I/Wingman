@@ -44,12 +44,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: wingman
-          POSTGRES_PASSWORD: wingman
-          POSTGRES_DB: wingman
+          POSTGRES_USER: ci_test
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: wingman_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd="pg_isready -U wingman"
+          --health-cmd="pg_isready -U ci_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -79,7 +79,7 @@ jobs:
         run: npm test
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://wingman:wingman@localhost:5432/wingman
+          DATABASE_URL: postgresql://ci_test:ci_test_password@localhost:5432/wingman_test
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: ci-test-secret-do-not-use-in-production
           MESSAGING_PROVIDER: stub
