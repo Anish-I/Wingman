@@ -290,40 +290,42 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     }
 
     const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-    const toolCallPromise = toolset.executeToolCall({
-      id: toolCallBlock.id,
-      type: 'function',
-      function: {
-        name: toolCallBlock.name,
-        arguments: JSON.stringify(toolCallBlock.input),
-      },
-    });
 
-    // Race the SDK call against the abort signal so that when the
-    // iteration/request timeout fires, we stop waiting immediately
-    // rather than letting the HTTP call run to completion in the foreground.
-    let raw;
-    if (signal) {
-      raw = await new Promise((resolve, reject) => {
+    // Inject the abort signal into the SDK's underlying axios instance so
+    // that in-flight HTTP requests are actually cancelled — not just raced —
+    // when the iteration/request timeout fires.  Without this, the Composio
+    // API call completes in the background and side-effecting tools (send
+    // email, create ticket) execute even after the orchestrator has moved on.
+    let interceptorId;
+    const axiosInstance = toolset.backendClient?.instance;
+    if (signal && axiosInstance?.interceptors?.request) {
+      interceptorId = axiosInstance.interceptors.request.use((config) => {
         if (signal.aborted) {
-          const err = new Error(`Aborted during ${toolCallBlock.name}`);
+          const err = new Error(`Aborted before HTTP request for ${toolCallBlock.name}`);
           err.name = 'AbortError';
-          reject(err);
-          return;
+          throw err;
         }
-        const onAbort = () => {
-          const err = new Error(`Aborted during ${toolCallBlock.name}`);
-          err.name = 'AbortError';
-          reject(err);
-        };
-        signal.addEventListener('abort', onAbort, { once: true });
-        toolCallPromise.then(
-          (val) => { signal.removeEventListener('abort', onAbort); resolve(val); },
-          (err) => { signal.removeEventListener('abort', onAbort); reject(err); }
-        );
+        // Attach signal so axios cancels the request if abort fires mid-flight
+        config.signal = signal;
+        return config;
       });
-    } else {
-      raw = await toolCallPromise;
+    }
+
+    let raw;
+    try {
+      raw = await toolset.executeToolCall({
+        id: toolCallBlock.id,
+        type: 'function',
+        function: {
+          name: toolCallBlock.name,
+          arguments: JSON.stringify(toolCallBlock.input),
+        },
+      });
+    } finally {
+      // Clean up the interceptor so it doesn't leak across calls
+      if (interceptorId !== undefined && axiosInstance?.interceptors?.request) {
+        axiosInstance.interceptors.request.eject(interceptorId);
+      }
     }
 
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
