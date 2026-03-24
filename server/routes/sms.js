@@ -157,10 +157,12 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
   }
 });
 
+// Lock TTL (seconds) — Redis auto-expires the key if the holder crashes.
+const LOCK_TTL_SECONDS = 120;
 // Maximum time (ms) to wait for the per-user conversation lock before giving up.
-// Must cover the lock TTL (default 120s) so a stale lock from a crashed process
+// Must exceed LOCK_TTL_SECONDS so a stale lock from a crashed process
 // can be waited out rather than causing persistent failures.
-const LOCK_WAIT_MS = 130_000;
+const LOCK_WAIT_MS = (LOCK_TTL_SECONDS + 10) * 1000; // TTL + 10s buffer
 const LOCK_POLL_MS = 500;
 
 async function handleIncomingSMS(phone, messageText, res, isTwilio) {
@@ -178,7 +180,7 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   let release;
   const deadline = Date.now() + LOCK_WAIT_MS;
   while (!release && Date.now() < deadline) {
-    release = await acquireConversationLock(user.id);
+    release = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
     if (!release) await new Promise((r) => setTimeout(r, LOCK_POLL_MS));
   }
   if (!release) {
