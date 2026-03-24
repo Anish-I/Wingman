@@ -460,9 +460,10 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     }
 
     // Per-phone throttling: 60-second cooldown between OTP requests
+    // Use SET NX EX atomically to prevent race conditions between check and set
     const cooldownKey = `otp_cooldown:${phone}`;
-    const cooldownExists = await redis.exists(cooldownKey);
-    if (cooldownExists) {
+    const cooldownSet = await redis.set(cooldownKey, '1', 'EX', 60, 'NX');
+    if (!cooldownSet) {
       return res.status(429).json({ error: { code: 'OTP_COOLDOWN', message: 'Please wait before requesting another code.' } });
     }
 
@@ -524,8 +525,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     const otpValue = JSON.stringify({ hash: otpHash, requester: requestingUserId ? String(requestingUserId) : null, requestId: otpRequestId });
     await redis.set(`otp:${phone}`, otpValue, 'EX', OTP_TTL);
 
-    // Set 60-second cooldown
-    await redis.set(cooldownKey, '1', 'EX', 60);
+    // Cooldown already set atomically above via SET NX EX
     // Increment daily quota counter (24-hour TTL set on first request)
     await redis.incr(quotaKey);
     if (dailyCount === 0) {
