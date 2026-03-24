@@ -210,35 +210,13 @@ const AppCard = React.memo(function AppCard({
   const { surface } = useThemeColors();
   const { appCardWidth, appIconSize, appLogoSize } = useResponsive();
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const s = {
-    appCardConnected: {
-      width: appCardWidth,
-      backgroundColor: surface.card,
-      borderWidth: 1.5,
-      borderColor: 'rgba(50, 215, 75, 0.35)',
-    },
-    appCardDisconnected: {
-      width: appCardWidth,
-      backgroundColor: surface.cardAlt,
-      borderWidth: 1,
-      borderColor: surface.border,
-    },
-    appCardHovered: {
-      borderColor: surface.borderStrong,
-      boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
-      transform: [{ scale: 1.03 }],
-    } as any,
-    iconContainer: {
-      width: appIconSize,
-      height: appIconSize,
-      backgroundColor: surface.card,
-    },
-    logo: {
-      width: appLogoSize,
-      height: appLogoSize,
-      borderRadius: 8,
-    },
+    appCardConnected: [styles.appCardConnected, { width: appCardWidth, backgroundColor: surface.card }],
+    appCardDisconnected: [styles.appCardDisconnected, { width: appCardWidth, backgroundColor: surface.cardAlt, borderColor: surface.border }],
+    appCardHovered: [styles.appCardHovered, { borderColor: surface.borderStrong }],
+    iconContainer: { width: appIconSize, height: appIconSize, backgroundColor: surface.card },
+    logo: [styles.appLogo, { width: appLogoSize, height: appLogoSize }],
   };
 
   return (
@@ -316,16 +294,10 @@ const CategorySection = React.memo(function CategorySection({
     connected.includes(a.slug),
   ).length;
 
-  // Theme-dependent styles (meta.color)
+  // Theme-dependent overrides
   const s = {
-    categoryBadge: {
-      backgroundColor: meta.color + '20',
-    },
-    categoryBadgeText: {
-      color: meta.color,
-      fontSize: 11,
-      fontWeight: '700' as const,
-    },
+    categoryBadge: { backgroundColor: meta.color + '20' },
+    categoryBadgeText: [styles.categoryBadgeText, { color: meta.color }],
   };
 
   return (
@@ -388,44 +360,15 @@ const CategoryTabs = React.memo(function CategoryTabs({
 }: CategoryTabsProps) {
   const { surface, text: t } = useThemeColors();
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const s = {
-    tabActive: {
-      backgroundColor: 'rgba(124, 92, 252, 0.22)',
-      borderWidth: 1,
-      borderColor: purple[500],
-    },
-    tabInactive: {
-      backgroundColor: surface.card,
-      borderWidth: 1,
-      borderColor: surface.border,
-    },
-    tabHoveredInactive: {
-      backgroundColor: surface.section,
-      borderColor: surface.borderStrong,
-    } as any,
-    tabTextActive: {
-      color: purple[500],
-      fontSize: 12,
-      fontWeight: '600' as const,
-    },
-    tabTextInactive: {
-      color: t.muted,
-      fontSize: 12,
-      fontWeight: '600' as const,
-    },
-    tabCountActive: {
-      color: purple[500],
-      fontSize: 10,
-      fontWeight: '700' as const,
-      marginLeft: 4,
-    },
-    tabCountInactive: {
-      color: t.muted,
-      fontSize: 10,
-      fontWeight: '700' as const,
-      marginLeft: 4,
-    },
+    tabActive: styles.tabActive,
+    tabInactive: [styles.tabBorder, { backgroundColor: surface.card, borderColor: surface.border }],
+    tabHoveredInactive: { backgroundColor: surface.section, borderColor: surface.borderStrong } as any,
+    tabTextActive: [styles.tabText, { color: purple[500] }],
+    tabTextInactive: [styles.tabText, { color: t.muted }],
+    tabCountActive: [styles.tabCount, { color: purple[500] }],
+    tabCountInactive: [styles.tabCount, { color: t.muted }],
   };
 
   return (
@@ -492,25 +435,12 @@ export default function AppsScreen() {
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [loadingSlow, setLoadingSlow] = useState(false);
 
-  // Theme-dependent styles for main screen
+  // Theme-dependent overrides for main screen
   const ts = {
-    searchBar: {
-      backgroundColor: surface.card,
-      borderWidth: 1,
-      borderColor: surface.border,
-    },
-    searchIcon: {
-      marginRight: 8,
-    },
-    skeletonBg: {
-      backgroundColor: surface.card,
-    },
-    slowHintText: {
-      color: '#F5A623',
-      fontSize: 13,
-      fontWeight: '600' as const,
-      flex: 1,
-    },
+    searchBar: [styles.searchBar, { backgroundColor: surface.card, borderColor: surface.border }],
+    searchIcon: styles.searchIcon,
+    skeletonBg: { backgroundColor: surface.card },
+    slowHintText: styles.slowHintText,
   };
 
   useEffect(() => {
@@ -673,7 +603,7 @@ export default function AppsScreen() {
         <Text className="text-foreground text-base font-bold mt-4">
           Failed to load
         </Text>
-        <Text style={{ color: t.muted }} className="text-sm text-center mt-1">
+        <Text style={[styles.mutedText, { color: t.muted }]} className="text-sm text-center mt-1">
           {fetchError
             ? 'Could not load your apps. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -759,7 +689,7 @@ export default function AppsScreen() {
             <Text className="text-foreground text-[28px] font-extrabold">
               Your Apps
             </Text>
-            <Text style={{ color: t.muted }} className="text-sm mt-1">
+            <Text style={[styles.mutedText, { color: t.muted }]} className="text-sm mt-1">
               {ALL_APPS.length} apps available
             </Text>
           </View>
@@ -851,11 +781,49 @@ export default function AppsScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+  // --- AppCard static layout ---
+  appCardConnected: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(50, 215, 75, 0.35)',
+  },
+  appCardDisconnected: {
+    borderWidth: 1,
+  },
+  appCardHovered: {
+    boxShadow: '0 6px 16px rgba(124, 92, 252, 0.15)',
+    transform: [{ scale: 1.03 }],
+  } as any,
+  appLogo: {
+    borderRadius: 8,
+  },
   appCardFocusRing: {
     boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)',
   } as any,
+  // --- CategorySection ---
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   categorySectionListContent: {
     paddingRight: 16,
+  },
+  // --- CategoryTabs ---
+  tabActive: {
+    backgroundColor: 'rgba(124, 92, 252, 0.22)',
+    borderWidth: 1,
+    borderColor: purple[500],
+  },
+  tabBorder: {
+    borderWidth: 1,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  tabCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   categoryTabsListContent: {
     paddingHorizontal: 24,
@@ -868,10 +836,24 @@ const styles = StyleSheet.create({
   tabFocusRing: {
     boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)',
   } as any,
+  // --- AppsScreen ---
+  searchBar: {
+    borderWidth: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  slowHintText: {
+    color: '#F5A623',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
   slowHintBg: {
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
   },
   slowHintIcon: {
     marginRight: 8,
   },
+  mutedText: {},
 });

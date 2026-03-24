@@ -47,30 +47,22 @@ export default function WorkflowsScreen() {
   const [nlInput, setNlInput] = useState('');
   const modalContentRef = useRef<View>(null);
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const s = {
-    skeletonCardBg: { backgroundColor: surface.card } as const,
-    skeletonSectionBg: { backgroundColor: surface.section } as const,
-    mutedText: { color: t.muted } as const,
-    slowHintBg: { backgroundColor: 'rgba(245, 166, 35, 0.12)' } as const,
-    slowHintIcon: { marginRight: 8 } as const,
-    slowHintText: { color: '#F5A623', fontSize: 13, fontWeight: '600' as const, flex: 1 } as const,
-    workflowCard: { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border } as const,
-    templateCardBase: { backgroundColor: surface.card, borderWidth: 1, borderColor: surface.border } as const,
-    modalContent: {
-      backgroundColor: surface.card,
-      borderTopWidth: 1,
-      borderTopColor: surface.border,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      padding: 24,
-      paddingBottom: 48,
-    } as const,
-    modalInput: { backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border, textAlignVertical: 'top' as const, minHeight: 100 } as const,
-    activeStatusColor: { color: semantic.success } as const,
-    inactiveStatusColor: { color: t.muted } as const,
-    switchTrackColor: { false: surface.elevated, true: semantic.success } as const,
-    togglingSwitch: { opacity: 0.5 } as const,
+    skeletonCardBg: { backgroundColor: surface.card },
+    skeletonSectionBg: { backgroundColor: surface.section },
+    mutedText: { color: t.muted },
+    slowHintBg: styles.slowHintBg,
+    slowHintIcon: styles.slowHintIcon,
+    slowHintText: styles.slowHintText,
+    workflowCard: [styles.workflowCard, { backgroundColor: surface.card, borderColor: surface.border }],
+    templateCardBase: [styles.templateCardBase, { backgroundColor: surface.card, borderColor: surface.border }],
+    modalContent: [styles.modalContent, { backgroundColor: surface.card, borderTopColor: surface.border }],
+    modalInput: [styles.modalInput, { backgroundColor: surface.section, borderColor: surface.border }],
+    activeStatusColor: { color: semantic.success },
+    inactiveStatusColor: { color: t.muted },
+    switchTrackColor: { false: surface.elevated, true: semantic.success },
+    togglingSwitch: styles.togglingSwitch,
   };
 
   // Trap keyboard focus within the modal on web
@@ -343,13 +335,13 @@ export default function WorkflowsScreen() {
                         ...pressStyle({ pressed }),
                         webInteractive(),
                         Platform.OS === 'web' && hovered && !pressed
-                          ? { borderColor: `${t.color}40`, boxShadow: `0 2px 10px ${t.color}18` } as any
+                          ? [styles.templateCardHover, { borderColor: `${t.color}40`, boxShadow: `0 2px 10px ${t.color}18` }] as any
                           : undefined,
                       ]}
                     >
                       <View
                         className="w-10 h-10 rounded-xl items-center justify-center"
-                        style={{ backgroundColor: t.color + '20' }}
+                        style={[styles.templateIcon, { backgroundColor: t.color + '20' }]}
                       >
                         <Text className="text-xl">{t.icon}</Text>
                       </View>
@@ -372,7 +364,7 @@ export default function WorkflowsScreen() {
                 <View className="flex-row items-center gap-3">
                   <View
                     className="w-[42px] h-[42px] rounded-xl items-center justify-center"
-                    style={{ backgroundColor: trigger.color + '20' }}
+                    style={[styles.triggerIcon, { backgroundColor: trigger.color + '20' }]}
                   >
                     <Ionicons name={trigger.icon} size={20} color={trigger.color} />
                   </View>
@@ -407,10 +399,10 @@ export default function WorkflowsScreen() {
                 <View className="flex-row items-center gap-2">
                   <View
                     className="rounded-full px-2.5 py-1 flex-row items-center gap-1"
-                    style={{ backgroundColor: trigger.color + '15' }}
+                    style={[styles.triggerBadge, { backgroundColor: trigger.color + '15' }]}
                   >
                     <Ionicons name={trigger.icon} size={12} color={trigger.color} />
-                    <Text style={{ color: trigger.color, fontSize: 11, fontWeight: '600' }}>{trigger.label}</Text>
+                    <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.label}</Text>
                   </View>
                   {item.active && (
                     <View className="rounded-full px-2.5 py-1 bg-[#4ADE80]/15 flex-row items-center gap-1">
@@ -489,7 +481,7 @@ export default function WorkflowsScreen() {
               onPress={() => createWorkflow()}
               disabled={isPending || !nlInput.trim()}
               style={({ pressed }) => [
-                { opacity: isPending || !nlInput.trim() ? 0.5 : 1 },
+                isPending || !nlInput.trim() ? styles.disabledOpacity : undefined,
                 ...pressStyle({ pressed }),
                 webInteractive(isPending || !nlInput.trim()),
               ]}
@@ -524,6 +516,52 @@ export default function WorkflowsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from theme-dependent object ---
+  slowHintBg: {
+    backgroundColor: 'rgba(245, 166, 35, 0.12)',
+  },
+  slowHintIcon: {
+    marginRight: 8,
+  },
+  slowHintText: {
+    color: '#F5A623',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  workflowCard: {
+    borderWidth: 1,
+  },
+  templateCardBase: {
+    borderWidth: 1,
+  },
+  templateCardHover: {},
+  templateIcon: {},
+  modalContent: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 48,
+  },
+  modalInput: {
+    borderWidth: 1,
+    textAlignVertical: 'top',
+    minHeight: 100,
+  },
+  togglingSwitch: {
+    opacity: 0.5,
+  },
+  disabledOpacity: {
+    opacity: 0.5,
+  },
+  triggerIcon: {},
+  triggerBadge: {},
+  triggerBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // --- Original static styles ---
   templateList: {
     gap: 8,
   },

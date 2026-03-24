@@ -33,7 +33,7 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
           transition: { type: 'spring' as const, damping: 12 },
         }, !!reducedMotion)}
         className="flex-row items-center gap-2 rounded-2xl rounded-bl-[4px] px-4 py-3"
-        style={{ backgroundColor: surface.card }}
+        style={[styles.typingDotsContainer, { backgroundColor: surface.card }]}
       >
         {[0, 1, 2].map(i => (
           <MotiView
@@ -74,106 +74,28 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const sendMutation = useSendMessage();
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout lives in StyleSheet below)
   const s = React.useMemo(() => ({
-    safeArea: { flex: 1, backgroundColor: surface.bg } as const,
-    headerBar: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: surface.bg,
-      borderBottomWidth: 1,
-      borderBottomColor: surface.border,
-      gap: 12,
-    },
-    headerAvatar: {
-      backgroundColor: surface.card,
-      borderWidth: 1.5,
-      borderColor: purple.muted,
-    },
-    headerName: { color: t.primary, fontSize: 18, fontFamily: 'Sora_700Bold' as const },
-    headerOnline: { color: teal[200], fontSize: 12, fontFamily: 'Inter_500Medium' as const },
-    typingDotsContainer: { backgroundColor: surface.card },
+    safeArea: [styles.safeArea, { backgroundColor: surface.bg }],
+    headerBar: [styles.headerBar, { backgroundColor: surface.bg, borderBottomColor: surface.border }],
+    headerAvatar: [styles.headerAvatarBorder, { backgroundColor: surface.card, borderColor: purple.muted }],
+    headerName: [styles.headerName, { color: t.primary }],
+    headerOnline: [styles.headerOnline, { color: teal[200] }],
     messageAvatarBg: { backgroundColor: surface.card },
-    messageBubbleAssistant: {
-      backgroundColor: surface.card,
-      borderBottomLeftRadius: 4,
-      borderWidth: 1,
-      borderColor: surface.border,
-    },
-    messageTextUser: { fontSize: 15, lineHeight: 22, color: base.white },
-    messageTextAssistant: { fontSize: 15, lineHeight: 22, color: t.primary },
-    statusSending: { fontSize: 11, color: t.muted, fontFamily: 'Inter_500Medium' as const },
-    emptyTitle: {
-      color: t.primary,
-      fontSize: 24,
-      fontFamily: 'Sora_700Bold' as const,
-      textAlign: 'center' as const,
-      marginBottom: 4,
-    },
-    emptySubtitle: {
-      color: t.secondary,
-      fontSize: 15,
-      textAlign: 'center' as const,
-      marginBottom: 8,
-      lineHeight: 22,
-    },
-    tryAskingLabel: {
-      color: t.muted,
-      fontSize: 11,
-      fontFamily: 'Inter_600SemiBold' as const,
-      letterSpacing: 1.5,
-      textAlign: 'center' as const,
-      marginBottom: 4,
-    },
-    promptChipBase: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 8,
-      backgroundColor: surface.card,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderWidth: 1,
-      borderColor: surface.border,
-    },
-    promptChipText: { color: t.primary, fontSize: 13, fontFamily: 'Inter_600SemiBold' as const },
-    emptyAvatarBorder: {
-      backgroundColor: surface.card,
-      borderWidth: 2,
-      borderColor: purple.muted,
-    },
-    inputBar: {
-      flexDirection: 'row' as const,
-      alignItems: 'flex-end' as const,
-      backgroundColor: surface.card,
-      margin: 12,
-      marginBottom: 16,
-      borderRadius: 18,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      gap: 8,
-      borderWidth: 1.5,
-      borderColor: surface.border,
-    },
-    textInputColor: { maxHeight: 120, color: t.primary },
-    sendButtonActive: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor: purple[500],
-    },
-    sendButtonInactive: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor: surface.elevated,
-    },
+    messageBubbleAssistant: [styles.messageBubbleAssistant, { backgroundColor: surface.card, borderColor: surface.border }],
+    messageTextUser: [styles.messageText, { color: base.white }],
+    messageTextAssistant: [styles.messageText, { color: t.primary }],
+    statusSending: [styles.statusSending, { color: t.muted }],
+    emptyTitle: [styles.emptyTitle, { color: t.primary }],
+    emptySubtitle: [styles.emptySubtitle, { color: t.secondary }],
+    tryAskingLabel: [styles.tryAskingLabel, { color: t.muted }],
+    promptChipBase: [styles.promptChipBase, { backgroundColor: surface.card, borderColor: surface.border }],
+    promptChipText: [styles.promptChipText, { color: t.primary }],
+    emptyAvatarBorder: [styles.emptyAvatarBorder, { backgroundColor: surface.card, borderColor: purple.muted }],
+    inputBar: [styles.inputBar, { backgroundColor: surface.card, borderColor: surface.border }],
+    textInputColor: [styles.textInputBase, { color: t.primary }],
+    sendButtonActive: [styles.sendButton, { backgroundColor: purple[500] }],
+    sendButtonInactive: [styles.sendButton, { backgroundColor: surface.elevated }],
   }), [surface, t]);
 
   // Hard mutex — refs update synchronously across renders, so two rapid
@@ -340,15 +262,14 @@ export default function ChatScreen() {
               <Image source={require('../../../assets/pip/pip-happy.png')} style={styles.messageAvatarImage} />
             </MotiView>
           )}
-          <View style={{ maxWidth: chatMaxWidth }}>
+          <View style={[styles.messageMaxWidth, { maxWidth: chatMaxWidth }]}>
             <View
               style={[
                 styles.messageBubbleBase,
                 isUser
-                  ? {
-                      backgroundColor: isFailed ? '#7C3AED80' : purple[500],
-                      borderBottomRightRadius: 4,
-                    }
+                  ? isFailed
+                    ? styles.messageBubbleUserFailed
+                    : [styles.messageBubbleUser, { backgroundColor: purple[500] }]
                   : s.messageBubbleAssistant,
               ]}
             >
@@ -573,6 +494,107 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from theme-dependent useMemo (static layout) ---
+  safeArea: {
+    flex: 1,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  headerAvatarBorder: {
+    borderWidth: 1.5,
+  },
+  headerName: {
+    fontSize: 18,
+    fontFamily: 'Sora_700Bold',
+  },
+  headerOnline: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  messageBubbleAssistant: {
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  statusSending: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontFamily: 'Sora_700Bold',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  tryAskingLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  promptChipBase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+  },
+  promptChipText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  emptyAvatarBorder: {
+    borderWidth: 2,
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    margin: 12,
+    marginBottom: 16,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 1.5,
+  },
+  textInputBase: {
+    maxHeight: 120,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  messageBubbleUser: {
+    borderBottomRightRadius: 4,
+  },
+  messageMaxWidth: {},
+  typingDotsContainer: {},
+  messageBubbleUserFailed: {
+    backgroundColor: '#7C3AED80',
+    borderBottomRightRadius: 4,
+  },
+  // --- Original static styles ---
   typingDot: {
     width: 8,
     height: 8,

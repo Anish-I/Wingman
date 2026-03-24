@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, SplashScreen, Tabs } from 'expo-router';
 import * as React from 'react';
 import { useCallback, useEffect } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { purple, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
@@ -47,22 +47,22 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarStyle: {
-          backgroundColor: surface.bg,
-          borderTopColor: surface.border,
-          borderTopWidth: 1,
-          height: isLandscape ? 44 : 72,
-          paddingBottom: isLandscape ? 2 : 8,
-          paddingTop: isLandscape ? 2 : 8,
-          elevation: 0,
-        },
+        tabBarStyle: [
+          layoutStyles.tabBar,
+          {
+            backgroundColor: surface.bg,
+            borderTopColor: surface.border,
+            height: isLandscape ? 44 : 72,
+            paddingBottom: isLandscape ? 2 : 8,
+            paddingTop: isLandscape ? 2 : 8,
+          },
+        ],
         tabBarActiveTintColor: purple[500],
         tabBarInactiveTintColor: t.muted,
-        tabBarLabelStyle: {
-          fontSize: isLandscape ? 10 : 12,
-          fontWeight: '600',
-          letterSpacing: 0.3,
-        },
+        tabBarLabelStyle: [
+          layoutStyles.tabBarLabel,
+          { fontSize: isLandscape ? 10 : 12 },
+        ],
         headerShown: false,
       }}
     >
@@ -101,3 +101,14 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const layoutStyles = StyleSheet.create({
+  tabBar: {
+    borderTopWidth: 1,
+    elevation: 0,
+  },
+  tabBarLabel: {
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+});

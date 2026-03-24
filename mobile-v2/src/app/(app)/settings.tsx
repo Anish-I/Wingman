@@ -29,30 +29,12 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
   const isInteractive = typeof onPress === 'function';
   const shouldShowChevron = showChevron && isInteractive;
 
-  // Theme-dependent styles
-  const themedRow = {
-    backgroundColor: surface.section,
-  };
-  const valueBadge = {
-    backgroundColor: surface.elevated,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  };
-  const valueBadgeText = {
-    color: t.muted,
-    fontSize: 12,
-    fontWeight: '600' as const,
-  };
-  const settingsRowDivider = {
-    height: 1,
-    backgroundColor: surface.border,
-    marginLeft: 56,
-  };
-  const rowHovered = {
-    backgroundColor: surface.elevated,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-  } as any;
+  // Theme-dependent overrides (static layout in StyleSheet below)
+  const themedRow = { backgroundColor: surface.section };
+  const valueBadge = [styles.valueBadge, { backgroundColor: surface.elevated }];
+  const valueBadgeText = [styles.valueBadgeText, { color: t.muted }];
+  const settingsRowDivider = [styles.settingsRowDivider, { backgroundColor: surface.border }];
+  const rowHovered = [styles.rowHovered, { backgroundColor: surface.elevated }];
 
   const containerStyle = [
     themedRow,
@@ -64,7 +46,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
     <>
       <View
         className="w-9 h-9 rounded-xl justify-center items-center"
-        style={{ backgroundColor: iconColor + '18' }}
+        style={[styles.settingsRowIcon, { backgroundColor: iconColor + '18' }]}
       >
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
@@ -203,14 +185,11 @@ export default function SettingsScreen() {
     ]);
   }
 
-  // Theme-dependent styles
+  // Theme-dependent overrides
   const sectionLabel = { color: t.muted };
-  const sectionBorder = { borderWidth: 1, borderColor: surface.border };
-  const statCardBase = { backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border };
-  const logoutHovered = {
-    backgroundColor: '#FF3B30/20',
-    boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)',
-  } as any;
+  const sectionBorder = [styles.sectionBorder, { borderColor: surface.border }];
+  const statCardBase = [styles.statCardBase, { backgroundColor: surface.section, borderColor: surface.border }];
+  const logoutHovered = styles.logoutHovered;
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -348,6 +327,36 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from inline SettingsRow styles ---
+  valueBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  valueBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  settingsRowDivider: {
+    height: 1,
+    marginLeft: 56,
+  },
+  settingsRowIcon: {},
+  rowHovered: {
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+  } as any,
+  // --- Extracted from main screen ---
+  sectionBorder: {
+    borderWidth: 1,
+  },
+  statCardBase: {
+    borderWidth: 1,
+  },
+  logoutHovered: {
+    backgroundColor: '#FF3B30/20',
+    boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)',
+  } as any,
+  // --- Original static styles ---
   settingsRowFirstRadius: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
