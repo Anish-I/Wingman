@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { chipPressStyle, webInteractive } from '@/lib/motion';
+import { useResponsive } from '@/lib/responsive';
 
 type AppCardProps = {
   emoji: string;
@@ -14,6 +15,7 @@ type AppCardProps = {
 
 export default function AppCard({ emoji, name, connected, onPress, color }: AppCardProps) {
   const { surface, text: t } = useThemeColors();
+  const { standaloneCardWidth, standaloneIconSize } = useResponsive();
   return (
     <Pressable
       accessibilityRole="button"
@@ -21,7 +23,7 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
       accessibilityHint={connected ? 'Double tap to manage connection' : 'Double tap to connect this app'}
       style={({ pressed, hovered }) => [
         {
-          width: 88,
+          width: standaloneCardWidth,
           backgroundColor: connected ? surface.card : surface.cardAlt,
           borderRadius: radii.lg,
           borderWidth: 1.5,
@@ -73,9 +75,9 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
       )}
       <View
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
+          width: standaloneIconSize,
+          height: standaloneIconSize,
+          borderRadius: standaloneIconSize / 2,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 8,

@@ -6,6 +6,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
@@ -61,6 +62,7 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
 
 export default function ChatScreen() {
   const { surface, text: t } = useThemeColors();
+  const { chatMaxWidth } = useResponsive();
   const reducedMotion = useReducedMotion();
   const messages = useChatStore.use.messages();
   const loading = useChatStore.use.loading();
@@ -236,7 +238,7 @@ export default function ChatScreen() {
               <Image source={require('../../../assets/pip/pip-happy.png')} style={{ width: 32, height: 32, resizeMode: 'cover' }} />
             </MotiView>
           )}
-          <View style={{ maxWidth: '78%' }}>
+          <View style={{ maxWidth: chatMaxWidth }}>
             <View
               style={[
                 {

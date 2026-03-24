@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -206,13 +207,15 @@ const AppCard = React.memo(function AppCard({
   onPress,
 }: AppCardProps) {
   const { surface } = useThemeColors();
+  const { appCardWidth, appIconSize, appLogoSize } = useResponsive();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
-      className="w-[90px] sm:w-[120px] md:w-[150px] rounded-2xl p-3 items-center relative mr-2.5"
+      className="rounded-2xl p-3 items-center relative mr-2.5"
       style={({ pressed, hovered, focused }: any) => [
         {
+          width: appCardWidth,
           backgroundColor: isConnected ? surface.card : surface.cardAlt,
           borderWidth: isConnected ? 1.5 : 1,
           borderColor: isConnected ? 'rgba(50, 215, 75, 0.35)' : surface.border,
@@ -245,10 +248,10 @@ const AppCard = React.memo(function AppCard({
           <ActivityIndicator size="small" color="#7C5CFC" />
         </View>
       )}
-      <View className="w-[52px] h-[52px] rounded-2xl items-center justify-center mb-2" style={{ backgroundColor: surface.card }}>
+      <View className="rounded-2xl items-center justify-center mb-2" style={{ width: appIconSize, height: appIconSize, backgroundColor: surface.card }}>
         <Image
           source={{ uri: app.logo }}
-          style={{ width: 32, height: 32, borderRadius: 8 }}
+          style={{ width: appLogoSize, height: appLogoSize, borderRadius: 8 }}
           resizeMode="contain"
         />
       </View>
@@ -421,6 +424,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
 
 export default function AppsScreen() {
   const { surface, text: t } = useThemeColors();
+  const { appCardWidth } = useResponsive();
   const reduced = useReducedMotion();
   const { data, isLoading, error: fetchError, refetch } = useApps();
   const [connected, setConnected] = useState<string[]>([]);
@@ -653,7 +657,7 @@ export default function AppsScreen() {
             </View>
             <View className="flex-row gap-2.5">
               {[0, 1, 2, 3].map((card) => (
-                <MotiView key={card} {...pulse} className="w-[90px] sm:w-[120px] md:w-[150px] h-[100px] sm:h-[130px] md:h-[160px] rounded-2xl" style={{ backgroundColor: surface.card }} />
+                <MotiView key={card} {...pulse} className="rounded-2xl" style={{ backgroundColor: surface.card, width: appCardWidth, height: appCardWidth * 1.1 }} />
               ))}
             </View>
           </View>
