@@ -7,7 +7,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
-import { base, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, semantic, typography, useThemeColors } from '@/components/ui/tokens';
 
 interface OnboardingApp {
   slug: string;
@@ -169,10 +169,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontFamily: 'Sora_700Bold',
-    fontSize: 32,
-    letterSpacing: -1.5,
-    lineHeight: 32,
+    ...typography.hero,
     textAlign: 'center',
   },
   gridContainer: {

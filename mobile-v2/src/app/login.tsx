@@ -5,7 +5,7 @@ import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
-import { purple, useThemeColors } from '@/components/ui/tokens';
+import { purple, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -38,10 +38,8 @@ export default function LoginScreen() {
   const safeAreaBg = { backgroundColor: surface.bg };
   const contentGap = { gap: isLandscape ? 14 : 24 };
   const headerTitle = {
-    fontFamily: 'Sora_700Bold' as const,
-    fontSize: 28,
+    ...typography.hero,
     color: t.primary,
-    letterSpacing: -1,
   };
   const headerSubtitle = {
     fontFamily: 'Inter_400Regular' as const,

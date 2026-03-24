@@ -9,7 +9,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { base, purple, surfaceLight, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -413,9 +413,7 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   title: {
-    fontSize: 28,
-    fontFamily: 'Sora_700Bold',
-    letterSpacing: -1,
+    ...typography.hero,
     textAlign: 'center',
     marginBottom: 20,
   },

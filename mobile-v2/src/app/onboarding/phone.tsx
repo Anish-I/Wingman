@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { base, semantic, useThemeColors } from '@/components/ui/tokens';
+import { base, semantic, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -371,10 +371,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontFamily: 'Sora_700Bold',
-    fontSize: 32,
-    letterSpacing: -1.5,
-    lineHeight: 32,
+    ...typography.hero,
     textAlign: 'center',
   },
   headerSubtitle: {

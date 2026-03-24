@@ -8,7 +8,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { blue, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { blue, semantic, teal, typography, useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -191,9 +191,7 @@ const styles = StyleSheet.create({
     color: semantic.success,
   },
   title: {
-    fontFamily: 'Sora_700Bold',
-    fontSize: 32,
-    letterSpacing: -1.5,
+    ...typography.hero,
     textAlign: 'center',
   },
   subtitle: {
