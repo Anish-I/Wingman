@@ -233,7 +233,7 @@ export function webHoverStyle(hovered: boolean, color = '#7C5CFC', strength: 'so
 export function webFocusRing(focused: boolean, color = '#7C5CFC') {
   if (!isWeb || !focused) return undefined;
   return {
-    boxShadow: `0 0 0 3px ${color}40`,
+    boxShadow: `0 0 0 3px ${color}CC`,
     outline: 'none',
   } as any;
 }

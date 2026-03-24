@@ -120,10 +120,10 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
 
   // Map variant to glow color for web interactions
   const glowColor = variant === 'secondary' || variant === 'link'
-    ? 'rgba(124, 92, 252, 0.4)'
+    ? 'rgba(124, 92, 252, 0.8)'
     : variant === 'accent'
-      ? 'rgba(110, 198, 184, 0.3)'
-      : 'rgba(124, 92, 252, 0.3)';
+      ? 'rgba(110, 198, 184, 0.8)'
+      : 'rgba(124, 92, 252, 0.8)';
 
   return (
     <Pressable

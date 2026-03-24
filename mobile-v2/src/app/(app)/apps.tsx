@@ -229,7 +229,7 @@ const AppCard = React.memo(function AppCard({
           : undefined,
         // Web focus ring
         Platform.OS === 'web' && focused && !isConnecting
-          ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.4)' } as any
+          ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)' } as any
           : undefined,
       ]}
       onPress={() => onPress(app.slug)}
@@ -385,7 +385,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
                 ? { backgroundColor: 'rgba(124, 92, 252, 0.18)' } as any
                 : undefined,
               Platform.OS === 'web' && focused
-                ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)' } as any
+                ? { boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.8)' } as any
                 : undefined,
             ]}
           >
