@@ -523,7 +523,7 @@ export default function AppsScreen() {
 
       setConnectingSlug(slug);
       try {
-        const { data } = await client.post<{ connectToken: string }>(
+        const { data } = await client.post<{ connectToken: string; sig: string }>(
           '/connect/create-connect-token',
           { app: slug },
         );
@@ -531,7 +531,7 @@ export default function AppsScreen() {
           ? `${window.location.origin}/connect/callback`
           : 'wingman://connect/callback';
         const result = await WebBrowser.openAuthSessionAsync(
-          `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}`,
+          `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}&sig=${data.sig}`,
           redirectUrl,
         );
         if (result.type === 'success') {

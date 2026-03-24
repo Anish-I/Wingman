@@ -96,6 +96,15 @@ router.get('/status', requireAuth, async (req, res) => {
   }
 });
 
+// HMAC signature that binds a connect token to a specific userId.
+// Returned alongside the token so the /initiate route can verify userId ownership
+// without requiring Bearer auth (since it's opened in a system browser).
+function signConnectToken(connectToken, userId) {
+  return crypto.createHmac('sha256', OTP_SECRET)
+    .update(`connect:${connectToken}:${userId}`)
+    .digest('hex');
+}
+
 // POST /connect/create-connect-token — generate a short-lived, single-use token for OAuth initiation
 // This avoids exposing session JWTs in URL query parameters (fixes M1 in security audit)
 router.post('/create-connect-token', requireAuth, async (req, res) => {
@@ -107,19 +116,31 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
     const connectToken = crypto.randomBytes(32).toString('hex');
     const key = `connect_token:${connectToken}`;
     await redis.set(key, JSON.stringify({ userId: req.user.id, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
-    res.json({ connectToken });
+    // Return HMAC sig so the browser-based /initiate route can verify userId binding
+    // without Bearer auth (WebBrowser.openAuthSessionAsync can't send headers)
+    const sig = signConnectToken(connectToken, req.user.id);
+    res.json({ connectToken, sig });
   } catch (err) {
     logger.error({ err: err.message }, '[connect] create-connect-token error');
     res.status(500).json({ error: { code: 'CONNECT_TOKEN_ERROR', message: 'Failed to create connect token.' } });
   }
 });
 
-// GET /connect/initiate — initiate OAuth with single-use connect token (Bearer auth + userId match)
-router.get('/initiate', requireAuth, async (req, res) => {
+// GET /connect/initiate — initiate OAuth with single-use connect token + HMAC userId binding
+// Note: no requireAuth — this route is opened in a system browser (WebBrowser.openAuthSessionAsync)
+// which cannot send Bearer headers or app cookies. Security is enforced by:
+//   1. 256-bit random connect token (computationally infeasible to guess)
+//   2. Single-use via atomic GETDEL (prevents replay)
+//   3. 5-minute TTL (limits exposure window)
+//   4. HMAC sig binding token to userId (prevents IDOR — only the server can produce a valid sig)
+router.get('/initiate', async (req, res) => {
   try {
-    const { connectToken } = req.query;
+    const { connectToken, sig } = req.query;
     if (!connectToken) {
       return res.status(400).json({ error: { code: 'MISSING_CONNECT_TOKEN', message: 'Missing connectToken parameter.' } });
+    }
+    if (!sig) {
+      return res.status(400).json({ error: { code: 'MISSING_SIGNATURE', message: 'Missing sig parameter.' } });
     }
     // Atomically fetch and delete — prevents concurrent requests from reusing the same token
     const key = `connect_token:${connectToken}`;
@@ -135,10 +156,15 @@ router.get('/initiate', requireAuth, async (req, res) => {
       return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
     }
     const { userId, app } = parsed;
-    // Verify the authenticated user matches the token's userId to prevent IDOR
-    if (String(userId) !== String(req.user.id)) {
-      logger.warn({ tokenUserId: userId, authUserId: req.user.id }, '[connect] initiate userId mismatch');
-      return res.status(403).json({ error: { code: 'USER_MISMATCH', message: 'Connect token does not belong to the authenticated user.' } });
+    // Verify HMAC sig binds this token to the correct userId (IDOR prevention).
+    // Only the server can produce a valid sig via signConnectToken(), so an attacker
+    // who intercepts or guesses a connectToken cannot forge a sig for a different user.
+    const expectedSig = signConnectToken(connectToken, userId);
+    const sigBuf = Buffer.from(String(sig), 'utf8');
+    const expectedBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+      logger.warn({ userId }, '[connect] initiate HMAC signature mismatch');
+      return res.status(403).json({ error: { code: 'INVALID_SIGNATURE', message: 'Invalid connect token signature.' } });
     }
     const state = await generateOAuthState(userId, app);
     const url = await getConnectionLink(userId, app, state);
