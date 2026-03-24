@@ -168,9 +168,8 @@ export default function PhoneScreen() {
 
   useEffect(() => {
     if (step === 'verify' && code.every((d) => d !== '') && !verifyingRef.current) {
-      // Set guard atomically with the effect trigger so concurrent renders
-      // (e.g. React StrictMode double-fire) cannot queue duplicate calls.
-      verifyingRef.current = true;
+      // handleVerify's own synchronous guard (set before the first await)
+      // prevents duplicate calls even under StrictMode double-fire.
       handleVerifyRef.current(code.join(''));
     }
   }, [code, step]);
