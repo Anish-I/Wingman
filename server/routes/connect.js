@@ -169,7 +169,10 @@ router.get('/callback', async (req, res) => {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
     const { app: appName } = payload;
-    res.redirect(`${WEB_URL}/connect/success?app=${appName || ''}`);
+    const sanitizedApp = (typeof appName === 'string' && isValidAppName(appName.toLowerCase()))
+      ? appName.toLowerCase()
+      : '';
+    res.redirect(`${WEB_URL}/connect/success?app=${sanitizedApp}`);
   } catch (err) {
     logger.error({ err: err.message }, 'OAuth callback error');
     res.status(500).json({ error: { code: 'OAUTH_CALLBACK_ERROR', message: 'Something went wrong.' } });
