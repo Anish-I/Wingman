@@ -1,4 +1,5 @@
 const { Worker } = require('bullmq');
+const logger = require('../services/logger');
 const { createRedisClient } = require('../services/redis');
 const { getUserById } = require('../db/queries');
 const { executeTool, getTools } = require('../services/composio');
@@ -19,7 +20,7 @@ async function fetchCalendarViaComposio(entityId) {
     });
     return result;
   } catch (err) {
-    console.error('Briefing: calendar fetch failed:', err.message);
+    logger.error({ err: err.message }, 'Briefing: calendar fetch failed');
     return null;
   }
 }
@@ -58,7 +59,7 @@ function startBriefingWorker() {
 
       const user = await getUserById(userId);
       if (!user) {
-        console.error(`Briefing worker: user ${userId} not found`);
+        logger.error(`Briefing worker: user ${userId} not found`);
         return;
       }
 
@@ -77,7 +78,7 @@ function startBriefingWorker() {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`Briefing job ${job?.id} failed:`, err.message);
+    logger.error({ err: err.message }, `Briefing job ${job?.id} failed`);
   });
 
   worker.on('completed', (job) => {

@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('crypto');
+const logger = require('./logger');
 const db = require('../db');
 const { createWorkflow, listWorkflows, cancelWorkflow, createWorkflowRun, updateWorkflowRun } = require('../db/queries');
 const { executeTool, getConnectionStatus, appFromToolName } = require('./composio');
@@ -60,7 +61,7 @@ async function runWorkflow(workflowId, userId) {
     extendTimer = setInterval(async () => {
       try {
         await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, LOCK_TTL);
-      } catch (err) { console.error(`[workflows] Lock extend failed for ${lockKey}:`, err.message); }
+      } catch (err) { logger.error({ err: err.message }, `[workflows] Lock extend failed for ${lockKey}`); }
     }, EXTEND_INTERVAL);
     const result = await db.query('SELECT * FROM workflows WHERE id = $1 AND user_id = $2', [workflowId, userId]);
     const workflow = result.rows[0];
@@ -100,7 +101,7 @@ async function runWorkflow(workflowId, userId) {
   } finally {
     clearInterval(extendTimer);
     // Release: only if we still own it — prevents deleting another runner's lock
-    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(e => console.error(`[workflows] Failed to release lock ${lockKey}:`, e.message));
+    await redis.eval(RELEASE_SCRIPT, 1, lockKey, lockValue).catch(e => logger.error({ err: e.message }, `[workflows] Failed to release lock ${lockKey}`));
   }
 }
 

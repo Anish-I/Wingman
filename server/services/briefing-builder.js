@@ -1,4 +1,5 @@
 const { callLLM } = require('./llm');
+const logger = require('./logger');
 
 const BRIEFING_SYSTEM_PROMPT = `You are TextFlow, an SMS-based personal AI assistant. Your job is to write a concise, friendly morning briefing that fits in a single SMS message (under 320 characters if possible, max 480).
 
@@ -65,7 +66,7 @@ async function buildMorningBriefing(user, calendarData, tasksData, financeData) 
     ]);
     return response.text || buildFallbackBriefing(userName, dayOfWeek, calendarData, tasksData, financeData);
   } catch (err) {
-    console.error('LLM briefing generation failed:', err.message);
+    logger.error({ err: err.message }, 'LLM briefing generation failed');
     return buildFallbackBriefing(userName, dayOfWeek, calendarData, tasksData, financeData);
   }
 }

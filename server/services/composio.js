@@ -1,5 +1,6 @@
 const { OpenAIToolSet, Composio } = require('composio-core');
 const crypto = require('crypto');
+const logger = require('./logger');
 const { redis } = require('./redis');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
@@ -31,7 +32,7 @@ async function _redisSetWithRetry(key, value, ttl, { label, rethrow }) {
       await redis.set(key, value, 'EX', ttl);
       return; // success
     } catch (err) {
-      console.error(`[composio] Redis idempotency set error (attempt ${attempt}/${REDIS_IDEMP_RETRY_COUNT + 1}) for ${label}:`, err.message);
+      logger.error({ err: err.message, attempt, label }, '[composio] Redis idempotency set error');
       if (attempt <= REDIS_IDEMP_RETRY_COUNT) {
         await new Promise(r => setTimeout(r, REDIS_IDEMP_RETRY_DELAY_MS));
       } else if (rethrow) {
@@ -183,17 +184,17 @@ async function getTools(userId) {
   if (!COMPOSIO_API_KEY) return [];
 
   const cacheKey = `tools:${userId}`;
-  const cached = await redis.get(cacheKey).catch(err => { console.error('[composio] Redis cache get error:', err.message); return null; });
+  const cached = await redis.get(cacheKey).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache get error'); return null; });
   if (cached) return JSON.parse(cached);
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
   const tools = await toolset.getTools({});
-  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { console.error('[composio] Redis cache set error:', err.message); throw err; });
+  await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache set error'); throw err; });
   return tools;
 }
 
 async function invalidateToolsCache(userId) {
-  await redis.del(`tools:${userId}`).catch(err => { console.error('[composio] Redis cache del error:', err.message); throw err; });
+  await redis.del(`tools:${userId}`).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache del error'); throw err; });
 }
 
 /**
@@ -272,7 +273,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       const reclaimed = await redis.eval(
         "if redis.call('get', KEYS[1]) == 'pending' then redis.call('set', KEYS[1], 'pending', 'EX', ARGV[1]) return 1 else return 0 end",
         1, idempKey, String(claimTTL)
-      ).catch(err => { console.error(`[user:${userId}] Redis idempotency reclaim error for ${toolCallBlock.name}:`, err.message); return 0; });
+      ).catch(err => { logger.error({ err: err.message }, `[user:${userId}] Redis idempotency reclaim error for ${toolCallBlock.name}`); return 0; });
       if (reclaimed === 1) {
         console.log(`[user:${userId}] Reclaimed stale pending key for ${toolCallBlock.name}, re-attempting`);
         // We atomically own the slot — fall through to execute below.
@@ -384,7 +385,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       });
     } else {
       // Safe/idempotent tool: remove the key so retries can attempt again
-      await redis.del(idempKey).catch(err => { console.error('[composio] Redis idempotency del error:', err.message); });
+      await redis.del(idempKey).catch(err => { logger.error({ err: err.message }, '[composio] Redis idempotency del error'); });
     }
     throw err;
   }
@@ -426,7 +427,7 @@ async function getConnectionLink(userId, appName, redirectUrl = null) {
 async function getConnectionStatus(userId, appNames = null) {
   if (!COMPOSIO_API_KEY) {
     const msg = 'COMPOSIO_API_KEY is not set — cannot check connection status';
-    console.error(`[composio] ${msg}`);
+    logger.error(`[composio] ${msg}`);
     return { connected: [], missing: appNames || [], error: msg };
   }
 
@@ -443,7 +444,7 @@ async function getConnectionStatus(userId, appNames = null) {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '(no body)');
-      console.error(`[composio] getConnectionStatus failed: HTTP ${res.status} — ${body}`);
+      logger.error({ status: res.status }, '[composio] getConnectionStatus failed');
       return {
         connected: [],
         missing: appNames || [],
@@ -476,7 +477,7 @@ async function getConnectionStatus(userId, appNames = null) {
       missing: appNames.filter(a => !connected.has(a.toLowerCase())),
     };
   } catch (err) {
-    console.error(`[composio] getConnectionStatus error for user ${userId}:`, err.message || err);
+    logger.error({ err: err.message || String(err) }, `[composio] getConnectionStatus error for user ${userId}`);
     if (!appNames || appNames.length === 0) {
       return { connected: [], missing: [], error: err.message };
     }

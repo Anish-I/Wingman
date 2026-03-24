@@ -1,5 +1,6 @@
 'use strict';
 
+const logger = require('../services/logger');
 const { redis } = require('../services/redis');
 
 let workflowWorker = null;
@@ -52,10 +53,10 @@ async function startWorker() {
       console.log(`[workflow-worker] Job ${job.id} completed for workflow ${job.data.workflowId}`);
     });
     workflowWorker.on('failed', (job, err) => {
-      console.error(`[workflow-worker] Job ${job?.id} failed:`, err.message);
+      logger.error({ err: err.message }, `[workflow-worker] Job ${job?.id} failed`);
     });
     workflowWorker.on('error', (err) => {
-      console.error('[workflow-worker] Worker error:', err.message);
+      logger.error({ err: err.message }, '[workflow-worker] Worker error');
     });
 
     console.log(`[workflow-worker] Started (Redis ${version})`);

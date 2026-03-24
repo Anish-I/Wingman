@@ -1,6 +1,7 @@
 'use strict';
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const logger = require('../services/logger');
 const router = express.Router();
 const requireAuth = require('../middleware/requireAuth');
 const { updatePushToken } = require('../db/queries');
@@ -114,7 +115,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     const reply = await processMessage(req.user, message.trim());
     res.json({ reply });
   } catch (err) {
-    console.error('[api] chat error:', err);
+    logger.error({ err: err.message }, '[api] chat error');
     const status = err.statusCode || 500;
     const code = err.statusCode === 429 ? 'TOO_MANY_REQUESTS'
       : err.code === 'ECONNREFUSED' ? 'SERVICE_UNAVAILABLE'
@@ -131,7 +132,7 @@ router.get('/workflows', requireAuth, async (req, res) => {
     const { rows: workflows, total } = await listWorkflows(req.user.id, { limit, offset });
     res.json({ workflows, total, limit, offset });
   } catch (err) {
-    console.error('[api] list workflows error:', err);
+    logger.error({ err: err.message }, '[api] list workflows error');
     res.status(500).json({ error: { code: 'WORKFLOWS_FETCH_ERROR', message: 'Failed to list workflows.' } });
   }
 });
@@ -166,7 +167,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
     });
     res.status(201).json({ workflow });
   } catch (err) {
-    console.error('[api] create workflow error:', err);
+    logger.error({ err: err.message }, '[api] create workflow error');
     res.status(500).json({ error: { code: 'WORKFLOW_CREATE_ERROR', message: 'Failed to create workflow.' } });
   }
 });
@@ -177,7 +178,7 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
     await stopWorkflow(req.params.id, req.user.id);
     res.json({ message: 'Workflow paused' });
   } catch (err) {
-    console.error('[api] pause workflow error:', err);
+    logger.error({ err: err.message }, '[api] pause workflow error');
     res.status(500).json({ error: { code: 'WORKFLOW_PAUSE_ERROR', message: 'Failed to pause workflow.' } });
   }
 });
@@ -195,7 +196,7 @@ router.get('/apps', requireAuth, async (req, res) => {
     const paginated = allConnected.slice(offset, offset + limit);
     res.json({ connected: paginated, missing: status.missing || [], total: allConnected.length, limit, offset });
   } catch (err) {
-    console.error('[api] apps status error:', err);
+    logger.error({ err: err.message }, '[api] apps status error');
     res.status(500).json({ error: { code: 'APPS_STATUS_ERROR', message: 'Failed to fetch app connection status.' } });
   }
 });
@@ -210,7 +211,7 @@ router.post('/notify/register', requireAuth, async (req, res) => {
     await updatePushToken(req.user.id, token);
     res.json({ ok: true });
   } catch (err) {
-    console.error('[api] push token register error:', err);
+    logger.error({ err: err.message }, '[api] push token register error');
     res.status(500).json({ error: { code: 'PUSH_TOKEN_ERROR', message: 'Failed to register push token.' } });
   }
 });
@@ -227,7 +228,7 @@ router.patch('/workflows/:id', validateIdParam, requireAuth, async (req, res) =>
     if (!result.rows[0]) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow not found' } });
     res.json({ workflow: result.rows[0] });
   } catch (err) {
-    console.error('[api] update workflow error:', err);
+    logger.error({ err: err.message }, '[api] update workflow error');
     res.status(500).json({ error: { code: 'WORKFLOW_UPDATE_ERROR', message: 'Failed to update workflow.' } });
   }
 });
@@ -250,7 +251,7 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     const updated = await updateUserPreferences(req.user.id, filtered);
     res.json({ user: updated });
   } catch (err) {
-    console.error('[api] update preferences error:', err);
+    logger.error({ err: err.message }, '[api] update preferences error');
     res.status(500).json({ error: { code: 'PREFERENCES_UPDATE_ERROR', message: 'Failed to update preferences.' } });
   }
 });
@@ -266,7 +267,7 @@ router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) =>
     const workflows = await planAndCreateWorkflows(req.user, description.trim());
     res.status(201).json({ workflows });
   } catch (err) {
-    console.error('[api] workflow plan error:', err);
+    logger.error({ err: err.message }, '[api] workflow plan error');
     res.status(500).json({ error: { code: 'WORKFLOW_PLAN_ERROR', message: 'Failed to plan workflow.' } });
   }
 });
@@ -316,7 +317,7 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     }
     res.json({ status: 'triggered', result: runResult });
   } catch (err) {
-    console.error('[api] workflow run error:', err);
+    logger.error({ err: err.message }, '[api] workflow run error');
     res.status(500).json({ error: { code: 'WORKFLOW_RUN_ERROR', message: 'Failed to run workflow.' } });
   }
 });
@@ -329,7 +330,7 @@ router.get('/templates', requireAuth, async (req, res) => {
     const { rows: templates, total } = await require('../services/template-library').search(searchTerm, category, { limit, offset });
     res.json({ templates, total, limit, offset });
   } catch (err) {
-    console.error('[api] search templates error:', err);
+    logger.error({ err: err.message }, '[api] search templates error');
     res.status(500).json({ error: { code: 'TEMPLATES_SEARCH_ERROR', message: 'Failed to search templates.' } });
   }
 });
@@ -374,7 +375,7 @@ router.post('/templates', requireAuth, async (req, res) => {
     const template = await require('../services/template-library').publish(req.user.id, sanitized);
     res.status(201).json({ template });
   } catch (err) {
-    console.error('[api] publish template error:', err);
+    logger.error({ err: err.message }, '[api] publish template error');
     res.status(500).json({ error: { code: 'TEMPLATE_PUBLISH_ERROR', message: 'Failed to publish template.' } });
   }
 });
@@ -385,7 +386,7 @@ router.post('/templates/:id/instantiate', validateIdParam, requireAuth, async (r
     const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, req.body);
     res.status(201).json({ workflow });
   } catch (err) {
-    console.error('[api] instantiate template error:', err);
+    logger.error({ err: err.message }, '[api] instantiate template error');
     res.status(500).json({ error: { code: 'TEMPLATE_INSTANTIATE_ERROR', message: 'Failed to instantiate template.' } });
   }
 });

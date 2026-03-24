@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('crypto');
+const logger = require('./logger');
 const { callLLM } = require('./llm');
 const { executeTool, getTools, selectToolsForMessage, getConnectionStatus, getConnectionLink, appFromToolName } = require('./composio');
 const { validateToolArgs } = require('../lib/validate-tool-args');
@@ -147,13 +148,13 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
       if (result === 0) {
         lockStatus.lost = true;
         lockStatus.reason = 'lock_stolen';
-        console.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
+        logger.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
         clearInterval(extendTimer);
       }
     } catch (err) {
       lockStatus.lost = true;
       lockStatus.reason = 'redis_error';
-      console.error(`[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost:`, err.message);
+      logger.error({ err: err.message }, `[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost`);
       clearInterval(extendTimer);
     }
   }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
@@ -179,7 +180,7 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
         await redis.expire(lockKey, 30);
         console.warn(`[workflow-agent] Set 30s fallback TTL on ${lockKey} after release failure`);
       } catch (expErr) {
-        console.error(`[workflow-agent] Failed to set fallback TTL on ${lockKey}:`, expErr.message);
+        logger.error({ err: expErr.message }, `[workflow-agent] Failed to set fallback TTL on ${lockKey}`);
       }
     }
   }
@@ -269,7 +270,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   while (iterations < MAX_AGENT_ITERATIONS) {
     // Abort if we lost the distributed lock — another executor may be running
     if (lockStatus.lost) {
-      console.error(`[workflow-agent] Aborting workflow ${workflowId} run ${run.id} — lock lost (${lockStatus.reason})`);
+      logger.error({ reason: lockStatus.reason }, `[workflow-agent] Aborting workflow ${workflowId} run ${run.id} — lock lost`);
       await updateWorkflowRun(run.id, {
         status: 'failed',
         completed_at: new Date(),
@@ -350,7 +351,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
             await provider.sendMessage(user.phone, block.input.message);
             result = { success: true, message: 'User notified' };
           } catch (sendErr) {
-            console.error(`[workflow-agent] NOTIFY_USER sendMessage failed:`, sendErr.message);
+            logger.error({ err: sendErr.message }, '[workflow-agent] NOTIFY_USER sendMessage failed');
             result = { error: `Failed to notify user: ${sendErr.message}` };
           }
         } else if (block.name === 'WAIT_FOR_REPLY') {
@@ -358,7 +359,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
           try {
             await provider.sendMessage(user.phone, block.input.prompt);
           } catch (sendErr) {
-            console.error(`[workflow-agent] WAIT_FOR_REPLY sendMessage failed:`, sendErr.message);
+            logger.error({ err: sendErr.message }, '[workflow-agent] WAIT_FOR_REPLY sendMessage failed');
             result = { error: `Failed to send prompt to user: ${sendErr.message}` };
             stepLog.push({ ...stepEntry, result: { error: result.error } });
             toolResults.push({
@@ -429,7 +430,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
           }
         }
       } catch (err) {
-        console.error(`[workflow-agent] Tool failed [${block.name}]:`, err.message);
+        logger.error({ err: err.message }, `[workflow-agent] Tool failed [${block.name}]`);
         result = { error: err.message };
       }
 
@@ -553,7 +554,7 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   while (iterations < MAX_AGENT_ITERATIONS) {
     // Abort if we lost the distributed lock — another executor may be running
     if (lockStatus.lost) {
-      console.error(`[workflow-agent] Aborting resumed run ${runId} — lock lost (${lockStatus.reason})`);
+      logger.error({ reason: lockStatus.reason }, `[workflow-agent] Aborting resumed run ${runId} — lock lost`);
       await updateWorkflowRun(runId, {
         status: 'failed',
         completed_at: new Date(),
@@ -632,14 +633,14 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
             await provider.sendMessage(user.phone, block.input.message);
             result = { success: true, message: 'User notified' };
           } catch (sendErr) {
-            console.error(`[workflow-agent] NOTIFY_USER sendMessage failed:`, sendErr.message);
+            logger.error({ err: sendErr.message }, '[workflow-agent] NOTIFY_USER sendMessage failed');
             result = { error: `Failed to notify user: ${sendErr.message}` };
           }
         } else if (block.name === 'WAIT_FOR_REPLY') {
           try {
             await provider.sendMessage(user.phone, block.input.prompt);
           } catch (sendErr) {
-            console.error(`[workflow-agent] WAIT_FOR_REPLY sendMessage failed:`, sendErr.message);
+            logger.error({ err: sendErr.message }, '[workflow-agent] WAIT_FOR_REPLY sendMessage failed');
             result = { error: `Failed to send prompt to user: ${sendErr.message}` };
             stepLog.push({ ...stepEntry, result: { error: result.error } });
             toolResults.push({

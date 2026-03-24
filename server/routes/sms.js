@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const logger = require('../services/logger');
 const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, deduplicateMessage } = require('../services/redis');
@@ -128,7 +129,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       : err.name === 'JsonWebTokenError' ? 'AUTH_ERROR'
       : 'WEBHOOK_ERROR';
     const status = isRetriable ? 503 : 500;
-    console.error(`SMS webhook error [${code}]:`, err);
+    logger.error({ err: err.message, code }, 'SMS webhook error');
     res.status(status).json({ error: { code, message: 'Internal server error' } });
   }
 });
@@ -152,7 +153,7 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     try {
       await resumeWorkflowRun(pendingReply.run_id, messageText);
     } catch (err) {
-      console.error('[sms] Workflow resume error:', err.message);
+      logger.error({ err: err.message }, '[sms] Workflow resume error');
       const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';
       await provider.sendMessage(phone, failMsg);
       await appendMessage(user.id, 'assistant', failMsg);
@@ -181,11 +182,11 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     const orchestrator = require('../services/orchestrator');
     responseText = await orchestrator.processMessage(user, messageText);
   } catch (err) {
-    console.error('Orchestrator error:', err);
+    logger.error({ err: err.message }, 'Orchestrator error');
     responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
     // Orchestrator failed before persisting — save messages here
-    await appendMessage(user.id, 'user', messageText).catch(e => console.error(`[sms] Failed to persist user message for user ${user.id}:`, e.message));
-    await appendMessage(user.id, 'assistant', responseText).catch(e => console.error(`[sms] Failed to persist assistant message for user ${user.id}:`, e.message));
+    await appendMessage(user.id, 'user', messageText).catch(e => logger.error({ err: e.message }, `[sms] Failed to persist user message for user ${user.id}`));
+    await appendMessage(user.id, 'assistant', responseText).catch(e => logger.error({ err: e.message }, `[sms] Failed to persist assistant message for user ${user.id}`));
   }
 
   // Orchestrator already persists user + assistant messages atomically

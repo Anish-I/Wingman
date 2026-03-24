@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const logger = require('../services/logger');
 const requireAuth = require('../middleware/requireAuth');
 const { redis } = require('../services/redis');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
@@ -81,7 +82,7 @@ router.get('/status', requireAuth, async (req, res) => {
     const status = await getConnectionStatus(req.user.id, WINGMAN_APPS);
     res.json(status);
   } catch (err) {
-    console.error('Connection status error:', err);
+    logger.error({ err: err.message }, 'Connection status error');
     res.status(500).json({ error: { code: 'CONNECTION_STATUS_ERROR', message: 'Failed to fetch connection status.' } });
   }
 });
@@ -99,7 +100,7 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
     await redis.set(key, JSON.stringify({ userId: req.user.id, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
     res.json({ connectToken });
   } catch (err) {
-    console.error('[connect] create-connect-token error:', err);
+    logger.error({ err: err.message }, '[connect] create-connect-token error');
     res.status(500).json({ error: { code: 'CONNECT_TOKEN_ERROR', message: 'Failed to create connect token.' } });
   }
 });
@@ -121,7 +122,7 @@ router.get('/initiate', async (req, res) => {
     try {
       parsed = JSON.parse(stored);
     } catch {
-      console.error('Corrupt connect_token payload in Redis for key:', key);
+      logger.error('Corrupt connect_token payload in Redis');
       return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
     }
     const { userId, app } = parsed;
@@ -131,7 +132,7 @@ router.get('/initiate', async (req, res) => {
     res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
-    console.error('Connection initiate error:', err);
+    logger.error({ err: err.message }, 'Connection initiate error');
     res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to generate connection link.' } });
   }
 });
@@ -162,7 +163,7 @@ router.get('/callback', async (req, res) => {
     const { app: appName } = payload;
     res.redirect(`${WEB_URL}/connect/success?app=${appName || ''}`);
   } catch (err) {
-    console.error('OAuth callback error:', err);
+    logger.error({ err: err.message }, 'OAuth callback error');
     res.status(500).json({ error: { code: 'OAUTH_CALLBACK_ERROR', message: 'Something went wrong.' } });
   }
 });
@@ -189,7 +190,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
           headers: { 'x-api-key': COMPOSIO_API_KEY },
         });
         if (!delRes.ok) {
-          console.error(`Composio DELETE failed for account ${account.id}: ${delRes.status} ${delRes.statusText}`);
+          logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
           return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
         }
       }
@@ -197,7 +198,7 @@ router.post('/disconnect', requireAuth, async (req, res) => {
     await invalidateToolsCache(req.user.id);
     res.json({ success: true });
   } catch (err) {
-    console.error('Disconnect error:', err);
+    logger.error({ err: err.message }, 'Disconnect error');
     res.status(500).json({ error: { code: 'DISCONNECT_ERROR', message: 'Failed to disconnect app.' } });
   }
 });
@@ -215,7 +216,7 @@ router.get('/:app', requireAuth, async (req, res) => {
     res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
     res.redirect(url);
   } catch (err) {
-    console.error('Connection link error:', err);
+    logger.error({ err: err.message }, 'Connection link error');
     res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to generate connection link.' } });
   }
 });
@@ -242,7 +243,7 @@ router.delete('/:app', requireAuth, async (req, res) => {
           headers: { 'x-api-key': COMPOSIO_API_KEY },
         });
         if (!delRes.ok) {
-          console.error(`Composio DELETE failed for account ${account.id}: ${delRes.status} ${delRes.statusText}`);
+          logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
           return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
         }
       }
@@ -250,7 +251,7 @@ router.delete('/:app', requireAuth, async (req, res) => {
     await invalidateToolsCache(req.user.id);
     res.json({ success: true });
   } catch (err) {
-    console.error('Disconnect error:', err);
+    logger.error({ err: err.message }, 'Disconnect error');
     res.status(500).json({ error: { code: 'DISCONNECT_ERROR', message: 'Failed to disconnect app.' } });
   }
 });

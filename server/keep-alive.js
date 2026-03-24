@@ -6,6 +6,7 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const logger = require('./services/logger');
 
 let serverProcess = null;
 let attemptCount = 0;
@@ -22,19 +23,19 @@ function startServer() {
   });
 
   serverProcess.on('exit', (code) => {
-    console.error(`[keep-alive] Server exited with code ${code}`);
+    logger.error({ code }, '[keep-alive] Server exited');
 
     if (attemptCount < MAX_RESTART_ATTEMPTS) {
       console.log(`[keep-alive] Restarting in ${RESTART_DELAY}ms...`);
       setTimeout(startServer, RESTART_DELAY);
     } else {
-      console.error(`[keep-alive] Max restart attempts (${MAX_RESTART_ATTEMPTS}) reached. Giving up.`);
+      logger.error(`[keep-alive] Max restart attempts (${MAX_RESTART_ATTEMPTS}) reached. Giving up.`);
       process.exit(1);
     }
   });
 
   serverProcess.on('error', (err) => {
-    console.error('[keep-alive] Failed to start server:', err);
+    logger.error({ err: err.message }, '[keep-alive] Failed to start server');
   });
 }
 

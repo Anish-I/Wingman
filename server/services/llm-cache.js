@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const logger = require('./logger');
 const { redis } = require('./redis');
 
 // Bucket patterns and TTLs
@@ -65,7 +66,7 @@ async function getCachedResponse(messageText, userId) {
       console.log(`[llm-cache] stampede lock timeout, proceeding with LLM call for key=${key}`);
     }
   } catch (err) {
-    console.error('[llm-cache] Redis get error:', err.message);
+    logger.error({ err: err.message }, '[llm-cache] Redis get error');
   }
   return null;
 }
@@ -78,10 +79,10 @@ async function setCachedResponse(messageText, response, userId) {
   try {
     await redis.set(key, response, 'EX', bucket.ttl);
     // Release stampede lock now that cache is populated
-    await redis.del(`${key}:lock`).catch(e => console.error('[llm-cache] stampede lock release error:', e.message));
+    await redis.del(`${key}:lock`).catch(e => logger.error({ err: e.message }, '[llm-cache] stampede lock release error'));
     console.log(`[llm-cache] SET ${bucket.name} key=${key} ttl=${bucket.ttl}s`);
   } catch (err) {
-    console.error('[llm-cache] Redis set error:', err.message);
+    logger.error({ err: err.message }, '[llm-cache] Redis set error');
   }
 }
 
@@ -110,7 +111,7 @@ async function getCachedWorkflowPlan(description, userId) {
       return JSON.parse(cached);
     }
   } catch (err) {
-    console.error('[llm-cache] workflow plan get error:', err.message);
+    logger.error({ err: err.message }, '[llm-cache] workflow plan get error');
   }
   return null;
 }
@@ -122,7 +123,7 @@ async function setCachedWorkflowPlan(description, plans, userId) {
     await redis.set(key, JSON.stringify(plans), 'EX', WORKFLOW_PLAN_TTL);
     console.log(`[llm-cache] SET workflow_plan key=${key} ttl=${WORKFLOW_PLAN_TTL}s`);
   } catch (err) {
-    console.error('[llm-cache] workflow plan set error:', err.message);
+    logger.error({ err: err.message }, '[llm-cache] workflow plan set error');
   }
 }
 
@@ -133,7 +134,7 @@ async function releaseCacheLock(messageText, userId) {
   try {
     await redis.del(`${key}:lock`);
   } catch (err) {
-    console.error('[llm-cache] lock release error:', err.message);
+    logger.error({ err: err.message }, '[llm-cache] lock release error');
   }
 }
 

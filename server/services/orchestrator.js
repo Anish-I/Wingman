@@ -7,6 +7,7 @@ const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
 const { redis } = require('./redis');
 const { validateToolArgs } = require('../lib/validate-tool-args');
+const logger = require('./logger');
 const crypto = require('crypto');
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -34,7 +35,7 @@ async function _addOrphan(userId) {
     // Auto-expire the key if no sweep or removal happens (e.g. process dies).
     await redis.pexpire(key, ORPHAN_REAP_TIMEOUT + 60000);
   } catch (err) {
-    console.error(`[user:${userId}] Failed to track orphan in Redis:`, err.message);
+    logger.error({ err: err.message }, `[user:${userId}] Failed to track orphan in Redis`);
     return null;
   }
   return token;
@@ -46,7 +47,7 @@ async function _removeOrphan(userId, token) {
   try {
     await redis.zrem(ORPHAN_KEY_PREFIX + userId, token);
   } catch (err) {
-    console.error(`[user:${userId}] Failed to remove orphan from Redis:`, err.message);
+    logger.error({ err: err.message }, `[user:${userId}] Failed to remove orphan from Redis`);
   }
 }
 
@@ -58,7 +59,7 @@ async function _getUserOrphanCount(userId) {
     await redis.zremrangebyscore(key, '-inf', cutoff);
     return await redis.zcard(key);
   } catch (err) {
-    console.error(`[user:${userId}] Failed to read orphan count from Redis:`, err.message);
+    logger.error({ err: err.message }, `[user:${userId}] Failed to read orphan count from Redis`);
     return 0; // fail-open: allow the request through
   }
 }
@@ -73,7 +74,7 @@ async function getOrphanedCount() {
     const results = await pipeline.exec();
     return results.reduce((sum, [err, count]) => sum + (err ? 0 : count), 0);
   } catch (err) {
-    console.error('[orphan] Failed to read global orphan count:', err.message);
+    logger.error({ err: err.message }, '[orphan] Failed to read global orphan count');
     return 0;
   }
 }
@@ -101,7 +102,7 @@ async function _sweepOrphans() {
     }
     if (delCount > 0) await delPipeline.exec();
   } catch (err) {
-    console.error('[orphan-sweep] Unexpected error during sweep:', err.message);
+    logger.error({ err: err.message }, '[orphan-sweep] Unexpected error during sweep');
   }
 }
 
@@ -235,18 +236,18 @@ async function processMessage(user, messageText) {
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          _removeOrphan(userId, orphanToken).catch(e => { console.error(`[user:${userId}] Failed to remove reaped orphan from Redis:`, e.message); });
+          _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove reaped orphan from Redis`); });
           console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms`);
         }
       }, ORPHAN_REAP_TIMEOUT);
       if (reapTimer.unref) reapTimer.unref(); // don't keep process alive
       innerPromise
-        .catch(err => { console.error(`[user:${userId}] Orphaned inner promise error:`, err.message); })
+        .catch(err => { logger.error({ err: err.message }, `[user:${userId}] Orphaned inner promise error`); })
         .finally(() => {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            _removeOrphan(userId, orphanToken).catch(e => { console.error(`[user:${userId}] Failed to remove settled orphan from Redis:`, e.message); });
+            _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled orphan from Redis`); });
             console.log(`[user:${userId}] Orphaned promise settled`);
           }
         });
@@ -289,7 +290,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       }
       return appendMessage(user.id, role, text);
     });
-    appendChain = p.catch(err => { console.error(`[user:${userId}] appendMessage(${role}) failed:`, err.message); });
+    appendChain = p.catch(err => { logger.error({ err: err.message }, `[user:${userId}] appendMessage(${role}) failed`); });
     lockHolder.inflightAppend = p;
     p.finally(() => {
       if (lockHolder.inflightAppend === p) lockHolder.inflightAppend = null;
@@ -320,7 +321,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // release it immediately rather than doing any more work.
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Aborted during lock acquisition — releasing lock immediately`);
-    releaseLock().catch(e => console.error(`[user:${userId}] Failed to release lock after abort:`, e.message));
+    releaseLock().catch(e => logger.error({ err: e.message }, `[user:${userId}] Failed to release lock after abort`));
     return "Sorry, that took too long. Please try again.";
   }
 
@@ -509,7 +510,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
           }
         }
       } catch (err) {
-        console.error(`[user:${userId}] Tool failed [${block.name}]:`, err.message);
+        logger.error({ err: err.message }, `[user:${userId}] Tool failed [${block.name}]`);
 
         // Timeout on a side-effecting tool — the underlying call is still
         // in-flight and may succeed. Tell the LLM NOT to retry.
@@ -590,7 +591,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
     await safeAppend('assistant', finalText);
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { console.error(`[user:${userId}] releaseCacheLock failed:`, err.message); });
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     return finalText;
   }
   await safeAppend('assistant', finalText);
@@ -607,12 +608,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (memoryTimer.unref) memoryTimer.unref();
   extractAndSaveMemory(user, messages, { signal: memoryAC.signal })
     .finally(() => clearTimeout(memoryTimer))
-    .catch(err => { console.error(`[user:${userId}] memory extraction failed:`, err.message); });
+    .catch(err => { logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`); });
 
   return finalText;
   } catch (err) {
     // Release stampede lock so other requests aren't blocked for 30s
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { console.error(`[user:${userId}] releaseCacheLock failed:`, err.message); });
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
 
     // AbortError means the outer processMessage timed out and set the flag —
     // stop immediately.  The lock is still held (the outer handler no longer
@@ -627,20 +628,20 @@ async function _processMessageInner(user, messageText, abortController = { abort
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       const rateLimitMsg = "One sec — juggling a few things. Try again in a moment.";
       safeAppend('assistant', rateLimitMsg)
-        .catch(e => console.error(`[user:${userId}] Rate-limit history persist failed:`, e.message));
+        .catch(e => logger.error({ err: e.message }, `[user:${userId}] Rate-limit history persist failed`));
       return rateLimitMsg;
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
       safeAppend('assistant', "Sorry, that took too long. Please try again.")
-        .catch(e => console.error(`[user:${userId}] Timeout history persist failed:`, e.message));
+        .catch(e => logger.error({ err: e.message }, `[user:${userId}] Timeout history persist failed`));
       return "Sorry, that took too long. Please try again.";
     }
     // Any other LLM/service failure — persist error response so the user's
     // message doesn't appear unanswered on retry or app restart.
-    console.error(`[user:${userId}] Unhandled LLM error:`, err.message);
+    logger.error({ err: err.message }, `[user:${userId}] Unhandled LLM error`);
     const errorMsg = "Something went wrong on my end. Please try again.";
     safeAppend('assistant', errorMsg)
-      .catch(e => console.error(`[user:${userId}] Error history persist failed:`, e.message));
+      .catch(e => logger.error({ err: e.message }, `[user:${userId}] Error history persist failed`));
     return errorMsg;
   } finally {
     // Always drain in-flight appends regardless of who set `released`.
@@ -648,7 +649,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // while an append is mid-flight, the finally block would skip draining,
     // leaving a Redis write racing with the next request's writes after TTL expiry.
     if (lockHolder.inflightAppend) {
-      await lockHolder.inflightAppend.catch(e => console.error(`[user:${userId}] Inflight append failed:`, e.message));
+      await lockHolder.inflightAppend.catch(e => logger.error({ err: e.message }, `[user:${userId}] Inflight append failed`));
     }
     if (releaseLock) {
       lockHolder.released = true;
@@ -656,7 +657,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       // Redis already removed the key and a new request may hold the lock.
       // Calling release on an expired lock could delete the NEW lock key.
       if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
-        await releaseLock().catch(e => console.error(`[user:${userId}] Failed to release conversation lock:`, e.message));
+        await releaseLock().catch(e => logger.error({ err: e.message }, `[user:${userId}] Failed to release conversation lock`));
       } else {
         console.warn(`[user:${userId}] Lock TTL expired — skipping explicit release to avoid deleting a newer lock`);
       }

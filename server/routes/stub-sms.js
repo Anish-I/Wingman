@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const logger = require('../services/logger');
 const { provider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
 const { appendMessage, redis } = require('../services/redis');
@@ -60,7 +61,7 @@ router.post('/sms', async (req, res) => {
       try {
         await resumeWorkflowRun(pendingReply.run_id, body);
       } catch (err) {
-        console.error('[stub-sms] Workflow resume error:', err.message);
+        logger.error({ err: err.message }, '[stub-sms] Workflow resume error');
       }
       const replyText = 'Got it! Processing your reply...';
       await provider.sendMessage(from, replyText);
@@ -88,7 +89,7 @@ router.post('/sms', async (req, res) => {
       const orchestrator = require('../services/orchestrator');
       responseText = await orchestrator.processMessage(user, body);
     } catch (err) {
-      console.error('[stub-sms] Orchestrator error:', err);
+      logger.error({ err: err.message }, '[stub-sms] Orchestrator error');
       responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
     }
 
@@ -97,7 +98,7 @@ router.post('/sms', async (req, res) => {
 
     res.json({ success: true, response: responseText });
   } catch (err) {
-    console.error('[stub-sms] Error:', err);
+    logger.error({ err: err.message }, '[stub-sms] Error');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
   }
 });
@@ -117,7 +118,7 @@ router.get('/messages/:phone', async (req, res) => {
     const messages = await redis.lrange(key, 0, -1);
     res.json({ messages: messages.map((m) => JSON.parse(m)) });
   } catch (err) {
-    console.error('[stub-sms] Get messages error:', err);
+    logger.error({ err: err.message }, '[stub-sms] Get messages error');
     res.status(500).json({ error: { code: 'MESSAGES_FETCH_ERROR', message: 'Failed to retrieve messages.' } });
   }
 });

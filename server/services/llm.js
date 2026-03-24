@@ -1,6 +1,7 @@
 'use strict';
 
 const OpenAI = require('openai');
+const logger = require('./logger');
 const { queueLLMCall } = require('./llm-queue');
 
 // Build all provider clients (initialize regardless of LLM_PROVIDER)
@@ -56,7 +57,7 @@ providers.sort((a, b) => {
 });
 
 if (providers.length === 0) {
-  console.error('[llm] No provider API keys configured!');
+  logger.error('[llm] No provider API keys configured!');
 }
 
 const MODEL_DEFAULT = providers[0]?.model || 'gemini-2.5-flash';
@@ -209,12 +210,12 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       }
 
       // Non-transient error (e.g. 401, 403), don't try other providers
-      console.error('[llm] Call failed:', lastErr?.message || lastErr);
+      logger.error({ err: lastErr?.message || String(lastErr) }, '[llm] Call failed');
       throw new Error('Failed to process your message. Please try again.');
     }
 
     // All providers exhausted
-    console.error('[llm] All providers failed');
+    logger.error('[llm] All providers failed');
     throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
   }, { signal });
 }

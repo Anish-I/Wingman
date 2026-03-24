@@ -1,5 +1,6 @@
 const Redis = require('ioredis');
 const crypto = require('crypto');
+const logger = require('./logger');
 
 /**
  * Build ioredis options with optional password from REDIS_PASSWORD env var.
@@ -39,7 +40,7 @@ function createRedisClient(overrides = {}) {
 const redis = createRedisClient();
 
 redis.on('error', (err) => {
-  console.error('Redis connection error:', err.message);
+  logger.error({ err: err.message }, 'Redis connection error');
 });
 
 const CONVERSATION_TTL = 60 * 60 * 24; // 24 hours
@@ -114,7 +115,7 @@ async function cleanupStaleConversations() {
     } while (cursor !== '0');
     if (cleaned > 0) console.log(`[redis] Cleanup: set 48h TTL on ${cleaned} stale conversation keys`);
   } catch (err) {
-    console.error('[redis] Cleanup error:', err.message);
+    logger.error({ err: err.message }, '[redis] Cleanup error');
   }
 }
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const { EventEmitter } = require('events');
+const logger = require('../logger');
 const { createRedisClient } = require('../redis');
 
 class StubProvider extends EventEmitter {
@@ -8,7 +9,7 @@ class StubProvider extends EventEmitter {
     super();
     this.redis = createRedisClient({ maxRetriesPerRequest: 3 });
     this.redis.on('error', (err) => {
-      console.error('[stub] Redis error:', err.message);
+      logger.error({ err: err.message }, '[stub] Redis error');
     });
   }
 

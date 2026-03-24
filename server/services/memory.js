@@ -1,4 +1,5 @@
 const { callLLM } = require('./llm');
+const logger = require('./logger');
 const queries = require('../db/queries');
 
 const EXTRACT_PROMPT = `You are a memory extraction system. Given a conversation, extract personal facts about the user.
@@ -91,7 +92,7 @@ async function extractAndSaveMemory(user, messages, { signal } = {}) {
 
     await queries.updateUserPreferences(user.id, { memory: merged, memory_extracted_at: new Date().toISOString() });
   } catch (err) {
-    console.error('[memory] extraction failed:', err.message);
+    logger.error({ err: err.message }, '[memory] extraction failed');
   }
 }
 

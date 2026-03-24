@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const logger = require('../services/logger');
 const { createRedisClient } = require('../services/redis');
 const jwksClient = require('jwks-rsa');
 const { OAuth2Client } = require('google-auth-library');
@@ -352,7 +353,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
-    console.error('Signup error:', err);
+    logger.error({ err: err.message }, 'Signup error');
     res.status(500).json({ error: { code: 'SIGNUP_ERROR', message: 'Sign-up failed. Please try again.' } });
   }
 });
@@ -397,7 +398,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error({ err: err.message }, 'Login error');
     res.status(500).json({ error: { code: 'LOGIN_ERROR', message: 'Login failed. Please try again.' } });
   }
 });
@@ -485,7 +486,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
 
     res.json({ success: true, message: 'OTP sent.' });
   } catch (err) {
-    console.error('OTP request error:', err);
+    logger.error({ err: err.message }, 'OTP request error');
     res.status(500).json({ error: { code: 'OTP_SEND_ERROR', message: 'Failed to send OTP.' } });
   }
 });
@@ -679,7 +680,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       // Uses a Lua script for atomicity — prevents releasing a lock that expired and
       // was re-acquired by another request.
       const releaseLua = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`;
-      await redis.eval(releaseLua, 1, lockKey, lockValue).catch(err => { console.error('[auth] OTP lock release failed:', err.message); });
+      await redis.eval(releaseLua, 1, lockKey, lockValue).catch(err => { logger.error({ err: err.message }, '[auth] OTP lock release failed'); });
     }
   } catch (err) {
     // Unique-constraint on phone (code 23505) means another request linked
@@ -687,7 +688,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     if (err.code === '23505' && err.constraint && /phone/i.test(err.constraint)) {
       return res.status(409).json({ error: { code: 'PHONE_ALREADY_LINKED', message: 'This phone number was just linked to another account. Please try again.' } });
     }
-    console.error('OTP verify error:', err);
+    logger.error({ err: err.message }, 'OTP verify error');
     res.status(500).json({ error: { code: 'OTP_VERIFY_ERROR', message: 'Failed to verify OTP.' } });
   }
 });
@@ -736,7 +737,7 @@ router.post('/google/init-state', async (req, res) => {
     const state = jwt.sign({ nonce, flow: 'spa' }, JWT_SECRET, { expiresIn: '5m' });
     res.json({ state });
   } catch (err) {
-    console.error('Google init-state error:', err);
+    logger.error({ err: err.message }, 'Google init-state error');
     res.status(500).json({ error: { code: 'INIT_STATE_ERROR', message: 'Failed to generate OAuth state.' } });
   }
 });
@@ -812,7 +813,7 @@ router.post('/google', async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error('Google token exchange failed:', { error: tokenData.error, error_description: tokenData.error_description });
+      logger.error({ data: { error: tokenData.error, error_description: tokenData.error_description } }, 'Google token exchange failed');
       return res.status(401).json({ error: { code: 'TOKEN_EXCHANGE_FAILED', message: 'Failed to exchange authorization code.' } });
     }
 
@@ -841,7 +842,7 @@ router.post('/google', async (req, res) => {
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
-    console.error('Google auth error:', err);
+    logger.error({ err: err.message }, 'Google auth error');
     res.status(500).json({ error: { code: 'GOOGLE_AUTH_ERROR', message: 'Google sign-in failed.' } });
   }
 });
@@ -953,7 +954,7 @@ router.get('/google/callback', async (req, res) => {
     const { code, error } = req.query;
 
     if (error) {
-      console.error('Google OAuth error:', error);
+      logger.error({ err: error }, 'Google OAuth error');
       return res.redirect(buildRedirectUrl(state, { error }));
     }
 
@@ -964,7 +965,7 @@ router.get('/google/callback', async (req, res) => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
-      console.error('Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
+      logger.error('Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
       return res.redirect(buildRedirectUrl(state, { error: 'server_config' }));
     }
 
@@ -991,7 +992,7 @@ router.get('/google/callback', async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error('Google token exchange failed:', { error: tokenData.error, error_description: tokenData.error_description });
+      logger.error({ data: { error: tokenData.error, error_description: tokenData.error_description } }, 'Google token exchange failed');
       return res.redirect(buildRedirectUrl(state, { error: 'token_exchange_failed' }));
     }
 
@@ -1003,7 +1004,7 @@ router.get('/google/callback', async (req, res) => {
     const googleUser = await userInfoResponse.json();
 
     if (!googleUser.id || !googleUser.email) {
-      console.error('Google user info missing id or email:', googleUser);
+      logger.error({ data: { id: googleUser.id, hasEmail: !!googleUser.email } }, 'Google user info missing id or email');
       return res.redirect(buildRedirectUrl(state, { error: 'missing_user_info' }));
     }
 
@@ -1028,7 +1029,7 @@ router.get('/google/callback', async (req, res) => {
     }), 'EX', AUTH_CODE_TTL);
     res.redirect(buildRedirectUrl(state, { code: authCode }));
   } catch (err) {
-    console.error('Google OAuth callback error:', err);
+    logger.error({ err: err.message }, 'Google OAuth callback error');
     res.redirect(buildRedirectUrl(state, { error: 'server_error' }));
   }
 });
@@ -1052,17 +1053,17 @@ router.post('/exchange-code', async (req, res) => {
       data = JSON.parse(stored);
     } catch {
       // Do not log the key — it contains the raw auth code
-      console.error('Corrupt auth_code payload in Redis — unparseable JSON');
+      logger.error('Corrupt auth_code payload in Redis — unparseable JSON');
       return res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
     }
     if (!data || typeof data.token !== 'string' || !data.userId) {
-      console.error('Corrupt auth_code payload in Redis — unexpected structure');
+      logger.error('Corrupt auth_code payload in Redis — unexpected structure');
       return res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
     }
     setAuthCookie(res, data.token);
     res.json(authResponse(req, data.token, { id: data.userId, name: data.name }));
   } catch (err) {
-    console.error('Exchange code error:', err);
+    logger.error({ err: err.message }, 'Exchange code error');
     res.status(500).json({ error: { code: 'EXCHANGE_CODE_ERROR', message: 'Failed to exchange authorization code.' } });
   }
 });
@@ -1098,7 +1099,7 @@ router.post('/social', async (req, res) => {
       // audience validation inside verifyAppleToken would be skipped, allowing
       // any Apple-signed JWT to pass as a valid Wingman token.
       if (!process.env.APPLE_CLIENT_ID) {
-        console.error('APPLE_CLIENT_ID is not configured — refusing Apple sign-in');
+        logger.error('APPLE_CLIENT_ID is not configured — refusing Apple sign-in');
         return res.status(500).json({ error: { code: 'SERVER_MISCONFIGURED', message: 'Apple sign-in is not available.' } });
       }
       // Cryptographically verify Apple identity token against Apple's JWKS
@@ -1111,7 +1112,7 @@ router.post('/social', async (req, res) => {
         socialEmail = payload.email;
         socialName = req.body.name || socialEmail || 'Apple User';
       } catch (appleErr) {
-        console.error('Apple token verification failed:', appleErr.message);
+        logger.error({ err: appleErr.message }, 'Apple token verification failed');
         return res.status(401).json({ error: { code: 'INVALID_APPLE_TOKEN', message: 'Invalid or expired Apple token.' } });
       }
     }
@@ -1134,7 +1135,7 @@ router.post('/social', async (req, res) => {
     setAuthCookie(res, jwtToken);
     res.json(authResponse(req, jwtToken, { id: user.id, name: user.name }));
   } catch (err) {
-    console.error('Social auth error:', err);
+    logger.error({ err: err.message }, 'Social auth error');
     res.status(500).json({ error: { code: 'SOCIAL_AUTH_ERROR', message: 'Social sign-in failed.' } });
   }
 });
@@ -1160,7 +1161,7 @@ router.get('/me', requireAuth, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Auth me error:', err);
+    logger.error({ err: err.message }, 'Auth me error');
     res.status(500).json({ error: { code: 'USER_INFO_ERROR', message: 'Failed to fetch user info.' } });
   }
 });
@@ -1179,7 +1180,7 @@ router.post('/set-pin', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: 'PIN set successfully.' });
   } catch (err) {
-    console.error('Set PIN error:', err);
+    logger.error({ err: err.message }, 'Set PIN error');
     res.status(500).json({ error: { code: 'SET_PIN_ERROR', message: 'Failed to set PIN.' } });
   }
 });
@@ -1216,7 +1217,7 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
 
     res.json({ success: true, valid });
   } catch (err) {
-    console.error('Verify PIN error:', err);
+    logger.error({ err: err.message }, 'Verify PIN error');
     res.status(500).json({ error: { code: 'VERIFY_PIN_ERROR', message: 'Failed to verify PIN.' } });
   }
 });
@@ -1256,7 +1257,7 @@ router.delete('/account', requireAuth, async (req, res) => {
     clearAuthCookie(res);
     res.json({ success: true });
   } catch (err) {
-    console.error('Delete account error:', err);
+    logger.error({ err: err.message }, 'Delete account error');
     res.status(500).json({ error: { code: 'DELETE_ACCOUNT_ERROR', message: 'Failed to delete account. Please try again.' } });
   }
 });
@@ -1302,7 +1303,7 @@ router.post('/logout-all', requireAuth, async (req, res) => {
     clearAuthCookie(res);
     res.json({ success: true });
   } catch (err) {
-    console.error('Logout-all error:', err);
+    logger.error({ err: err.message }, 'Logout-all error');
     res.status(500).json({ error: { code: 'LOGOUT_ALL_ERROR', message: 'Failed to revoke sessions. Please try again.' } });
   }
 });

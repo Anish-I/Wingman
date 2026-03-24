@@ -1,4 +1,5 @@
 'use strict';
+const logger = require('../services/logger');
 const { verifyToken, isTokenRevoked } = require('../routes/auth');
 const { getUserById } = require('../db/queries');
 
@@ -30,7 +31,7 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
   }
 
-  const user = await getUserById(payload.userId).catch(err => { console.error('[auth] Failed to fetch user by ID:', err.message); return null; });
+  const user = await getUserById(payload.userId).catch(err => { logger.error({ err: err.message }, '[auth] Failed to fetch user by ID'); return null; });
   if (!user) {
     return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
   }

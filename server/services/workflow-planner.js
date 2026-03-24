@@ -1,4 +1,5 @@
 'use strict';
+const logger = require('./logger');
 const { callLLM } = require('./llm');
 const { createAndScheduleWorkflow } = require('./workflows');
 const { getCachedWorkflowPlan, setCachedWorkflowPlan } = require('./llm-cache');
@@ -106,7 +107,7 @@ async function planWorkflows(userMessage, userId) {
     rawPlans = JSON.parse(text);
     if (!Array.isArray(rawPlans)) rawPlans = [rawPlans];
   } catch (err) {
-    console.error('[planner] Failed to parse LLM response:', response.text);
+    logger.error('[planner] Failed to parse LLM response');
     throw new Error('Failed to plan workflow — could not parse response');
   }
 

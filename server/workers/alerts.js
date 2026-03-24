@@ -1,4 +1,5 @@
 const { Worker } = require('bullmq');
+const logger = require('../services/logger');
 const { createRedisClient } = require('../services/redis');
 const { getUserById } = require('../db/queries');
 const { executeToolCall } = require('../services/zapier-tools');
@@ -43,7 +44,7 @@ async function formatAlert(alertType, data, user) {
             msg += ` Heads up: conflicts with "${calResult.events[0].title}".`;
           }
         } catch (err) {
-          console.error('Alert: calendar conflict check failed:', err.message);
+          logger.error({ err: err.message }, 'Alert: calendar conflict check failed');
         }
       }
 
@@ -111,7 +112,7 @@ function startAlertsWorker() {
 
       const user = await getUserById(userId);
       if (!user) {
-        console.error(`Alerts worker: user ${userId} not found`);
+        logger.error(`Alerts worker: user ${userId} not found`);
         return;
       }
 
@@ -128,7 +129,7 @@ function startAlertsWorker() {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`Alert job ${job?.id} failed:`, err.message);
+    logger.error({ err: err.message }, `Alert job ${job?.id} failed`);
   });
 
   worker.on('completed', (job) => {
