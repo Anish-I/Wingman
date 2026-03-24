@@ -178,10 +178,12 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
 
   // Process through orchestrator
   let responseText;
+  let orchestratorFailed = false;
   try {
     const orchestrator = require('../services/orchestrator');
     responseText = await orchestrator.processMessage(user, messageText);
   } catch (err) {
+    orchestratorFailed = true;
     logger.error({ err: err.message }, 'Orchestrator error');
     responseText = 'Sorry, I hit a snag processing your message. Please try again in a moment.';
     // Orchestrator failed before persisting — save messages here
@@ -189,9 +191,21 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
     await appendMessage(user.id, 'assistant', responseText).catch(e => logger.error({ err: e.message }, `[sms] Failed to persist assistant message for user ${user.id}`));
   }
 
-  // Orchestrator already persists user + assistant messages atomically
-  await provider.sendMessage(phone, responseText);
-  return respond(200);
+  // Send reply — wrap in try/catch so a delivery failure doesn't mask the outcome
+  try {
+    await provider.sendMessage(phone, responseText);
+  } catch (sendErr) {
+    logger.error({ err: sendErr.message, phone }, '[sms] Failed to send reply');
+    // If orchestrator already failed, we can't do much more — return 500
+    if (orchestratorFailed) {
+      return respond(500);
+    }
+    // Re-throw so the outer route handler returns an appropriate status
+    throw sendErr;
+  }
+
+  // Return 500 when orchestration failed so the provider can retry the webhook
+  return respond(orchestratorFailed ? 500 : 200);
 }
 
 module.exports = router;
