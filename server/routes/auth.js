@@ -182,6 +182,15 @@ const otpVerifyGlobalLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP verification attempts. Try again later.' } },
 });
 
+// Rate limit auth code exchange: 10 per 15 minutes per IP (defense in depth)
+const exchangeCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many code exchange attempts, please try again later.' } },
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -1111,7 +1120,7 @@ router.get('/google/callback', async (req, res) => {
 
 // POST /auth/exchange-code — exchange a short-lived auth code for a JWT
 // This replaces the pattern of sending JWTs in redirect URLs (security audit M1)
-router.post('/exchange-code', async (req, res) => {
+router.post('/exchange-code', exchangeCodeLimiter, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code || typeof code !== 'string') {
