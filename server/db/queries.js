@@ -169,17 +169,14 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
 }
 
 async function createUser(phone, name) {
-  // Use ON CONFLICT DO NOTHING to atomically handle duplicate phones,
-  // avoiding the TOCTOU race between a constraint violation and a separate SELECT.
+  // Use ON CONFLICT DO UPDATE with a no-op SET so RETURNING * always yields the
+  // row in a single atomic statement — no follow-up SELECT that could miss a
+  // concurrently deleted row (TOCTOU).
   const result = await query(
-    'INSERT INTO users (phone, name) VALUES ($1, $2) ON CONFLICT (phone) DO NOTHING RETURNING *',
+    'INSERT INTO users (phone, name) VALUES ($1, $2) ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone RETURNING *',
     [phone, name || null]
   );
-  if (result.rows[0]) return result.rows[0];
-  // Row already existed — fetch it
-  const existing = await query('SELECT * FROM users WHERE phone = $1', [phone]);
-  if (existing.rows[0]) return existing.rows[0];
-  throw new Error('createUser: failed to insert or find user for given phone');
+  return result.rows[0];
 }
 
 /**
