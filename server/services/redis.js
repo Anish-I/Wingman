@@ -25,13 +25,14 @@ function buildRedisOptions(overrides = {}) {
  * Create an ioredis client using REDIS_URL (with REDIS_PASSWORD when set).
  * All modules should use this instead of instantiating Redis directly.
  *
- * In production, REDIS_PASSWORD is mandatory — the process exits immediately
- * if it is missing, preventing unauthenticated access to OTP hashes,
- * session data, and rate-limit counters.
+ * In non-development environments, REDIS_PASSWORD is mandatory — the process
+ * exits immediately if it is missing, preventing unauthenticated access to
+ * OTP hashes, session data, and rate-limit counters.
  */
 function createRedisClient(overrides = {}) {
-  if (process.env.NODE_ENV === 'production' && !process.env.REDIS_PASSWORD) {
-    console.error('[redis] FATAL: REDIS_PASSWORD is required in production to prevent unauthenticated access. Exiting.');
+  const env = process.env.NODE_ENV || 'development';
+  if (env !== 'development' && env !== 'test' && !process.env.REDIS_PASSWORD) {
+    console.error('[redis] FATAL: REDIS_PASSWORD is required in non-development environments to prevent unauthenticated access. Exiting.');
     process.exit(1);
   }
   return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', buildRedisOptions(overrides));

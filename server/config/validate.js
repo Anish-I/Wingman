@@ -52,8 +52,9 @@ function validateEnv() {
     missing.push('Complete SMS provider (TELNYX_API_KEY + TELNYX_PHONE_NUMBER, or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN)');
   }
 
-  // Require Redis password in production to prevent unauthenticated access
-  if (isProduction && !process.env.REDIS_PASSWORD) {
+  // Require Redis password in all non-local environments (production, staging, etc.)
+  const isLocal = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  if (!isLocal && !process.env.REDIS_PASSWORD) {
     missing.push('REDIS_PASSWORD');
   }
 
