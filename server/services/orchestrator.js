@@ -512,7 +512,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   const selectedTools = toolsDisabled ? [] : selectToolsForMessage(allTools, messageText);
   const tools = toolsDisabled ? [] : [...LOCAL_TOOLS, ...selectedTools];
   // Build allowlist of tool names the LLM is permitted to call this turn
-  const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
+  const allowedToolNames = new Set(tools.map(t => t.function?.name?.toUpperCase()).filter(Boolean));
   // Build a map of tool name → parameter schema for argument validation
   const toolSchemas = new Map();
   for (const t of tools) {
@@ -588,7 +588,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       try {
         // Validate tool name against allowlist — reject anything the LLM
         // was not offered this turn (guards against prompt injection)
-        if (!allowedToolNames.has(block.name)) {
+        if (!allowedToolNames.has(block.name?.toUpperCase())) {
           console.warn(`[user:${userId}] Blocked disallowed tool call: ${block.name}`);
           result = { error: `Tool "${block.name}" is not available. Only use tools provided to you.` };
           completedToolIds.add(block.id);
