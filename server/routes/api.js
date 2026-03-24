@@ -418,7 +418,23 @@ router.post('/templates', requireAuth, async (req, res) => {
 // POST /api/templates/:id/instantiate — create workflow from template
 router.post('/templates/:id/instantiate', validateIdParam, requireAuth, async (req, res) => {
   try {
-    const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, req.body);
+    // Whitelist only the keys that instantiate() actually uses
+    const { name, trigger_type, cron_expression, variables } = req.body || {};
+    const overrides = {};
+    if (typeof name === 'string' && name.length <= 200) overrides.name = name.trim();
+    if (typeof trigger_type === 'string' && ['manual', 'cron', 'webhook'].includes(trigger_type)) overrides.trigger_type = trigger_type;
+    if (typeof cron_expression === 'string' && cron_expression.length <= 100) overrides.cron_expression = cron_expression;
+    if (variables != null && typeof variables === 'object' && !Array.isArray(variables)) {
+      // Only allow string values in variables to prevent injection of nested objects
+      const safe = {};
+      for (const [k, v] of Object.entries(variables)) {
+        if (typeof k === 'string' && k.length <= 100 && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) {
+          safe[k] = v;
+        }
+      }
+      overrides.variables = safe;
+    }
+    const workflow = await require('../services/template-library').instantiate(req.params.id, req.user.id, overrides);
     res.status(201).json({ workflow });
   } catch (err) {
     logger.error({ err: err.message }, '[api] instantiate template error');
