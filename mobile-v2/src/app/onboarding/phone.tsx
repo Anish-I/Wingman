@@ -219,15 +219,17 @@ export default function PhoneScreen() {
           />
         </View>
 
-        {/* Send button */}
-        <View className="w-full">
-          <GradientButton
-            title={loading && step === 'phone' ? 'Sending...' : 'Text Me'}
-            onPress={handleSendCode}
-            icon="send-outline"
-            disabled={loading && step === 'phone'}
-          />
-        </View>
+        {/* Send button — hidden once OTP entry is shown (auto-verify handles it) */}
+        {step === 'phone' && (
+          <View className="w-full">
+            <GradientButton
+              title={loading ? 'Sending...' : 'Text Me'}
+              onPress={handleSendCode}
+              icon="send-outline"
+              disabled={loading}
+            />
+          </View>
+        )}
 
         {/* OTP Section */}
         <AnimatePresence>
