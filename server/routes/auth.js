@@ -205,12 +205,12 @@ function isValidPhone(phone) {
 }
 
 function signToken(payload, expiresInSeconds = 86400) {
-  return jwt.sign(payload, JWT_SECRET, {
+  const jti = crypto.randomUUID();
+  return jwt.sign({ ...payload, jti }, JWT_SECRET, {
     algorithm: 'HS256',
     expiresIn: expiresInSeconds,
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
-    jwtid: crypto.randomUUID(),
   });
 }
 
