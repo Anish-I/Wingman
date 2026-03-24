@@ -46,10 +46,60 @@ redis.on('error', (err) => {
 const CONVERSATION_TTL = 60 * 60 * 24; // 24 hours
 const MAX_MESSAGES = 10;
 
+/**
+ * Allowed roles for conversation messages loaded from Redis.
+ * Only 'user' and 'assistant' are valid in conversation history —
+ * 'system' and other roles are injected server-side, never stored.
+ */
+const ALLOWED_HISTORY_ROLES = new Set(['user', 'assistant']);
+
+/**
+ * Sanitize a single conversation message loaded from Redis.
+ * Returns null if the message is invalid or potentially tampered with.
+ */
+function sanitizeHistoryMessage(raw) {
+  let parsed;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  // Only allow user/assistant roles — block system, tool, function, or unknown roles
+  if (!ALLOWED_HISTORY_ROLES.has(parsed.role)) {
+    logger.warn({ role: parsed.role }, '[redis] Dropped message with disallowed role from conversation history');
+    return null;
+  }
+
+  // Content must be a non-empty string or an array (for multi-part assistant messages)
+  const { content } = parsed;
+  if (typeof content === 'string') {
+    if (content.length === 0) return null;
+    return { role: parsed.role, content, timestamp: parsed.timestamp };
+  }
+  if (Array.isArray(content)) {
+    // Validate each content block has a known type and string text where expected
+    const cleaned = content.filter(
+      (block) => block && typeof block === 'object' && typeof block.type === 'string'
+    );
+    if (cleaned.length === 0) return null;
+    return { role: parsed.role, content: cleaned, timestamp: parsed.timestamp };
+  }
+
+  return null;
+}
+
 async function getConversationHistory(userId) {
   const key = `conv:${userId}`;
   const messages = await redis.lrange(key, 0, MAX_MESSAGES - 1);
-  return messages.map((m) => JSON.parse(m)).reverse();
+  const sanitized = [];
+  for (const m of messages) {
+    const msg = sanitizeHistoryMessage(m);
+    if (msg) sanitized.push(msg);
+  }
+  return sanitized.reverse();
 }
 
 async function appendMessage(userId, role, content) {

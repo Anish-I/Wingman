@@ -372,7 +372,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   const memoryContext = getMemoryContext(user);
   const { systemPrompt } = buildContext(user, tools, memoryContext);
-  const messages = [...history, { role: 'user', content: messageText }];
+  // Defense-in-depth: strip any history messages with disallowed roles
+  // even though redis.js already sanitizes on load
+  const safeHistory = history.filter(
+    (m) => m.role === 'user' || m.role === 'assistant'
+  );
+  const messages = [...safeHistory, { role: 'user', content: messageText }];
 
   let response;
   let iterations = 0;
