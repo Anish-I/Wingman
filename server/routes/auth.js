@@ -330,7 +330,13 @@ router.post('/signup', signupLimiter, async (req, res) => {
         return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
       }
       if (created) {
-        await updateUserPin(user.id, passwordHash);
+        // Use atomic claimUserPin (not updateUserPin) so a concurrent loser's
+        // claimUserPin can't slip in between our insert and PIN write, then get
+        // unconditionally overwritten by updateUserPin.
+        const claimed = await claimUserPin(user.id, passwordHash);
+        if (!claimed) {
+          return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } });
+        }
       } else {
         // Race: another request created this user between our lookup and insert.
         // Use atomic claim to prevent overwriting a pin set by the winner.
