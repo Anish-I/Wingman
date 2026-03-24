@@ -828,13 +828,19 @@ router.post('/google', async (req, res) => {
     if (code_verifier) {
       tokenParams.code_verifier = code_verifier;
     }
-    const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(tokenParams),
-      timeoutMs: 10_000,
-    });
-    const tokenData = await tokenResponse.json();
+    let tokenData;
+    try {
+      const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(tokenParams),
+        timeoutMs: 10_000,
+      });
+      tokenData = await tokenResponse.json();
+    } catch (fetchErr) {
+      logger.error({ err: fetchErr.message }, 'Google token exchange network error');
+      return res.status(502).json({ error: { code: 'GOOGLE_TOKEN_EXCHANGE_NETWORK_ERROR', message: 'Unable to reach Google for token exchange.' } });
+    }
 
     if (!tokenData.access_token) {
       logger.error({ data: { error: tokenData.error, error_description: tokenData.error_description } }, 'Google token exchange failed');
@@ -842,11 +848,17 @@ router.post('/google', async (req, res) => {
     }
 
     // Get user info from Google
-    const userInfoResponse = await fetchWithTimeout('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      timeoutMs: 10_000,
-    });
-    const googleUser = await userInfoResponse.json();
+    let googleUser;
+    try {
+      const userInfoResponse = await fetchWithTimeout('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        timeoutMs: 10_000,
+      });
+      googleUser = await userInfoResponse.json();
+    } catch (fetchErr) {
+      logger.error({ err: fetchErr.message }, 'Google userinfo fetch network error');
+      return res.status(502).json({ error: { code: 'GOOGLE_USERINFO_NETWORK_ERROR', message: 'Unable to reach Google for user info.' } });
+    }
 
     if (!googleUser.id || !googleUser.email) {
       return res.status(401).json({ error: { code: 'GOOGLE_USER_INFO_FAILED', message: 'Could not retrieve Google user info.' } });
@@ -1007,13 +1019,19 @@ router.get('/google/callback', async (req, res) => {
     if (codeVerifier) {
       tokenParams.code_verifier = codeVerifier;
     }
-    const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(tokenParams),
-      timeoutMs: 10_000,
-    });
-    const tokenData = await tokenResponse.json();
+    let tokenData;
+    try {
+      const tokenResponse = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(tokenParams),
+        timeoutMs: 10_000,
+      });
+      tokenData = await tokenResponse.json();
+    } catch (fetchErr) {
+      logger.error({ err: fetchErr.message }, 'Google token exchange network error');
+      return res.redirect(buildRedirectUrl(state, { error: 'token_exchange_network_error' }));
+    }
 
     if (!tokenData.access_token) {
       logger.error({ data: { error: tokenData.error, error_description: tokenData.error_description } }, 'Google token exchange failed');
@@ -1021,11 +1039,17 @@ router.get('/google/callback', async (req, res) => {
     }
 
     // Fetch user info from Google
-    const userInfoResponse = await fetchWithTimeout('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      timeoutMs: 10_000,
-    });
-    const googleUser = await userInfoResponse.json();
+    let googleUser;
+    try {
+      const userInfoResponse = await fetchWithTimeout('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        timeoutMs: 10_000,
+      });
+      googleUser = await userInfoResponse.json();
+    } catch (fetchErr) {
+      logger.error({ err: fetchErr.message }, 'Google userinfo fetch network error');
+      return res.redirect(buildRedirectUrl(state, { error: 'userinfo_network_error' }));
+    }
 
     if (!googleUser.id || !googleUser.email) {
       logger.error({ data: { id: googleUser.id, hasEmail: !!googleUser.email } }, 'Google user info missing id or email');
