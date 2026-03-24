@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useThemeConfig } from '@/components/ui/use-theme-config';
 import { useThemeColors } from '@/components/ui/tokens';
-import { hydrateAuth, useAuthStore } from '@/features/auth/use-auth-store';
+import { hydrateAuth, useAuthStore as _useAuthStore } from '@/features/auth/use-auth-store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
 import { initStorage } from '@/lib/storage';
@@ -46,7 +46,7 @@ export default function RootLayout() {
         // Storage is unavailable — skip hydration (which would throw accessing
         // null storage) and force signOut directly so the app never stays in
         // the 'idle' state rendering nothing.
-        useAuthStore.setState({ status: 'signOut', token: null });
+        useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
       }
       loadSelectedTheme();
       setReady(true);
@@ -60,7 +60,12 @@ export default function RootLayout() {
     }
   }, []);
 
-  if (!ready) return null;
+  const hydrated = _useAuthStore((s) => s.hydrated);
+
+  // Keep splash screen visible until bootstrap completes AND auth state is
+  // fully hydrated.  This prevents the (app) layout from mounting in the
+  // ambiguous 'idle' state which previously caused a flash of blank/wrong screen.
+  if (!ready || !hydrated) return null;
 
   const content = (
     <Stack>

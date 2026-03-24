@@ -1,5 +1,6 @@
 import type { TokenType } from '@/lib/auth/utils';
 
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import Env from 'env';
 import { getToken, removeToken, setToken } from '@/lib/auth/utils';
@@ -10,12 +11,30 @@ const MAX_RETRIES = 4;
 const BASE_DELAY_MS = 1_000;
 const PENDING_BLACKLIST_KEY = 'wingman_pending_blacklist';
 
-/** Persist tokens that still need server-side blacklisting across app restarts. */
+/**
+ * On web, pending blacklist is kept in memory only — writing JWTs to
+ * localStorage would re-introduce the XSS exfiltration risk that the
+ * in-memory token strategy is designed to prevent.
+ *
+ * On native, tokens are persisted to encrypted MMKV so they survive
+ * app restarts and can be blacklisted on next launch.
+ */
+let webPendingBlacklist: string[] = [];
+
 function getPendingBlacklist(): string[] {
+  if (Platform.OS === 'web') {
+    return [...webPendingBlacklist];
+  }
   return getItem<string[]>(PENDING_BLACKLIST_KEY) ?? [];
 }
 
 function addPendingBlacklist(token: string): void {
+  if (Platform.OS === 'web') {
+    if (!webPendingBlacklist.includes(token)) {
+      webPendingBlacklist.push(token);
+    }
+    return;
+  }
   const list = getPendingBlacklist();
   if (!list.includes(token)) {
     list.push(token);
@@ -24,6 +43,10 @@ function addPendingBlacklist(token: string): void {
 }
 
 function removePendingBlacklist(token: string): void {
+  if (Platform.OS === 'web') {
+    webPendingBlacklist = webPendingBlacklist.filter((t) => t !== token);
+    return;
+  }
   const list = getPendingBlacklist().filter((t) => t !== token);
   if (list.length === 0) {
     removeItem(PENDING_BLACKLIST_KEY);
@@ -68,6 +91,7 @@ async function blacklistToken(token: string): Promise<void> {
 type AuthState = {
   token: TokenType | null;
   status: 'idle' | 'signOut' | 'signIn';
+  hydrated: boolean;
   signIn: (data: TokenType) => void;
   signOut: () => void;
   hydrate: () => void;
@@ -76,6 +100,7 @@ type AuthState = {
 const _useAuthStore = create<AuthState>((set, get) => ({
   status: 'idle',
   token: null,
+  hydrated: false,
   signIn: (token) => {
     setToken(token);
     set({ status: 'signIn', token });
@@ -103,6 +128,9 @@ const _useAuthStore = create<AuthState>((set, get) => ({
       console.error(e);
       set({ status: 'signOut', token: null });
     }
+    // Signal that hydration is complete so consumers can distinguish
+    // "not yet hydrated" from a settled auth state.
+    set({ hydrated: true });
     // Drain any tokens that failed to blacklist before the app was killed
     try {
       const pending = getPendingBlacklist();
