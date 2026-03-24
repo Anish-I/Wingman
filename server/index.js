@@ -255,10 +255,34 @@ const server = app.listen(PORT, () => {
 // uncaughtException and unhandledRejection handlers are registered at module init (top of file)
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received. Shutting down gracefully...');
+async function shutdown(signal) {
+  logger.info(`${signal} received. Shutting down gracefully...`);
+
+  // 1. Stop accepting new connections
   server.close(() => {
-    logger.info('Server closed.');
-    process.exit(0);
+    logger.info('HTTP server closed.');
   });
-});
+
+  try {
+    // 2. Close Redis connection
+    const { redis } = require('./services/redis');
+    await redis.quit();
+    logger.info('Redis connection closed.');
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Error closing Redis connection');
+  }
+
+  try {
+    // 3. Drain the DB connection pool
+    const { pool } = require('./db');
+    await pool.end();
+    logger.info('Database pool closed.');
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Error closing database pool');
+  }
+
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
