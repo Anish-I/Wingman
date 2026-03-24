@@ -163,7 +163,8 @@ const otpLimiter = rateLimit({
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.body?.phone || 'no-phone',
+  keyGenerator: (req) => req.body?.phone,
+  skip: (req) => !req.body?.phone,
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many attempts. Try again in 15 minutes.' } },
   standardHeaders: true,
   legacyHeaders: false,
