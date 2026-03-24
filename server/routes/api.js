@@ -147,6 +147,15 @@ router.post('/workflows', requireAuth, async (req, res) => {
     if (trigger_type === 'schedule' && cron_expression && !isValidCron(cron_expression)) {
       return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
     }
+    if (trigger_config !== undefined && trigger_config !== null) {
+      if (typeof trigger_config !== 'object' || Array.isArray(trigger_config)) {
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'trigger_config must be a plain object' } });
+      }
+      const tc = validateActionInput(trigger_config);
+      if (!tc.valid) {
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `trigger_config rejected: ${tc.reason}` } });
+      }
+    }
     if (!Array.isArray(actions)) {
       return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be an array' } });
     }
