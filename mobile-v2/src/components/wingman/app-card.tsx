@@ -18,6 +18,7 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${connected ? 'connected' : 'not connected'}`}
+      accessibilityHint={connected ? 'Double tap to manage connection' : 'Double tap to connect this app'}
       style={({ pressed, hovered }) => [
         {
           width: 88,

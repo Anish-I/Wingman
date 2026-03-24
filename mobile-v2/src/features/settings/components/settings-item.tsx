@@ -16,7 +16,8 @@ export function SettingsItem({ text, value, icon, onPress }: ItemProps) {
   return (
     <Pressable
       accessibilityRole={isPressable ? 'button' : undefined}
-      accessibilityLabel={typeof text === 'string' ? text : undefined}
+      accessibilityLabel={typeof text === 'string' ? (value ? `${text}, ${value}` : text) : (value || undefined)}
+      accessibilityHint={isPressable ? 'Double tap to open' : undefined}
       onPress={onPress}
       pointerEvents={isPressable ? 'auto' : 'none'}
       className="flex-1 flex-row items-center justify-between px-4 py-2"

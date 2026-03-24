@@ -404,6 +404,7 @@ export default function ChatScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={prompt.text}
+                        accessibilityHint="Double tap to send this message"
                         style={({ pressed, hovered, focused }: any) => [
                           {
                             flexDirection: 'row',
