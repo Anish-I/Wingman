@@ -125,6 +125,17 @@ app.use(cors({
 // Cookie parsing (required for OAuth session binding)
 app.use(cookieParser());
 
+// Global rate limit: 100 requests per 15 minutes
+// Must precede body parsing to reject floods before consuming parse CPU/memory
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please try again later.' } },
+});
+app.use(globalLimiter);
+
 // Body parsing with size limits
 app.use(express.json({
   limit: '100kb',
@@ -136,16 +147,6 @@ app.use(express.json({
   },
 }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
-
-// Global rate limit: 100 requests per 15 minutes
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please try again later.' } },
-});
-app.use(globalLimiter);
 
 // Routes
 app.use('/webhook', smsRoutes);
