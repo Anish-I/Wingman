@@ -262,7 +262,7 @@ export default function SignupScreen() {
               <TextInput
                 className="flex-1 text-[14px]"
                 style={{ color: t.primary }}
-                placeholder="Password (min 8 chars)"
+                placeholder="Password (A-z, 0-9, special, 8+ chars)"
                 placeholderTextColor={t.disabled}
                 value={password}
                 onChangeText={setPassword}
