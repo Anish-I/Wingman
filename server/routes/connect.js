@@ -34,16 +34,34 @@ async function generateOAuthState(userId, app) {
   return jwt.sign({ userId, app, nonce }, JWT_SECRET, { expiresIn: '10m' });
 }
 
-// Verify and decode an OAuth state token, consuming the server-side nonce (single-use)
+// Lua script: atomically consume the OAuth nonce AND invalidate the tools cache.
+// This closes the race window where concurrent /connect/status reads could
+// re-populate stale cache between nonce consumption and cache invalidation.
+// KEYS[1] = oauth_nonce:{nonce}, KEYS[2] = tools:{userId}
+// ARGV[1] = expected userId string
+// Returns the stored userId if valid, nil otherwise.
+const VERIFY_AND_INVALIDATE_LUA = `
+local storedUserId = redis.call('GETDEL', KEYS[1])
+if not storedUserId then return nil end
+if storedUserId ~= ARGV[1] then return nil end
+redis.call('DEL', KEYS[2])
+return storedUserId
+`;
+
+// Verify and decode an OAuth state token, atomically consuming the nonce
+// and invalidating the tools cache in a single Redis round-trip.
 async function verifyOAuthState(stateToken) {
   try {
     const payload = jwt.verify(stateToken, JWT_SECRET, { algorithms: ['HS256'] });
     if (!payload.nonce) return null;
-    // Atomically fetch and delete nonce — prevents replay
-    const storedUserId = await redis.call('GETDEL', `oauth_nonce:${payload.nonce}`);
+    const nonceKey = `oauth_nonce:${payload.nonce}`;
+    const cacheKey = `tools:${payload.userId}`;
+    const expectedUserId = String(payload.userId);
+    // Single atomic Redis operation: consume nonce + invalidate tools cache
+    const storedUserId = await redis.eval(
+      VERIFY_AND_INVALIDATE_LUA, 2, nonceKey, cacheKey, expectedUserId
+    );
     if (!storedUserId) return null;
-    // Validate that the userId in the JWT matches the server-side record (IDOR protection)
-    if (String(payload.userId) !== storedUserId) return null;
     return payload;
   } catch {
     return null;
@@ -134,23 +152,9 @@ router.get('/callback', async (req, res) => {
     }
     res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
 
-    // Pre-decode JWT to get userId for cache invalidation BEFORE consuming the
-    // nonce.  This closes the race window where the nonce is consumed but
-    // invalidateToolsCache hasn't run yet (concurrent /connect/status reads
-    // stale cache).  If cache invalidation fails (e.g. Redis error) we return
-    // 500 while the nonce is still valid, so the user can safely retry.
-    let prePayload;
-    try {
-      prePayload = jwt.verify(state, JWT_SECRET, { algorithms: ['HS256'] });
-    } catch {
-      return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
-    }
-
-    if (prePayload.userId) {
-      await invalidateToolsCache(prePayload.userId);
-    }
-
-    // Now atomically consume the nonce (single-use verification)
+    // verifyOAuthState atomically consumes the nonce AND invalidates the
+    // tools cache in a single Lua script, so there is no window where
+    // concurrent /connect/status can read stale cache.
     const payload = await verifyOAuthState(state);
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
