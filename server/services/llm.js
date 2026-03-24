@@ -173,6 +173,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
               } catch (parseErr) {
                 const err = new Error(`Malformed JSON in tool_call arguments for ${tc.function.name}: ${parseErr.message}`);
                 err.status = 500;
+                err.malformedToolArgs = true;
                 throw err;
               }
               toolUseBlocks.push({
@@ -191,15 +192,22 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
         } catch (err) {
           lastErr = err;
-          const isTransient = TRANSIENT_STATUSES.has(err.status) || !err.status;
-          if (isTransient && attempt < MAX_RETRIES) {
+          const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status || err.malformedToolArgs;
+          if (isRetryable && attempt < MAX_RETRIES) {
+            const reason = err.malformedToolArgs ? 'malformed tool args' : (err.status || 'connection error');
             const delay = Math.pow(2, attempt - 1) * 1000;
-            console.warn(`[llm] ${provider.name} ${err.status || 'connection error'} on attempt ${attempt}, retrying in ${delay}ms`);
+            console.warn(`[llm] ${provider.name} ${reason} on attempt ${attempt}, retrying in ${delay}ms`);
             await new Promise(r => setTimeout(r, delay));
             continue;
           }
           break;
         }
+      }
+
+      // Malformed tool args after retries: not a provider infrastructure issue, don't fall back
+      if (lastErr?.malformedToolArgs) {
+        logger.error({ err: lastErr.message }, '[llm] Malformed tool call JSON after retries');
+        throw new Error('Failed to process your message. Please try again.');
       }
 
       // If transient error (including connection errors) after retries, try next provider
