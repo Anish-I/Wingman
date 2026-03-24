@@ -2,7 +2,7 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { createWorkflow, listWorkflows, cancelWorkflow, createWorkflowRun, updateWorkflowRun } = require('../db/queries');
-const { executeTool } = require('./composio');
+const { executeTool, getConnectionStatus, appFromToolName } = require('./composio');
 const { isValidCron } = require('../lib/validate-cron');
 
 // Queue reference — initialized lazily to avoid circular deps
@@ -70,9 +70,20 @@ async function runWorkflow(workflowId, userId) {
     await updateWorkflowRun(run.id, { status: 'running', started_at: new Date() });
 
     try {
+      // Verify which apps the user has connected before executing any actions
+      const connStatus = await getConnectionStatus(String(userId));
+      const connectedApps = new Set((connStatus.connected || []).map(a => a.toLowerCase()));
+
       const results = [];
       for (const action of (workflow.actions || [])) {
         // action = { name: 'GMAIL_SEND_EMAIL', input: { to, subject, body } }
+        // Block execution if the user hasn't connected the required app
+        const app = appFromToolName(action.name);
+        if (!connectedApps.has(app)) {
+          console.warn(`[workflows] Blocked action for unconnected app: ${action.name} (app: ${app})`);
+          results.push({ action: action.name, result: { error: `${app} is not connected` } });
+          continue;
+        }
         const res = await executeTool(String(userId), {
           id: `wf-${run.id}-${action.name}`,
           name: action.name,

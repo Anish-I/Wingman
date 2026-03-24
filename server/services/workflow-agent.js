@@ -1,7 +1,8 @@
 'use strict';
 const crypto = require('crypto');
 const { callLLM } = require('./llm');
-const { executeTool, getTools, selectToolsForMessage } = require('./composio');
+const { executeTool, getTools, selectToolsForMessage, getConnectionStatus, getConnectionLink, appFromToolName } = require('./composio');
+const { validateToolArgs } = require('../lib/validate-tool-args');
 const { provider } = require('../services/messaging');
 const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, createPendingReply } = require('../db/queries');
 
@@ -223,14 +224,29 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
     const priorContext = await getLastWorkflowRunContext(workflowId);
     const systemPrompt = buildWorkflowSystemPrompt(workflow, priorContext);
 
-  // Get available Composio tools
+  // Get available Composio tools and connection status
   const entityId = String(userId);
-  const allTools = await getTools(entityId);
+  const [allTools, connectionStatus] = await Promise.all([
+    getTools(entityId),
+    getConnectionStatus(entityId),
+  ]);
+  // Build a set of apps the user has actively connected — used to block
+  // tool execution for unconnected apps before any Composio API call.
+  const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
   // Use workflow description to select relevant tools
   const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
   // Build allowlist of tool names the agent is permitted to call
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
+  // Build a map of tool name → parameter schema for argument validation
+  const toolSchemas = new Map();
+  for (const t of tools) {
+    const name = t.function?.name;
+    const params = t.function?.parameters;
+    if (name && params) toolSchemas.set(name, params);
+  }
+  // Pseudo-tools bypass Composio connection checks
+  const pseudoToolNames = new Set(PSEUDO_TOOLS.map(t => t.function?.name).filter(Boolean));
 
   const messages = [];
   const stepLog = [];
@@ -289,6 +305,43 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
             content: JSON.stringify(result),
           });
           continue;
+        }
+
+        // Validate tool-call arguments against the tool's parameter schema
+        const argSchema = toolSchemas.get(block.name);
+        const argError = validateToolArgs(block.input, argSchema);
+        if (argError) {
+          console.warn(`[workflow-agent] Blocked invalid args for ${block.name}: ${argError}`);
+          result = { error: `Invalid arguments for "${block.name}": ${argError}` };
+          stepLog.push({ ...stepEntry, result: { error: result.error } });
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
+        // Verify the user has an active connection for this app before
+        // executing — prevents prompt injection from triggering actions on
+        // apps the user never authorized. Pseudo-tools are exempt.
+        if (!pseudoToolNames.has(block.name)) {
+          const app = appFromToolName(block.name);
+          if (!connectedApps.has(app)) {
+            console.warn(`[workflow-agent] Blocked tool call for unconnected app: ${block.name} (app: ${app})`);
+            const link = await getConnectionLink(entityId, app).catch(() => null);
+            const connectMsg = link
+              ? `[${app} is not connected. Please connect it first: ${link}]`
+              : `[${app} is not connected. Please connect it at composio.dev before using this tool.]`;
+            result = { error: connectMsg };
+            stepLog.push({ ...stepEntry, result: { error: result.error } });
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
         }
 
         // Handle pseudo-tools
@@ -462,10 +515,21 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
     const systemPrompt = buildWorkflowSystemPrompt(workflow, priorContext);
 
   const entityId = String(workflow.user_id);
-  const allTools = await getTools(entityId);
+  const [allTools, connectionStatus] = await Promise.all([
+    getTools(entityId),
+    getConnectionStatus(entityId),
+  ]);
+  const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
   const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
+  const toolSchemas = new Map();
+  for (const t of tools) {
+    const name = t.function?.name;
+    const params = t.function?.parameters;
+    if (name && params) toolSchemas.set(name, params);
+  }
+  const pseudoToolNames = new Set(PSEUDO_TOOLS.map(t => t.function?.name).filter(Boolean));
 
   // Restore saved messages and step_log from the events table (not the run row)
   const { messages: savedMessages, stepLog: savedStepLog } = await loadWorkflowRunEvents(run.id);
@@ -524,6 +588,43 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
             content: JSON.stringify(result),
           });
           continue;
+        }
+
+        // Validate tool-call arguments against the tool's parameter schema
+        const argSchema = toolSchemas.get(block.name);
+        const argError = validateToolArgs(block.input, argSchema);
+        if (argError) {
+          console.warn(`[workflow-agent] Blocked invalid args for ${block.name}: ${argError}`);
+          result = { error: `Invalid arguments for "${block.name}": ${argError}` };
+          stepLog.push({ ...stepEntry, result: { error: result.error } });
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
+        // Verify the user has an active connection for this app before
+        // executing — prevents prompt injection from triggering actions on
+        // apps the user never authorized. Pseudo-tools are exempt.
+        if (!pseudoToolNames.has(block.name)) {
+          const app = appFromToolName(block.name);
+          if (!connectedApps.has(app)) {
+            console.warn(`[workflow-agent] Blocked tool call for unconnected app: ${block.name} (app: ${app})`);
+            const link = await getConnectionLink(entityId, app).catch(() => null);
+            const connectMsg = link
+              ? `[${app} is not connected. Please connect it first: ${link}]`
+              : `[${app} is not connected. Please connect it at composio.dev before using this tool.]`;
+            result = { error: connectMsg };
+            stepLog.push({ ...stepEntry, result: { error: result.error } });
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
         }
 
         if (block.name === 'NOTIFY_USER') {
