@@ -429,6 +429,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     return "I'm still working on your previous message — please wait a moment.";
   }
 
+  try {
   // If the outer timeout already fired while we were waiting for the lock,
   // release it immediately rather than doing any more work.
   if (abortController.aborted) {
@@ -443,7 +444,6 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Expose lock to caller so it can force-release on outer timeout
   lockHolder.releaseLock = releaseLock;
 
-  try {
   const [history, allTools, connectionStatus] = await Promise.all([
     getConversationHistory(user.id),
     getTools(userId),
