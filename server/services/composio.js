@@ -247,7 +247,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       const reclaimed = await redis.eval(
         "if redis.call('get', KEYS[1]) == 'pending' then redis.call('set', KEYS[1], 'pending', 'EX', ARGV[1]) return 1 else return 0 end",
         1, idempKey, String(claimTTL)
-      ).catch(() => 0);
+      ).catch(err => { console.error(`[user:${userId}] Redis idempotency reclaim error for ${toolCallBlock.name}:`, err.message); return 0; });
       if (reclaimed === 1) {
         console.log(`[user:${userId}] Reclaimed stale pending key for ${toolCallBlock.name}, re-attempting`);
         // We atomically own the slot — fall through to execute below.

@@ -1,7 +1,7 @@
 const { callLLM } = require('./llm');
 const { buildContext } = require('./context');
 const { getConversationHistory, appendMessage, acquireConversationLock } = require('./redis');
-const { getTools, executeTool, getConnectionLink, appFromToolName, selectToolsForMessage } = require('./composio');
+const { getTools, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
@@ -234,7 +234,7 @@ async function processMessage(user, messageText) {
       const reapTimer = setTimeout(() => {
         if (!reaped) {
           reaped = true;
-          _removeOrphan(userId, orphanToken).catch(() => {});
+          _removeOrphan(userId, orphanToken).catch(e => { console.error(`[user:${userId}] Failed to remove reaped orphan from Redis:`, e.message); });
           console.warn(`[user:${userId}] Orphaned promise reaped after ${ORPHAN_REAP_TIMEOUT}ms`);
         }
       }, ORPHAN_REAP_TIMEOUT);
@@ -245,7 +245,7 @@ async function processMessage(user, messageText) {
           if (!reaped) {
             reaped = true;
             clearTimeout(reapTimer);
-            _removeOrphan(userId, orphanToken).catch(() => {});
+            _removeOrphan(userId, orphanToken).catch(e => { console.error(`[user:${userId}] Failed to remove settled orphan from Redis:`, e.message); });
             console.log(`[user:${userId}] Orphaned promise settled`);
           }
         });

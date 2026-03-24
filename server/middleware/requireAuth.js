@@ -30,7 +30,7 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
   }
 
-  const user = await getUserById(payload.userId).catch(() => null);
+  const user = await getUserById(payload.userId).catch(err => { console.error('[auth] Failed to fetch user by ID:', err.message); return null; });
   if (!user) {
     return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
   }
