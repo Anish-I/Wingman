@@ -168,10 +168,22 @@ router.get('/callback', async (req, res) => {
     if (!payload) {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
-    const { app: appName } = payload;
+    const { userId, app: appName } = payload;
     const sanitizedApp = (typeof appName === 'string' && isValidAppName(appName.toLowerCase()))
       ? appName.toLowerCase()
       : '';
+
+    // Verify with Composio that the OAuth flow actually completed successfully.
+    // Without this, an attacker could craft a direct request to the callback URL
+    // with a valid state token without completing OAuth on the provider side.
+    if (sanitizedApp) {
+      const status = await getConnectionStatus(userId, [sanitizedApp]);
+      if (!status.connected || !status.connected.includes(sanitizedApp)) {
+        logger.warn({ userId, app: sanitizedApp }, '[connect] OAuth callback received but app not connected on Composio');
+        return res.status(400).json({ error: { code: 'OAUTH_NOT_COMPLETED', message: 'OAuth flow was not completed. Please retry the connection.' } });
+      }
+    }
+
     res.redirect(`${WEB_URL}/connect/success?app=${sanitizedApp}`);
   } catch (err) {
     logger.error({ err: err.message }, 'OAuth callback error');
