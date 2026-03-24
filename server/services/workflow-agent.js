@@ -142,24 +142,27 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
   // Shared flag so fn() can detect when the lock is no longer held
   const lockStatus = { lost: false, reason: null };
 
-  const extendTimer = setInterval(async () => {
-    try {
-      const result = await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, WORKFLOW_LOCK_TTL_SECONDS);
-      if (result === 0) {
+  let extendTimer;
+  try {
+    // Start the extension timer inside try so finally always clears it,
+    // even if code between here and fn() throws.
+    extendTimer = setInterval(async () => {
+      try {
+        const result = await redis.eval(EXTEND_SCRIPT, 1, lockKey, lockValue, WORKFLOW_LOCK_TTL_SECONDS);
+        if (result === 0) {
+          lockStatus.lost = true;
+          lockStatus.reason = 'lock_stolen';
+          logger.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
+          clearInterval(extendTimer);
+        }
+      } catch (err) {
         lockStatus.lost = true;
-        lockStatus.reason = 'lock_stolen';
-        logger.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
+        lockStatus.reason = 'redis_error';
+        logger.error({ err: err.message }, `[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost`);
         clearInterval(extendTimer);
       }
-    } catch (err) {
-      lockStatus.lost = true;
-      lockStatus.reason = 'redis_error';
-      logger.error({ err: err.message }, `[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost`);
-      clearInterval(extendTimer);
-    }
-  }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
+    }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
 
-  try {
     return await fn(lockStatus);
   } finally {
     clearInterval(extendTimer);
