@@ -312,7 +312,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email and password are required.' } });
     }
-    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (typeof email !== 'string' || !/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(email)) {
       return res.status(400).json({ error: { code: 'INVALID_EMAIL', message: 'Invalid email format.' } });
     }
     if (password.length < 8) {
