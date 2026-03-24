@@ -23,14 +23,47 @@ const REDIS_IDEMP_RETRY_COUNT = 2;
 const REDIS_IDEMP_RETRY_DELAY_MS = 200;
 
 /**
- * Attempt a Redis SET with retries.  For side-effecting tools the caller
- * **must** know if the key was never stored (duplicate execution risk), so
- * we re-throw after exhausting retries.
+ * Generate a unique claim token for this executor so we can fence writes.
  */
-async function _redisSetWithRetry(key, value, ttl, { label, rethrow }) {
+function _claimToken() {
+  return 'pending:' + crypto.randomBytes(8).toString('hex');
+}
+
+/**
+ * Check whether a Redis value is a pending claim token (any executor).
+ */
+function _isPending(val) {
+  return typeof val === 'string' && val.startsWith('pending:');
+}
+
+// Lua CAS: only write the result if the key still holds our claim token.
+// Returns 1 on success, 0 if the key was reclaimed by another executor.
+const LUA_CAS_WRITE = `
+if redis.call('get', KEYS[1]) == ARGV[1] then
+  redis.call('set', KEYS[1], ARGV[2], 'EX', ARGV[3])
+  return 1
+else
+  return 0
+end`;
+
+/**
+ * Attempt a Redis SET with retries, **fenced by our claim token**.
+ * The write only succeeds if the key still holds `claimToken`; if another
+ * executor reclaimed the slot the write is silently skipped (or throws
+ * when `rethrow` is set).
+ *
+ * For side-effecting tools the caller **must** know if the key was never
+ * stored (duplicate execution risk), so we re-throw after exhausting retries.
+ */
+async function _redisSetWithRetry(key, value, ttl, { label, rethrow, claimToken }) {
   for (let attempt = 1; attempt <= REDIS_IDEMP_RETRY_COUNT + 1; attempt++) {
     try {
-      await redis.set(key, value, 'EX', ttl);
+      const ok = await redis.eval(LUA_CAS_WRITE, 1, key, claimToken, value, String(ttl));
+      if (ok === 0) {
+        // Slot was reclaimed by another executor — our write is stale.
+        logger.warn({ label }, '[composio] CAS write rejected — slot reclaimed by another executor');
+        return;
+      }
       return; // success
     } catch (err) {
       logger.error({ err: err.message, attempt, label }, '[composio] Redis idempotency set error');
@@ -231,7 +264,8 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
   // For safe/idempotent tools, keep the short PENDING_TTL so the key
   // auto-expires quickly if the caller is killed by an external timeout.
   const claimTTL = isSideEffecting ? TOOL_IDEMPOTENCY_TTL : PENDING_TTL;
-  const claimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
+  let myToken = _claimToken();
+  const claimed = await redis.set(idempKey, myToken, 'NX', 'EX', claimTTL);
 
   if (claimed !== 'OK') {
     // Another execution of this exact call is in progress or completed.
@@ -240,49 +274,46 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       const cached = await redis.get(idempKey);
       if (cached === null) {
         if (isSideEffecting) {
-          // Side-effecting tool: the original may still be running on the
-          // remote service even though our key expired.  Do NOT re-attempt —
-          // that risks duplicate sends/posts/deletes.
           console.warn(`[user:${userId}] Idempotency key expired for side-effecting tool ${toolCallBlock.name}, refusing retry to prevent duplicates`);
           return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original may still be completing. Please wait and retry later.` };
         }
-        // Safe/idempotent tool: the original executor is gone, re-attempt.
         console.log(`[user:${userId}] Idempotency key expired for ${toolCallBlock.name}, re-attempting`);
         break;
       }
-      if (cached !== 'pending') {
+      if (!_isPending(cached)) {
         console.log(`[user:${userId}] Idempotent cache hit for ${toolCallBlock.name}`);
         try { return JSON.parse(cached); } catch { return { result: cached }; }
       }
-      // Still pending — wait 500ms before checking again
       await new Promise(r => setTimeout(r, 500));
     }
 
-    // Final check — the key may have been updated in the last iteration's sleep
     const finalVal = await redis.get(idempKey);
-    if (finalVal && finalVal !== 'pending') {
+    if (finalVal && !_isPending(finalVal)) {
       console.log(`[user:${userId}] Idempotent cache hit (final) for ${toolCallBlock.name}`);
       try { return JSON.parse(finalVal); } catch { return { result: finalVal }; }
     }
 
-    if (finalVal === 'pending') {
-      // Key is stale — the original executor likely died (e.g. external timeout).
-      // Atomically reclaim the slot by overwriting 'pending' with a fresh
-      // 'pending' + TTL in a single Lua script.  This closes the race window
-      // in the old DEL → SET NX two-step where a third caller could claim the
-      // slot between the delete and the reclaim, causing concurrent execution.
+    if (_isPending(finalVal)) {
+      // Key is stale — the original executor likely died.  Atomically reclaim
+      // the slot: replace the old executor's token with ours in a single Lua
+      // script.  The old executor's fenced writes will now fail harmlessly.
+      myToken = _claimToken();
+      const LUA_RECLAIM = `
+        local v = redis.call('get', KEYS[1])
+        if v and string.sub(v, 1, 8) == 'pending:' then
+          redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2])
+          return 1
+        else
+          return 0
+        end`;
       const reclaimed = await redis.eval(
-        "if redis.call('get', KEYS[1]) == 'pending' then redis.call('set', KEYS[1], 'pending', 'EX', ARGV[1]) return 1 else return 0 end",
-        1, idempKey, String(claimTTL)
+        LUA_RECLAIM, 1, idempKey, myToken, String(claimTTL)
       ).catch(err => { logger.error({ err: err.message }, `[user:${userId}] Redis idempotency reclaim error for ${toolCallBlock.name}`); return 0; });
       if (reclaimed === 1) {
         console.log(`[user:${userId}] Reclaimed stale pending key for ${toolCallBlock.name}, re-attempting`);
-        // We atomically own the slot — fall through to execute below.
       } else {
-        // The key changed between our GET and the Lua (the original executor
-        // wrote its result).  Re-read and return it instead of erroring out.
         const raceVal = await redis.get(idempKey);
-        if (raceVal && raceVal !== 'pending') {
+        if (raceVal && !_isPending(raceVal)) {
           console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
           try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
         }
@@ -291,18 +322,17 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       }
     } else {
       // finalVal is null — key expired.  Try to claim for re-execution.
-      const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
+      myToken = _claimToken();
+      const reclaimed = await redis.set(idempKey, myToken, 'NX', 'EX', claimTTL);
       if (reclaimed !== 'OK') {
-        // Another caller claimed it between our GET and SET NX — check for result.
         const raceVal = await redis.get(idempKey);
-        if (raceVal && raceVal !== 'pending') {
+        if (raceVal && !_isPending(raceVal)) {
           console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
           try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
         }
         console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
         return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
       }
-      // Fall through to execute below
     }
   }
 
@@ -364,29 +394,25 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     await _redisSetWithRetry(idempKey, JSON.stringify(parsed), TOOL_IDEMPOTENCY_TTL, {
       label: toolCallBlock.name,
       rethrow: isSideEffect,
+      claimToken: myToken,
     });
     return parsed;
   } catch (err) {
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
-      // Side-effecting tool: cache the error instead of deleting the key.
-      // An orphaned promise (from a timed-out request) may still be running
-      // on the remote service. Deleting the key would let a retry claim a new
-      // slot and execute concurrently, risking duplicate sends/posts/deletes.
-      //
-      // Always use the full dedup TTL for side-effecting tools, even on
-      // timeout.  The original request may still be in-flight on the remote
-      // service well beyond PENDING_TTL (30s).  Using the short TTL allowed
-      // a retry to reclaim the idempotency slot while the original was still
-      // executing, causing duplicate side effects (e.g. sending two emails).
       const errorTTL = TOOL_IDEMPOTENCY_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
       await _redisSetWithRetry(idempKey, errorResult, errorTTL, {
         label: toolCallBlock.name,
-        rethrow: true, // side-effecting tool — must not allow duplicate execution
+        rethrow: true,
+        claimToken: myToken,
       });
     } else {
-      // Safe/idempotent tool: remove the key so retries can attempt again
-      await redis.del(idempKey).catch(err => { logger.error({ err: err.message }, '[composio] Redis idempotency del error'); });
+      // Safe/idempotent tool: remove the key so retries can attempt again.
+      // Use Lua CAS so we only delete our own claim — not another executor's.
+      await redis.eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('del', KEYS[1]) return 1 else return 0 end",
+        1, idempKey, myToken
+      ).catch(delErr => { logger.error({ err: delErr.message }, '[composio] Redis idempotency del error'); });
     }
     throw err;
   }
