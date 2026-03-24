@@ -65,53 +65,20 @@ export default function SignupScreen() {
   const codeExchangedRef = useRef(false);
   const googleSignInActiveRef = useRef(false);
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
-    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
+    safeArea: [styles.safeArea, { backgroundColor: surface.bg }],
     title: { color: t.primary },
-    formContainer: { gap: 14, width: '100%' as const },
-    inputRow: {
-      height: 52,
-      borderRadius: 12,
-      backgroundColor: surface.elevated,
-      borderWidth: 1,
-      borderColor: surface.border,
-      paddingHorizontal: 16,
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 12,
-    },
+    formContainer: styles.formContainer,
+    inputRow: [styles.inputRow, { backgroundColor: surface.elevated, borderColor: surface.border }],
     inputText: { color: t.primary },
-    dividerLine: { flex: 1 as const, height: 1, backgroundColor: surface.border },
+    dividerLine: [styles.dividerLine, { backgroundColor: surface.border }],
     dividerText: { color: t.muted },
-    socialContainer: { gap: 12, width: '100%' as const },
-    googleButton: {
-      height: 52,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: surface.borderStrong,
-      backgroundColor: surface.card,
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      gap: 10,
-    },
+    socialContainer: styles.socialContainer,
+    googleButton: [styles.googleButton, { borderColor: surface.borderStrong, backgroundColor: surface.card }],
     googleButtonHovered: { backgroundColor: surface.cardAlt, borderColor: surface.border },
     socialButtonText: { color: t.primary },
-    trustBadge: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      marginTop: 24,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      backgroundColor: surface.section,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: surface.border,
-      gap: 8,
-      width: '100%' as const,
-    },
+    trustBadge: [styles.trustBadge, { backgroundColor: surface.section, borderColor: surface.border }],
     trustText: { color: t.secondary },
     footerText: { color: t.secondary },
   };
@@ -398,6 +365,53 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  safeArea: {
+    flex: 1,
+  },
+  formContainer: {
+    gap: 14,
+    width: '100%',
+  },
+  inputRow: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  socialContainer: {
+    gap: 12,
+    width: '100%',
+  },
+  googleButton: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    width: '100%',
+  },
+  // --- Original static styles ---
   title: {
     fontSize: 28,
     fontFamily: 'Sora_700Bold',

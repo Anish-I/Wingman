@@ -41,35 +41,21 @@ export default function PhoneScreen() {
   // without needing handleVerify in its dependency array.
   const handleVerifyRef = useRef<(otpOverride?: string) => Promise<void>>(null!);
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
     safeArea: { backgroundColor: surface.bg },
     headerTitle: { color: t.primary },
     headerSubtitle: { color: t.muted },
-    phoneRow: {
-      height: 56,
-      backgroundColor: surface.section,
-      borderWidth: 1,
-      borderColor: surface.borderStrong,
-    },
-    countryLabel: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.muted },
-    divider: { width: 1, height: 32, backgroundColor: surface.border, marginHorizontal: 12 },
+    phoneRow: [styles.phoneRow, { backgroundColor: surface.section, borderColor: surface.borderStrong }],
+    countryLabel: [styles.countryLabel, { color: t.muted }],
+    divider: [styles.divider, { backgroundColor: surface.border }],
     phoneInput: { color: t.primary },
     otpLabel: { color: t.muted },
     otpHint: { color: t.disabled },
-    otpBoxBase: {
-      width: 48,
-      height: 56,
-      borderRadius: 8,
-      backgroundColor: surface.section,
-      textAlign: 'center' as const,
-      fontFamily: 'Sora_700Bold' as const,
-      fontSize: 24,
-      color: t.primary,
-    },
-    resendLabel: { fontFamily: 'Inter_400Regular' as const, fontSize: 13, color: t.disabled },
+    otpBoxBase: [styles.otpBoxBase, { backgroundColor: surface.section, color: t.primary }],
+    resendLabel: [styles.resendLabel, { color: t.disabled }],
     successTitle: { color: t.primary },
-    successSubtitle: { fontFamily: 'Inter_400Regular' as const, fontSize: 14, color: t.muted },
+    successSubtitle: [styles.successSubtitle, { color: t.muted }],
   };
 
   async function handleSendCode() {
@@ -348,6 +334,37 @@ export default function PhoneScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  phoneRow: {
+    height: 56,
+    borderWidth: 1,
+  },
+  countryLabel: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+  divider: {
+    width: 1,
+    height: 32,
+    marginHorizontal: 12,
+  },
+  otpBoxBase: {
+    width: 48,
+    height: 56,
+    borderRadius: 8,
+    textAlign: 'center',
+    fontFamily: 'Sora_700Bold',
+    fontSize: 24,
+  },
+  resendLabel: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
+  successSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+  // --- Original static styles ---
   scrollContent: {
     gap: 28,
   },

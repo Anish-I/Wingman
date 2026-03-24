@@ -38,35 +38,20 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
     color: connected ? t.primary : t.secondary,
   };
 
+  const cardStyle = connected
+    ? [styles.cardBase, styles.cardConnected, { width: standaloneCardWidth, backgroundColor: surface.card }]
+    : [styles.cardBase, { width: standaloneCardWidth, backgroundColor: surface.cardAlt, borderColor: surface.border }];
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${connected ? 'connected' : 'not connected'}`}
       accessibilityHint={connected ? 'Double tap to manage connection' : 'Double tap to connect this app'}
       style={({ pressed, hovered }) => [
-        {
-          width: standaloneCardWidth,
-          backgroundColor: connected ? surface.card : surface.cardAlt,
-          borderRadius: radii.lg,
-          borderWidth: 1.5,
-          borderColor: connected ? teal[300] : surface.border,
-          padding: 12,
-          alignItems: 'center',
-          // Connected state glow
-          ...(connected
-            ? {
-              shadowColor: teal[300],
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 4,
-              elevation: 2,
-            }
-            : {}),
-        },
+        ...cardStyle,
         ...chipPressStyle({ pressed }),
         webInteractive(),
-        // Hover state on web
-        hovered && !pressed ? { opacity: 0.95 } : undefined,
+        hovered && !pressed ? styles.cardHovered : undefined,
       ]}
       onPress={onPress}
     >
@@ -90,6 +75,25 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from inline Pressable style ---
+  cardBase: {
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    padding: 12,
+    alignItems: 'center',
+  },
+  cardConnected: {
+    borderColor: teal[300],
+    shadowColor: teal[300],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHovered: {
+    opacity: 0.95,
+  },
+  // --- Original static styles ---
   badge: {
     position: 'absolute',
     top: 6,

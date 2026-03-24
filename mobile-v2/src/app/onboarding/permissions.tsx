@@ -58,39 +58,22 @@ export default function PermissionsScreen() {
   const reduced = useReducedMotion();
   const [notificationsGranted, setNotificationsGranted] = useState(false);
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
-    safeArea: { flex: 1 as const, backgroundColor: surface.bg },
-    speechBubble: {
-      flex: 1 as const,
-      backgroundColor: surface.cardAlt,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: surface.border,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-    },
+    safeArea: [styles.safeAreaFlex, { backgroundColor: surface.bg }],
+    speechBubble: [styles.speechBubble, { backgroundColor: surface.cardAlt, borderColor: surface.border }],
     speechText: { color: t.primary },
-    permissionCard: (isGranted: boolean, isComingSoon: boolean) => ({
-      borderRadius: 14,
-      backgroundColor: surface.card,
-      borderWidth: 1,
-      borderColor: isGranted ? 'rgba(50, 215, 75, 0.2)' : surface.border,
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 12,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      opacity: isComingSoon ? 0.5 : 1,
-    }),
+    permissionCard: (isGranted: boolean, isComingSoon: boolean) => [
+      styles.permissionCard,
+      {
+        backgroundColor: surface.card,
+        borderColor: isGranted ? 'rgba(50, 215, 75, 0.2)' : surface.border,
+        opacity: isComingSoon ? 0.5 : 1,
+      },
+    ],
     permTitle: { color: t.primary },
     permSubtitle: { color: t.secondary },
-    comingSoonBadge: {
-      backgroundColor: surface.cardAlt,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-    },
+    comingSoonBadge: [styles.comingSoonBadge, { backgroundColor: surface.cardAlt }],
     comingSoonText: { color: t.muted },
   };
 
@@ -222,6 +205,32 @@ export default function PermissionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  safeAreaFlex: {
+    flex: 1,
+  },
+  speechBubble: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  permissionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  comingSoonBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  // --- Original static styles ---
   speechText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',

@@ -49,17 +49,11 @@ export default function DoneScreen() {
   const [_, setIsFirstTime] = useIsFirstTime();
   const reduced = useReducedMotion();
 
-  // Theme-dependent styles
+  // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
     safeArea: { backgroundColor: surface.bg },
-    hintBanner: {
-      height: 38,
-      backgroundColor: surface.section,
-      borderWidth: 1,
-      borderColor: surface.border,
-      gap: 8,
-    },
-    hintText: { fontFamily: 'Inter_400Regular' as const, fontSize: 12, color: t.muted },
+    hintBanner: [styles.hintBanner, { backgroundColor: surface.section, borderColor: surface.border }],
+    hintText: [styles.hintText, { color: t.muted }],
     title: { color: t.primary },
     subtitle: { color: t.muted },
   };
@@ -160,6 +154,17 @@ export default function DoneScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Extracted from themed object ---
+  hintBanner: {
+    height: 38,
+    borderWidth: 1,
+    gap: 8,
+  },
+  hintText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  // --- Original static styles ---
   confettiLayer: {
     height: 80,
     zIndex: 10,
