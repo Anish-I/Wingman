@@ -10,12 +10,13 @@ const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const OTP_SECRET = process.env.OTP_SECRET; // Dedicated HMAC key — avoids reusing JWT_SECRET for non-JWT operations
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
 const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
 // HMAC to bind OAuth callback to the browser that initiated the flow (IDOR fix)
 function computeStateHmac(state) {
-  return crypto.createHmac('sha256', JWT_SECRET).update(state).digest('hex');
+  return crypto.createHmac('sha256', OTP_SECRET).update(state).digest('hex');
 }
 
 const OAUTH_COOKIE_NAME = 'oauth_state_hmac';
