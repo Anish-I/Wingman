@@ -67,6 +67,18 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', parsed);
 }
 
+// Redirect HTTP to HTTPS in production (requires TRUST_PROXY so
+// X-Forwarded-Proto is reliable — most production setups sit behind a
+// reverse proxy / load balancer that terminates TLS).
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+      return next();
+    }
+    res.redirect(301, `https://${req.headers.host}${req.url}`);
+  });
+}
+
 // Security headers with explicit Content-Security-Policy
 app.use(helmet({
   contentSecurityPolicy: {
