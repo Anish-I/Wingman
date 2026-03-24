@@ -99,8 +99,15 @@ function validateIdParam(req, res, next) {
   next();
 }
 
-// Allowed keys for user preferences
-const ALLOWED_PREFERENCE_KEYS = ['timezone', 'theme', 'language', 'notifications', 'smsOptIn'];
+// Allowed keys for user preferences with type/size validation
+const PREFERENCE_VALIDATORS = {
+  timezone:      v => typeof v === 'string' && v.length <= 100,
+  theme:         v => typeof v === 'string' && v.length <= 50,
+  language:      v => typeof v === 'string' && v.length <= 20,
+  notifications: v => typeof v === 'boolean',
+  smsOptIn:      v => typeof v === 'boolean',
+};
+const ALLOWED_PREFERENCE_KEYS = Object.keys(PREFERENCE_VALIDATORS);
 
 // POST /api/chat — send a message, get AI reply
 router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
@@ -259,8 +266,18 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'UNRECOGNIZED_KEYS', message: `Unrecognized preference keys: ${unrecognized.join(', ')}` } });
     }
     const filtered = {};
+    const invalid = [];
     for (const key of ALLOWED_PREFERENCE_KEYS) {
-      if (key in req.body) filtered[key] = req.body[key];
+      if (key in req.body) {
+        if (PREFERENCE_VALIDATORS[key](req.body[key])) {
+          filtered[key] = req.body[key];
+        } else {
+          invalid.push(key);
+        }
+      }
+    }
+    if (invalid.length > 0) {
+      return res.status(422).json({ error: { code: 'INVALID_PREFERENCE_VALUE', message: `Invalid value for: ${invalid.join(', ')}` } });
     }
     if (Object.keys(filtered).length === 0) {
       return res.status(400).json({ error: { code: 'NO_VALID_KEYS', message: 'No valid preference keys provided' } });
