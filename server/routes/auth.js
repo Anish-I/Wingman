@@ -191,6 +191,15 @@ const exchangeCodeLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many code exchange attempts, please try again later.' } },
 });
 
+// Rate limit social/Google auth: 10 per 15 minutes per IP (prevents token probing & resource exhaustion)
+const socialAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many authentication attempts, please try again later.' } },
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -803,7 +812,7 @@ router.post('/google/init-state', async (req, res) => {
 });
 
 // POST /auth/google
-router.post('/google', async (req, res) => {
+router.post('/google', socialAuthLimiter, async (req, res) => {
   try {
     const { code, state, code_verifier } = req.body;
     if (!code) {
@@ -1153,7 +1162,7 @@ router.post('/exchange-code', exchangeCodeLimiter, async (req, res) => {
 });
 
 // POST /auth/social — verify Google/Apple ID token, return JWT
-router.post('/social', async (req, res) => {
+router.post('/social', socialAuthLimiter, async (req, res) => {
   try {
     const { provider: authProvider, token } = req.body;
     if (!authProvider || !token) {
