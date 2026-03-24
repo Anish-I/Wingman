@@ -9,7 +9,7 @@ import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
 import { radii, semantic, useThemeColors } from '@/components/ui/tokens';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
-import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
+import { cardPressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -94,9 +94,9 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
           Platform.OS === 'web' && hovered && !pressed
             ? rowHovered
             : undefined,
-          // Web focus ring
-          Platform.OS === 'web' && focused
-            ? styles.webFocusRing as any
+          // Focus ring (all platforms)
+          focused
+            ? focusRing(true) as any
             : undefined,
         ]}
         onPress={onPress}
@@ -312,8 +312,8 @@ export default function SettingsScreen() {
               Platform.OS === 'web' && hovered && !pressed
                 ? logoutHovered
                 : undefined,
-              Platform.OS === 'web' && focused
-                ? styles.logoutFocusRing as any
+              focused
+                ? focusRing(true, '#FF3B30') as any
                 : undefined,
             ]}
           >
@@ -375,10 +375,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 2,
   },
-  webFocusRing: {
-    boxShadow: '0 0 0 2px rgba(124, 92, 252, 0.3)',
-  } as any,
-  logoutFocusRing: {
-    boxShadow: '0 0 0 2px rgba(255, 59, 48, 0.3)',
-  } as any,
 });

@@ -15,7 +15,7 @@
 import * as React from 'react';
 import { Platform } from 'react-native';
 import { purple } from '@/components/ui/tokens';
-import { webHoverStyle, webFocusRing } from './motion';
+import { webHoverStyle, focusRing } from './motion';
 
 type InteractiveVariant = 'button' | 'chip' | 'card' | 'subtle';
 
@@ -97,8 +97,8 @@ export function getWebInteractiveStyle(
 
   // Focus ring
   if (focused && !disabled) {
-    const focusRing = webFocusRing(true, color);
-    if (focusRing) Object.assign(styles, focusRing);
+    const ring = focusRing(true, color);
+    if (ring) Object.assign(styles, ring);
   }
 
   return styles;

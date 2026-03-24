@@ -6,7 +6,7 @@ import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
 import { base, radii, shadows } from '@/components/ui/tokens';
-import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, focusRing } from '@/lib/motion';
 
 const button = tv({
   slots: {
@@ -159,9 +159,9 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
         ...(useActionPress ? actionPressStyle({ pressed }) : pressStyle({ pressed })),
         !disabled && variant === 'gradient' ? shadows.purpleGlow : undefined,
         webInteractive(disabled || loading),
-        // Web focus ring — purple glow
-        Platform.OS === 'web' && focused && !disabled
-          ? { boxShadow: `0 0 0 2.5px ${glowColor}`, borderRadius: radii.md } as any
+        // Focus ring — purple glow (web) / border (native)
+        focused && !disabled
+          ? { ...focusRing(true, glowColor), borderRadius: radii.md } as any
           : undefined,
         // Web hover lift — amplified for primary & gradient
         Platform.OS === 'web' && hovered && !pressed && !disabled && (variant === 'primary' || isGradient(variant))

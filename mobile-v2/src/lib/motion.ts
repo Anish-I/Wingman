@@ -247,14 +247,24 @@ export function webHoverStyle(hovered: boolean, color: string = purple[500], str
   } as any;
 }
 
-/** Web-only focus ring (keyboard navigation) */
-export function webFocusRing(focused: boolean, color: string = purple[500]) {
-  if (!isWeb || !focused) return undefined;
+/** Focus ring for keyboard/switch navigation — works on all platforms */
+export function focusRing(focused: boolean, color: string = purple[500]) {
+  if (!focused) return undefined;
+  if (isWeb) {
+    return {
+      boxShadow: `0 0 0 3px ${color}`,
+      outline: 'none',
+    } as any;
+  }
+  // Native: use border to indicate focus (works with keyboard nav & switch control)
   return {
-    boxShadow: `0 0 0 3px ${color}CC`,
-    outline: 'none',
-  } as any;
+    borderWidth: 2,
+    borderColor: color,
+  };
 }
+
+/** @deprecated Use `focusRing` instead — now supports all platforms */
+export const webFocusRing = focusRing;
 
 // ── Send button animation ──────────────────────────────────────
 
