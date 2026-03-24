@@ -240,25 +240,43 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
 
     if (finalVal === 'pending') {
       // Key is stale — the original executor likely died (e.g. external timeout).
-      // Atomically delete only if still 'pending' (CAS via Lua) so a concurrent
-      // executor that just finished writing its result is not clobbered.
-      const cleaned = await redis.eval(
-        "if redis.call('get', KEYS[1]) == 'pending' then return redis.call('del', KEYS[1]) end return 0",
-        1, idempKey
+      // Atomically reclaim the slot by overwriting 'pending' with a fresh
+      // 'pending' + TTL in a single Lua script.  This closes the race window
+      // in the old DEL → SET NX two-step where a third caller could claim the
+      // slot between the delete and the reclaim, causing concurrent execution.
+      const reclaimed = await redis.eval(
+        "if redis.call('get', KEYS[1]) == 'pending' then redis.call('set', KEYS[1], 'pending', 'EX', ARGV[1]) return 1 else return 0 end",
+        1, idempKey, String(claimTTL)
       ).catch(() => 0);
-      if (cleaned === 1) {
-        console.log(`[user:${userId}] Cleaned stale pending key for ${toolCallBlock.name}, re-attempting`);
+      if (reclaimed === 1) {
+        console.log(`[user:${userId}] Reclaimed stale pending key for ${toolCallBlock.name}, re-attempting`);
+        // We atomically own the slot — fall through to execute below.
+      } else {
+        // The key changed between our GET and the Lua (the original executor
+        // wrote its result).  Re-read and return it instead of erroring out.
+        const raceVal = await redis.get(idempKey);
+        if (raceVal && raceVal !== 'pending') {
+          console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
+          try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
+        }
+        console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
+        return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
       }
+    } else {
+      // finalVal is null — key expired.  Try to claim for re-execution.
+      const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
+      if (reclaimed !== 'OK') {
+        // Another caller claimed it between our GET and SET NX — check for result.
+        const raceVal = await redis.get(idempKey);
+        if (raceVal && raceVal !== 'pending') {
+          console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
+          try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
+        }
+        console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
+        return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
+      }
+      // Fall through to execute below
     }
-
-    // Try to claim the slot again — if someone else just claimed it, return
-    // a dedup message rather than recursing (avoids unbounded retry loops).
-    const reclaimed = await redis.set(idempKey, 'pending', 'NX', 'EX', claimTTL);
-    if (reclaimed !== 'OK') {
-      console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
-      return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
-    }
-    // Fall through to execute below
   }
 
   // We claimed the slot — execute the tool
