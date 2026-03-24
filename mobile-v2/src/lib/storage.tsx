@@ -27,8 +27,9 @@ export async function initStorage(): Promise<void> {
 
     storage = createMMKV({ id: 'wingman-storage', encryptionKey });
   } catch (error) {
-    console.warn('[storage] Falling back to unencrypted MMKV:', error);
-    storage = createMMKV({ id: 'wingman-storage' });
+    throw new Error(
+      `[storage] Failed to initialise encrypted MMKV — refusing to fall back to unencrypted storage. Original error: ${error}`
+    );
   }
 }
 
