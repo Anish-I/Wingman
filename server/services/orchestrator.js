@@ -14,7 +14,10 @@ const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
 const TOOL_EXEC_TIMEOUT = parseInt(process.env.TOOL_EXEC_TIMEOUT || '20000', 10);
-const LLM_ITERATION_TIMEOUT = parseInt(process.env.LLM_ITERATION_TIMEOUT || '45000', 10);
+const LLM_ITERATION_TIMEOUT = Math.min(
+  parseInt(process.env.LLM_ITERATION_TIMEOUT || '25000', 10),
+  ITERATION_TIMEOUT - 2000   // must fire before iteration timeout to avoid races
+);
 const MAX_ORPHANED_PROMISES = parseInt(process.env.MAX_ORPHANED_PROMISES || '10', 10);
 const ORPHAN_REAP_TIMEOUT = parseInt(process.env.ORPHAN_REAP_TIMEOUT || String(5 * 60 * 1000), 10); // 5 min max lifetime for orphaned tracking
 // Sliding window for orphan counting — limits how long a user stays blocked (default 60s)
