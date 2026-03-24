@@ -330,10 +330,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
   lockHolder.releaseLock = releaseLock;
 
   try {
-  const [history, allTools] = await Promise.all([
+  const [history, allTools, connectionStatus] = await Promise.all([
     getConversationHistory(user.id),
     getTools(userId),
+    getConnectionStatus(userId),
   ]);
+
+  // Build a set of apps the user has actively connected — used to block
+  // tool execution for unconnected apps before any Composio API call.
+  const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
 
   // Append user message immediately so it's sequenced before any LLM work.
   // This ensures cache path and main path both have the message persisted atomically.
@@ -343,6 +348,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
   const tools = [...LOCAL_TOOLS, ...selectedTools];
   // Build allowlist of tool names the LLM is permitted to call this turn
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
+  // Local tools bypass Composio connection checks
+  const localToolNames = new Set(LOCAL_TOOLS.map(t => t.function?.name).filter(Boolean));
   console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
 
   // Check semantic cache before doing any LLM work
@@ -410,6 +417,29 @@ async function _processMessageInner(user, messageText, abortController = { abort
             content: JSON.stringify(result),
           });
           continue;
+        }
+
+        // Verify the user has an active connection for this app before
+        // executing — prevents prompt injection from triggering actions on
+        // apps the user never authorized.  Local tools (e.g. CREATE_WORKFLOW)
+        // are exempt since they don't go through Composio.
+        if (!localToolNames.has(block.name)) {
+          const app = appFromToolName(block.name);
+          if (!connectedApps.has(app)) {
+            console.warn(`[user:${userId}] Blocked tool call for unconnected app: ${block.name} (app: ${app})`);
+            const link = await getConnectionLink(userId, app).catch(() => null);
+            const connectMsg = link
+              ? `[${app} is not connected. Please connect it first: ${link}]`
+              : `[${app} is not connected. Please connect it at composio.dev before using this tool.]`;
+            result = { error: connectMsg };
+            completedToolIds.add(block.id);
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
         }
 
         if (block.name === 'CREATE_WORKFLOW') {
