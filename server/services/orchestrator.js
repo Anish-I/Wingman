@@ -10,6 +10,42 @@ const { validateToolArgs } = require('../lib/validate-tool-args');
 const logger = require('./logger');
 const crypto = require('crypto');
 
+// Payload size limits for LLM tool-call inputs (mirrors api.js workflow validation)
+const MAX_TOOL_INPUT_KEYS = 50;
+const MAX_TOOL_INPUT_STRING_LENGTH = 10000;
+const MAX_TOOL_INPUT_DEPTH = 5;
+const MAX_TOOL_INPUT_BYTES = 100 * 1024; // 100 KB serialized payload cap
+
+/**
+ * Validate the size of a tool-call input to prevent memory exhaustion from
+ * oversized payloads.  Returns null if valid, or an error string.
+ */
+function validateToolInputSize(obj, depth = 0) {
+  if (depth > MAX_TOOL_INPUT_DEPTH) return `input exceeds maximum nesting depth (${MAX_TOOL_INPUT_DEPTH})`;
+  if (obj === null || obj === undefined) return null;
+  const type = typeof obj;
+  if (type === 'string') {
+    if (obj.length > MAX_TOOL_INPUT_STRING_LENGTH) return `string value exceeds maximum length (${MAX_TOOL_INPUT_STRING_LENGTH})`;
+    return null;
+  }
+  if (type !== 'object') return null; // primitives are fine
+  if (Array.isArray(obj)) {
+    if (obj.length > MAX_TOOL_INPUT_KEYS) return `array exceeds maximum length (${MAX_TOOL_INPUT_KEYS})`;
+    for (let i = 0; i < obj.length; i++) {
+      const r = validateToolInputSize(obj[i], depth + 1);
+      if (r) return r;
+    }
+    return null;
+  }
+  const keys = Object.keys(obj);
+  if (keys.length > MAX_TOOL_INPUT_KEYS) return `object exceeds maximum number of keys (${MAX_TOOL_INPUT_KEYS})`;
+  for (const key of keys) {
+    const r = validateToolInputSize(obj[key], depth + 1);
+    if (r) return r;
+  }
+  return null;
+}
+
 const MAX_TOOL_ITERATIONS = 5;
 const PROCESS_MESSAGE_TIMEOUT = parseInt(process.env.PROCESS_MESSAGE_TIMEOUT || '120000', 10);
 const ITERATION_TIMEOUT = parseInt(process.env.ITERATION_TIMEOUT || '30000', 10);
@@ -516,6 +552,36 @@ async function _processMessageInner(user, messageText, abortController = { abort
         if (argError) {
           console.warn(`[user:${userId}] Blocked invalid args for ${block.name}: ${argError}`);
           result = { error: `Invalid arguments for "${block.name}": ${argError}` };
+          completedToolIds.add(block.id);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+          continue;
+        }
+
+        // Validate payload size to prevent memory exhaustion from oversized inputs
+        const sizeError = validateToolInputSize(block.input);
+        if (!sizeError) {
+          // Also check total serialized size as a final safeguard
+          const serialized = JSON.stringify(block.input);
+          if (serialized && serialized.length > MAX_TOOL_INPUT_BYTES) {
+            const bytesErr = `serialized input exceeds maximum size (${MAX_TOOL_INPUT_BYTES} bytes)`;
+            console.warn(`[user:${userId}] Blocked oversized input for ${block.name}: ${bytesErr}`);
+            result = { error: `Invalid input for "${block.name}": ${bytesErr}` };
+            completedToolIds.add(block.id);
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+            continue;
+          }
+        }
+        if (sizeError) {
+          console.warn(`[user:${userId}] Blocked oversized input for ${block.name}: ${sizeError}`);
+          result = { error: `Invalid input for "${block.name}": ${sizeError}` };
           completedToolIds.add(block.id);
           toolResults.push({
             type: 'tool_result',
