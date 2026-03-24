@@ -147,8 +147,10 @@ router.get('/callback', async (req, res) => {
     // Verify the callback is from the same browser that initiated the flow (IDOR fix)
     const cookieHmac = req.cookies && req.cookies[OAUTH_COOKIE_NAME];
     const expectedHmac = computeStateHmac(state);
-    if (!cookieHmac || cookieHmac.length !== expectedHmac.length ||
-        !crypto.timingSafeEqual(Buffer.from(cookieHmac), Buffer.from(expectedHmac))) {
+    const cookieBuf = cookieHmac ? Buffer.from(cookieHmac, 'utf8') : null;
+    const expectedBuf = Buffer.from(expectedHmac, 'utf8');
+    if (!cookieBuf || cookieBuf.length !== expectedBuf.length ||
+        !crypto.timingSafeEqual(cookieBuf, expectedBuf)) {
       return res.status(403).json({ error: { code: 'OAUTH_SESSION_MISMATCH', message: 'OAuth session mismatch. Please retry the connection from your app.' } });
     }
     res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
