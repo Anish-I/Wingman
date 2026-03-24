@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { useThemeColors } from '@/components/ui/tokens';
+import { base, semantic, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -271,7 +271,7 @@ export default function PhoneScreen() {
                       themed.otpBoxBase,
                       {
                         borderWidth: activeIdx === i ? 2 : 1,
-                        borderColor: activeIdx === i ? '#6B9BEF' : surface.borderStrong,
+                        borderColor: activeIdx === i ? semantic.info : surface.borderStrong,
                       },
                     ]}
                     value={digit}
@@ -323,7 +323,7 @@ export default function PhoneScreen() {
                 className="rounded-full items-center justify-center"
                 style={styles.successIcon}
               >
-                <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={28} color={base.white} />
               </View>
               <Text style={[styles.successTitle, themed.successTitle]}>
                 Connected!
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   resendLink: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
-    color: '#6B9BEF',
+    color: semantic.info,
   },
   successSection: {
     gap: 12,
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   successIcon: {
     width: 56,
     height: 56,
-    backgroundColor: '#32D74B',
+    backgroundColor: semantic.success,
   },
   successTitle: {
     fontFamily: 'Sora_700Bold',

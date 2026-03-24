@@ -22,7 +22,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
-import { useThemeColors } from '@/components/ui/tokens';
+import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, chipPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
@@ -171,14 +171,14 @@ const CATEGORY_ORDER = [
 ];
 
 const CATEGORY_META: Record<string, { icon: string; color: string }> = {
-  Communication: { icon: '\u{1F4AC}', color: '#7C5CFC' },
+  Communication: { icon: '\u{1F4AC}', color: purple[500] },
   Productivity: { icon: '\u26A1', color: '#F5A623' },
   Development: { icon: '\u{1F6E0}\uFE0F', color: '#9171F5' },
   'Cloud & Storage': { icon: '\u2601\uFE0F', color: '#6EC6B8' },
   Social: { icon: '\u{1F310}', color: '#9171F5' },
-  Entertainment: { icon: '\u{1F3B5}', color: '#32D74B' },
+  Entertainment: { icon: '\u{1F3B5}', color: semantic.success },
   Finance: { icon: '\u{1F4B0}', color: '#F5A623' },
-  'CRM & Support': { icon: '\u{1F91D}', color: '#7C5CFC' },
+  'CRM & Support': { icon: '\u{1F91D}', color: purple[500] },
   'E-commerce': { icon: '\u{1F6D2}', color: '#7AB55C' },
   Analytics: { icon: '\u{1F4CA}', color: '#7856FF' },
   HR: { icon: '\u{1F454}', color: '#4C6EF5' },
@@ -263,13 +263,13 @@ const AppCard = React.memo(function AppCard({
       disabled={isConnecting}
     >
       {isConnected && (
-        <View className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#32D74B] items-center justify-center z-10">
-          <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+        <View className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-pip-success items-center justify-center z-10">
+          <Ionicons name="checkmark" size={12} color={base.white} />
         </View>
       )}
       {isConnecting && (
         <View className="absolute top-2 right-2 z-10">
-          <ActivityIndicator size="small" color="#7C5CFC" />
+          <ActivityIndicator size="small" color={purple[500]} />
         </View>
       )}
       <View className="rounded-2xl items-center justify-center mb-2" style={s.iconContainer}>
@@ -393,7 +393,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
     tabActive: {
       backgroundColor: 'rgba(124, 92, 252, 0.22)',
       borderWidth: 1,
-      borderColor: '#7C5CFC',
+      borderColor: purple[500],
     },
     tabInactive: {
       backgroundColor: surface.card,
@@ -405,7 +405,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
       borderColor: surface.borderStrong,
     } as any,
     tabTextActive: {
-      color: '#7C5CFC',
+      color: purple[500],
       fontSize: 12,
       fontWeight: '600' as const,
     },
@@ -415,7 +415,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
       fontWeight: '600' as const,
     },
     tabCountActive: {
-      color: '#7C5CFC',
+      color: purple[500],
       fontSize: 10,
       fontWeight: '700' as const,
       marginLeft: 4,
@@ -681,7 +681,7 @@ export default function AppsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading apps"
-          className="mt-5 bg-[#7C5CFC] rounded-xl px-6 py-3"
+          className="mt-5 bg-pip-purple rounded-xl px-6 py-3"
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
           <Text className="text-white text-sm font-bold">Retry</Text>

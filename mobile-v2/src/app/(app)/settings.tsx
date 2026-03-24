@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
-import { useThemeColors } from '@/components/ui/tokens';
+import { semantic, useThemeColors } from '@/components/ui/tokens';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
 import { cardPressStyle, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -242,7 +242,7 @@ export default function SettingsScreen() {
           className="flex-row gap-3 px-4 mb-6"
         >
           {[
-            { num: String(stats.apps), label: 'Apps', color: '#6B9BEF' },
+            { num: String(stats.apps), label: 'Apps', color: semantic.info },
             { num: String(stats.workflows), label: 'Workflows', color: '#9B7EC8' },
             { num: String(stats.messages), label: 'Messages', color: '#6EC6B8' },
           ].map((stat, i) => (
@@ -275,7 +275,7 @@ export default function SettingsScreen() {
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
-            <SettingsRow icon="apps-outline" iconColor="#6B9BEF" label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
+            <SettingsRow icon="apps-outline" iconColor={semantic.info} label="Connected Apps" value={`${stats.apps} apps`} onPress={() => router.push('/apps')} isLast />
           </View>
         </MotiView>
 
@@ -292,7 +292,7 @@ export default function SettingsScreen() {
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" value={notificationsEnabled ? 'On' : 'Off'} onPress={handleToggleNotifications} isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value={currentTheme} onPress={handleSelectTheme} />
-            <SettingsRow icon="language-outline" iconColor="#6B9BEF" label="Language" value={currentLanguage} onPress={handleSelectLanguage} isLast />
+            <SettingsRow icon="language-outline" iconColor={semantic.info} label="Language" value={currentLanguage} onPress={handleSelectLanguage} isLast />
           </View>
         </MotiView>
 
@@ -307,7 +307,7 @@ export default function SettingsScreen() {
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>About</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
-            <SettingsRow icon="information-circle-outline" iconColor="#6B9BEF" label="Version" value="1.0.0" showChevron={false} isFirst />
+            <SettingsRow icon="information-circle-outline" iconColor={semantic.info} label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />
             <SettingsRow icon="document-text-outline" iconColor="#8A8A8A" label="Terms" isLast />
           </View>

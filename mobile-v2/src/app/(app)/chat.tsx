@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, blue, purple, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
 import { springs, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -102,7 +102,7 @@ export default function ChatScreen() {
       borderWidth: 1,
       borderColor: surface.border,
     },
-    messageTextUser: { fontSize: 15, lineHeight: 22, color: '#FFFFFF' },
+    messageTextUser: { fontSize: 15, lineHeight: 22, color: base.white },
     messageTextAssistant: { fontSize: 15, lineHeight: 22, color: t.primary },
     statusSending: { fontSize: 11, color: t.muted, fontFamily: 'Inter_500Medium' as const },
     emptyTitle: {
@@ -562,7 +562,7 @@ export default function ChatScreen() {
                 onPress={() => send()}
                 disabled={!canSend}
               >
-                <Ionicons name="arrow-up" size={20} color={canSend ? '#FFFFFF' : t.muted} />
+                <Ionicons name="arrow-up" size={20} color={canSend ? base.white : t.muted} />
               </Pressable>
             </MotiView>
           </MotiView>

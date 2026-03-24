@@ -42,6 +42,12 @@ export const teal = {
   glow: 'rgba(110, 198, 184, 0.06)',
 } as const;
 
+// ── Base contrast (text/icons on filled colored surfaces) ─────
+export const base = {
+  white: '#FFFFFF',
+  black: '#000000',
+} as const;
+
 // ── Surfaces (dark theme depth) ───────────────────────────────
 export const surface = {
   /** Deepest background — app chrome, page root */
@@ -343,6 +349,7 @@ export function useThemeColors() {
 
 // ── Convenience re-export for inline styles ───────────────────
 const tokens = {
+  base,
   purple,
   teal,
   surface,

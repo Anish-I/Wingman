@@ -5,7 +5,7 @@ import { showMessage } from 'react-native-flash-message';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { getItem, removeItem } from '@/lib/storage';
-import { useThemeColors } from '@/components/ui/tokens';
+import { purple, useThemeColors } from '@/components/ui/tokens';
 
 /**
  * OAuth callback route for web.
@@ -111,7 +111,7 @@ export default function OAuthCallbackScreen() {
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <ActivityIndicator size="large" color="#7C5CFC" />
+      <ActivityIndicator size="large" color={purple[500]} />
       <Text style={[styles.statusText, statusTextStyle]}>
         Completing sign-in...
       </Text>

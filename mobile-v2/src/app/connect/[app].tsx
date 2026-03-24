@@ -7,7 +7,7 @@ import { AxiosError } from 'axios';
 import Env from 'env';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
-import { useThemeColors } from '@/components/ui/tokens';
+import { semantic, useThemeColors } from '@/components/ui/tokens';
 
 export default function ConnectAppScreen() {
   const { surface, text: t } = useThemeColors();
@@ -80,7 +80,7 @@ export default function ConnectAppScreen() {
 
   return (
     <View style={[styles.loadingContainer, loadingContainerStyle]}>
-      <ActivityIndicator color="#6B9BEF" size="large" />
+      <ActivityIndicator color={semantic.info} size="large" />
     </View>
   );
 }

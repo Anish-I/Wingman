@@ -15,6 +15,7 @@
  */
 import { AccessibilityInfo, Platform } from 'react-native';
 import { useEffect, useState } from 'react';
+import { purple } from '@/components/ui/tokens';
 
 const isWeb = Platform.OS === 'web';
 
@@ -220,7 +221,7 @@ export function webInteractive(disabled?: boolean) {
 
 /** Web-only hover styles with optional glow effect.
  *  Best applied in a style callback to detect hovered state. */
-export function webHoverStyle(hovered: boolean, color = '#7C5CFC', strength: 'soft' | 'medium' | 'strong' = 'soft') {
+export function webHoverStyle(hovered: boolean, color: string = purple[500], strength: 'soft' | 'medium' | 'strong' = 'soft') {
   if (!isWeb || !hovered) return undefined;
   const opacities = { soft: '0.1', medium: '0.15', strong: '0.25' };
   return {
@@ -230,7 +231,7 @@ export function webHoverStyle(hovered: boolean, color = '#7C5CFC', strength: 'so
 }
 
 /** Web-only focus ring (keyboard navigation) */
-export function webFocusRing(focused: boolean, color = '#7C5CFC') {
+export function webFocusRing(focused: boolean, color: string = purple[500]) {
   if (!isWeb || !focused) return undefined;
   return {
     boxShadow: `0 0 0 3px ${color}CC`,

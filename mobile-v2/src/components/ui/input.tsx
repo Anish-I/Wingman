@@ -18,7 +18,7 @@ const inputTv = tv({
   variants: {
     focused: {
       true: {
-        input: 'border-[#7C5CFC] dark:border-[#7C5CFC] shadow-sm dark:shadow-sm',
+        input: 'border-pip-purple dark:border-pip-purple shadow-sm dark:shadow-sm',
       },
     },
     error: {

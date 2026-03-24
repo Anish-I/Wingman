@@ -7,7 +7,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
-import { useThemeColors } from '@/components/ui/tokens';
+import { base, semantic, useThemeColors } from '@/components/ui/tokens';
 
 interface OnboardingApp {
   slug: string;
@@ -22,11 +22,11 @@ const ALL_APPS: OnboardingApp[] = [
   { slug: 'gmail', name: 'Gmail', iconName: 'gmail', iconFamily: 'MaterialCommunityIcons', color: '#EA4335' },
   { slug: 'slack', name: 'Slack', iconName: 'slack', iconFamily: 'MaterialCommunityIcons', color: '#4A154B' },
   { slug: 'spotify', name: 'Spotify', iconName: 'spotify', iconFamily: 'FontAwesome5', color: '#1DB954' },
-  { slug: 'notion', name: 'Notion', iconName: 'note-text', iconFamily: 'MaterialCommunityIcons', color: '#000000' },
+  { slug: 'notion', name: 'Notion', iconName: 'note-text', iconFamily: 'MaterialCommunityIcons', color: base.black },
   { slug: 'github', name: 'GitHub', iconName: 'github', iconFamily: 'FontAwesome5', color: '#333333' },
   { slug: 'discord', name: 'Discord', iconName: 'discord', iconFamily: 'MaterialCommunityIcons', color: '#5865F2' },
   { slug: 'todoist', name: 'Todoist', iconName: 'checkbox-marked-circle-outline', iconFamily: 'MaterialCommunityIcons', color: '#E44332' },
-  { slug: 'uber', name: 'Uber', iconName: 'car', iconFamily: 'MaterialCommunityIcons', color: '#000000' },
+  { slug: 'uber', name: 'Uber', iconName: 'car', iconFamily: 'MaterialCommunityIcons', color: base.black },
   { slug: 'venmo', name: 'Venmo', iconName: 'cash', iconFamily: 'MaterialCommunityIcons', color: '#3D95CE' },
   { slug: 'maps', name: 'Maps', iconName: 'map-marker', iconFamily: 'MaterialCommunityIcons', color: '#4285F4' },
   { slug: 'twitter', name: 'X', iconName: 'twitter', iconFamily: 'FontAwesome5', color: '#1DA1F2' },
@@ -46,7 +46,7 @@ export default function ConnectScreen() {
     safeArea: { backgroundColor: surface.bg },
     headerTitle: { color: t.primary },
     infoBanner: {
-      backgroundColor: '#6B9BEF15',
+      backgroundColor: `${semantic.info}15`,
       paddingVertical: 8,
       gap: 6,
     },
@@ -95,7 +95,7 @@ export default function ConnectScreen() {
             className="flex-row items-center rounded-lg px-3"
             style={themed.infoBanner}
           >
-            <Ionicons name="information-circle-outline" size={16} color="#6B9BEF" />
+            <Ionicons name="information-circle-outline" size={16} color={semantic.info} />
             <Text style={themed.infoText}>
               You'll connect these after setup
             </Text>

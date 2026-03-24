@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, purple, semantic, teal } from '@/components/ui/tokens';
+import { base, useThemeColors, purple, semantic, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: base.white,
     fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
   },

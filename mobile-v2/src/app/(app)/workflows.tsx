@@ -8,7 +8,7 @@ import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
-import { useThemeColors } from '@/components/ui/tokens';
+import { base, purple, semantic, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -24,15 +24,15 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 function getTriggerIcon(type: string): { icon: IconName; color: string; label: string } {
   switch (type) {
     case 'schedule': return { icon: 'time', color: '#F5A623', label: 'Scheduled' };
-    case 'event': return { icon: 'flash', color: '#7C5CFC', label: 'Event' };
-    default: return { icon: 'hand-left', color: '#7C5CFC', label: 'Manual' };
+    case 'event': return { icon: 'flash', color: purple[500], label: 'Event' };
+    default: return { icon: 'hand-left', color: purple[500], label: 'Manual' };
   }
 }
 
 const TEMPLATES = [
-  { icon: '📧', title: 'Morning email digest', color: '#7C5CFC' },
+  { icon: '📧', title: 'Morning email digest', color: purple[500] },
   { icon: '📅', title: 'Daily calendar summary', color: '#F5A623' },
-  { icon: '💬', title: 'Slack standup reminder', color: '#7C5CFC' },
+  { icon: '💬', title: 'Slack standup reminder', color: purple[500] },
   { icon: '🐙', title: 'GitHub PR notifications', color: '#6EC6B8' },
 ];
 
@@ -67,9 +67,9 @@ export default function WorkflowsScreen() {
       paddingBottom: 48,
     } as const,
     modalInput: { backgroundColor: surface.section, borderWidth: 1, borderColor: surface.border, textAlignVertical: 'top' as const, minHeight: 100 } as const,
-    activeStatusColor: { color: '#32D74B' } as const,
+    activeStatusColor: { color: semantic.success } as const,
     inactiveStatusColor: { color: t.muted } as const,
-    switchTrackColor: { false: surface.elevated, true: '#32D74B' } as const,
+    switchTrackColor: { false: surface.elevated, true: semantic.success } as const,
     togglingSwitch: { opacity: 0.5 } as const,
   };
 
@@ -226,7 +226,7 @@ export default function WorkflowsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading workflows"
-          className="mt-5 bg-[#7C5CFC] rounded-xl px-6 py-3"
+          className="mt-5 bg-pip-purple rounded-xl px-6 py-3"
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
           <Text className="text-white text-sm font-bold">Retry</Text>
@@ -299,9 +299,9 @@ export default function WorkflowsScreen() {
           <MotiView
             {...maybeReduce(popIn(0, 200), reduced)}
           >
-            <View className="bg-[#7C5CFC]/15 rounded-2xl px-4 py-2 items-center">
-              <Text className="text-[#7C5CFC] text-[20px] font-extrabold">{workflows.length}</Text>
-              <Text className="text-[#7C5CFC] text-[10px] font-bold uppercase">Active</Text>
+            <View className="bg-pip-purple/15 rounded-2xl px-4 py-2 items-center">
+              <Text className="text-pip-purple text-[20px] font-extrabold">{workflows.length}</Text>
+              <Text className="text-pip-purple text-[10px] font-bold uppercase">Active</Text>
             </View>
           </MotiView>
         </View>
@@ -445,12 +445,12 @@ export default function WorkflowsScreen() {
           ]}
         >
           <LinearGradient
-            colors={['#7C5CFC', '#6545DB', '#4F32B3']}
+            colors={[purple[500], purple[600], purple[700]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.fabGradient}
           >
-            <Ionicons name="sparkles" size={24} color="#FFFFFF" />
+            <Ionicons name="sparkles" size={24} color={base.white} />
           </LinearGradient>
         </Pressable>
       </MotiView>
@@ -464,8 +464,8 @@ export default function WorkflowsScreen() {
             {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'New Automation' } as any : {})}
           >
             <View className="flex-row items-center gap-3 mb-5">
-              <View className="w-10 h-10 rounded-xl bg-[#7C5CFC]/20 items-center justify-center">
-                <Ionicons name="sparkles" size={20} color="#7C5CFC" />
+              <View className="w-10 h-10 rounded-xl bg-pip-purple/20 items-center justify-center">
+                <Ionicons name="sparkles" size={20} color={purple[500]} />
               </View>
               <View>
                 <Text className="text-foreground text-lg font-bold">New Automation</Text>
@@ -495,7 +495,7 @@ export default function WorkflowsScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#7C5CFC', '#6545DB']}
+                colors={[purple[500], purple[600]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.createButtonGradient}

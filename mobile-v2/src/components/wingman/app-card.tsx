@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { chipPressStyle, webInteractive } from '@/lib/motion';
 import { useResponsive } from '@/lib/responsive';
 
@@ -72,7 +72,7 @@ export default function AppCard({ emoji, name, connected, onPress, color }: AppC
     >
       {connected && (
         <View style={badgeStyle}>
-          <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+          <Ionicons name="checkmark" size={11} color={base.white} />
         </View>
       )}
       <View style={iconContainerStyle}>

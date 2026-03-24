@@ -5,7 +5,7 @@
  * Reduces boilerplate for motion and web interaction styling.
  *
  * Usage:
- *   <Interactive variant="button" color="#7C5CFC">
+ *   <Interactive variant="button" color={purple[500]}>
  *     <Pressable onPress={...}>
  *       <Text>Click me</Text>
  *     </Pressable>
@@ -14,6 +14,7 @@
 
 import * as React from 'react';
 import { Platform } from 'react-native';
+import { purple } from '@/components/ui/tokens';
 import { webHoverStyle, webFocusRing } from './motion';
 
 type InteractiveVariant = 'button' | 'chip' | 'card' | 'subtle';
@@ -71,7 +72,7 @@ export function getWebInteractiveStyle(
 
   const {
     variant = 'button',
-    color = '#7C5CFC',
+    color = purple[500],
     disabled = false,
     hoverStrength = 'medium',
   } = options;
@@ -118,7 +119,7 @@ export function useInteractiveStyle(
 ) {
   const {
     variant = 'button',
-    color = '#7C5CFC',
+    color = purple[500],
     disabled = false,
     intensity = 'medium',
   } = options;

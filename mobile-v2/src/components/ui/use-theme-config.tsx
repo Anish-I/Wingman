@@ -6,6 +6,7 @@ import {
 import { useUniwind } from 'uniwind';
 
 import colors from '@/components/ui/colors';
+import { surfaceLight, textLight } from '@/components/ui/tokens';
 
 /**
  * Dark theme for "Premium Assistant OS"
@@ -31,10 +32,10 @@ const LightTheme: Theme = {
   colors: {
     ...DefaultTheme.colors,
     primary: colors.primary[500],
-    background: '#FFFFFF',
-    text: '#1C1C1E',
-    border: '#D1D1D6',
-    card: '#F5F5F7',
+    background: surfaceLight.bg,
+    text: textLight.primary,
+    border: surfaceLight.border,
+    card: surfaceLight.card,
     notification: colors.primary[500],
   },
 };

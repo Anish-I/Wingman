@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
-import { shadows } from '@/components/ui/tokens';
+import { base, shadows } from '@/components/ui/tokens';
 import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 const button = tv({
@@ -19,15 +19,15 @@ const button = tv({
     variant: {
       /** Primary action — bold, high-trust purple with shadow */
       primary: {
-        container: 'bg-[#7C5CFC] dark:bg-[#7C5CFC]',
+        container: 'bg-pip-purple dark:bg-pip-purple',
         label: 'text-white dark:text-white',
         indicator: 'text-white dark:text-white',
       },
       /** Secondary action — purple outline, clear affordance */
       secondary: {
-        container: 'border border-[#7C5CFC] dark:border-[#7C5CFC] bg-transparent',
-        label: 'text-[#7C5CFC] dark:text-[#A084FF]',
-        indicator: 'text-[#7C5CFC] dark:text-[#A084FF]',
+        container: 'border border-pip-purple dark:border-pip-purple bg-transparent',
+        label: 'text-pip-purple dark:text-[#A084FF]',
+        indicator: 'text-pip-purple dark:text-[#A084FF]',
       },
       /** Assistant accent — teal for secondary actions */
       accent: {
@@ -67,13 +67,13 @@ const button = tv({
       },
       /** Gradient — branded primary action with glow (onboarding CTAs) */
       gradient: {
-        container: 'bg-[#7C5CFC] dark:bg-[#7C5CFC]',
+        container: 'bg-pip-purple dark:bg-pip-purple',
         label: 'text-white dark:text-white',
         indicator: 'text-white dark:text-white',
       },
       /** Gradient success — green branded action */
       gradientSuccess: {
-        container: 'bg-[#32D74B] dark:bg-[#32D74B]',
+        container: 'bg-pip-success dark:bg-pip-success',
         label: 'text-white dark:text-white',
         indicator: 'text-white dark:text-white',
       },
@@ -194,7 +194,7 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
                 : (
                     <>
                       {icon
-                        ? <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" style={buttonStyles.iconMargin} />
+                        ? <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={base.white} style={buttonStyles.iconMargin} />
                         : null}
                       <Text
                         testID={testID ? `${testID}-label` : undefined}

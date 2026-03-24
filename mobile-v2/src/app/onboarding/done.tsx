@@ -8,11 +8,11 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { useThemeColors } from '@/components/ui/tokens';
+import { blue, semantic, teal, useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, useReducedMotion, maybeReduce } from '@/lib/motion';
 
-const CONFETTI_COLORS = ['#6B9BEF', '#32D74B', '#9B7EC8', '#F5A623', '#6EC6B8', '#3B5998'];
+const CONFETTI_COLORS = [semantic.info, semantic.success, '#9B7EC8', '#F5A623', teal[300], blue[500]];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -137,7 +137,7 @@ export default function DoneScreen() {
             className="flex-row items-center rounded-lg px-4"
             style={themed.hintBanner}
           >
-            <Ionicons name="apps-outline" size={14} color="#6B9BEF" />
+            <Ionicons name="apps-outline" size={14} color={semantic.info} />
             <Text style={themed.hintText}>
               Connect your apps from the Apps tab
             </Text>
@@ -176,14 +176,14 @@ const styles = StyleSheet.create({
   completeLine: {
     width: 24,
     height: 2,
-    backgroundColor: '#32D74B',
+    backgroundColor: semantic.success,
     borderRadius: 1,
   },
   completeLabel: {
     fontFamily: 'Inter_700Bold',
     fontSize: 11,
     letterSpacing: 2,
-    color: '#32D74B',
+    color: semantic.success,
   },
   title: {
     fontFamily: 'Sora_700Bold',
