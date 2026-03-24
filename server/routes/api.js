@@ -45,7 +45,8 @@ const workflowLimiter = rateLimit({
 const MAX_CHAT_MESSAGE_LENGTH = 4000;
 
 // --- Workflow action input sanitization ---
-const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// Whitelist: keys must be alphanumeric with underscores, hyphens, or dots (max 128 chars)
+const ALLOWED_KEY_RE = /^[a-zA-Z0-9_\-.]{1,128}$/;
 const MAX_INPUT_DEPTH = 5;
 const MAX_INPUT_KEYS = 50;
 const MAX_STRING_LENGTH = 10000;
@@ -79,7 +80,7 @@ function validateActionInput(obj, depth = 0) {
     const keys = Object.keys(obj);
     if (keys.length > MAX_INPUT_KEYS) return { valid: false, reason: `object exceeds maximum number of keys (${MAX_INPUT_KEYS})` };
     for (const key of keys) {
-      if (FORBIDDEN_KEYS.has(key)) return { valid: false, reason: `forbidden key "${key}" in input` };
+      if (!ALLOWED_KEY_RE.test(key)) return { valid: false, reason: `invalid key "${key}" in input — only alphanumeric, underscore, hyphen, and dot are allowed` };
       const r = validateActionInput(obj[key], depth + 1);
       if (!r.valid) return r;
     }
