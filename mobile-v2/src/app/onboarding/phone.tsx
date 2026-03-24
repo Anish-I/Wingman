@@ -33,6 +33,7 @@ export default function PhoneScreen() {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [otpRequestId, setOtpRequestId] = useState('');
   const inputs = useRef<TextInput[]>([]);
   const verifyingRef = useRef(false);
 
@@ -45,7 +46,8 @@ export default function PhoneScreen() {
     const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
-      await client.post('/auth/request-otp', { phone: formatted });
+      const { data } = await client.post('/auth/request-otp', { phone: formatted });
+      setOtpRequestId(data.otp_request_id);
       setE164Phone(formatted);
       setStep('verify');
     } catch (err: any) {
@@ -96,7 +98,7 @@ export default function PhoneScreen() {
     verifyingRef.current = true;
     setLoading(true);
     try {
-      const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
+      const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp, otp_request_id: otpRequestId });
       // Validate that a real token was returned (not a demo token or undefined)
       if (!data.token || data.token === 'demo-mock-token') {
         showAlert('Verification Failed', 'No valid authentication token received. Please try again.');

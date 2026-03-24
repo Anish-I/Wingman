@@ -469,10 +469,14 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     const otp = crypto.randomInt(100000, 1000000).toString();
     // Store HMAC hash instead of plaintext — prevents Redis read access from leaking OTPs
     const otpHash = crypto.createHmac('sha256', OTP_SECRET).update(otp).digest('hex');
-    // Bundle the requester ID with the OTP hash so both are consumed atomically
-    // in a single GETDEL during verify-otp. This prevents session-fixation races
-    // where a separate otp_requester key could be independently consumed or lost.
-    const otpValue = JSON.stringify({ hash: otpHash, requester: requestingUserId ? String(requestingUserId) : null });
+    // Generate a cryptographic nonce that binds the OTP to the requesting client.
+    // Returned in the HTTP response and required at verify-otp time, so an attacker
+    // who intercepts the OTP (SIM-swap/SS7) still can't verify without this nonce.
+    const otpRequestId = crypto.randomUUID();
+    // Bundle the requester ID and request nonce with the OTP hash so all three are
+    // consumed atomically in a single GETDEL during verify-otp. This prevents
+    // session-fixation races where separate keys could be independently consumed.
+    const otpValue = JSON.stringify({ hash: otpHash, requester: requestingUserId ? String(requestingUserId) : null, requestId: otpRequestId });
     await redis.set(`otp:${phone}`, otpValue, 'EX', OTP_TTL);
 
     // Set 60-second cooldown
@@ -484,7 +488,7 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
     }
     await provider.sendMessage(phone, `Your Wingman verification code is: ${otp}. It expires in 10 minutes.`);
 
-    res.json({ success: true, message: 'OTP sent.' });
+    res.json({ success: true, message: 'OTP sent.', otp_request_id: otpRequestId });
   } catch (err) {
     logger.error({ err: err.message }, 'OTP request error');
     res.status(500).json({ error: { code: 'OTP_SEND_ERROR', message: 'Failed to send OTP.' } });
@@ -494,9 +498,12 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
 // POST /auth/verify-otp
 router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req, res) => {
   try {
-    const { phone, code } = req.body;
+    const { phone, code, otp_request_id } = req.body;
     if (!phone || !code) {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Phone and code are required.' } });
+    }
+    if (!otp_request_id) {
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'otp_request_id is required. Use the value returned from request-otp.' } });
     }
 
     // Global Redis-based rate limit: cap total OTP verification attempts across
@@ -554,11 +561,13 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     const storedRaw = await redis.call('GETDEL', otpKey);
     let storedHash = null;
     let otpRequester = null;
+    let storedRequestId = null;
     if (storedRaw) {
       try {
         const parsed = JSON.parse(storedRaw);
         storedHash = parsed.hash;
         otpRequester = parsed.requester;
+        storedRequestId = parsed.requestId || null;
       } catch {
         // Legacy format (plain hash string) — no requester info available
         storedHash = storedRaw;
@@ -571,6 +580,19 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       // Attempt counter was already incremented atomically at the top of the handler,
       // so just return the error — no separate INCR needed here.
       return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
+    }
+
+    // Request-binding guard: the otp_request_id nonce was generated at request-otp
+    // time, returned to the client, and stored with the OTP. Every caller —
+    // authenticated or not — must present the matching nonce. This closes the
+    // session-fixation gap where an attacker who intercepts the OTP (SIM-swap/SS7)
+    // but didn't initiate the request-otp HTTP call lacks the nonce.
+    if (storedRequestId && otp_request_id !== storedRequestId) {
+      // Restore the OTP so the legitimate requester (who has the correct nonce) can retry.
+      if (storedRaw) {
+        await redis.set(otpKey, storedRaw, 'EX', OTP_TTL);
+      }
+      return res.status(403).json({ error: { code: 'REQUEST_ID_MISMATCH', message: 'OTP request binding failed. Please request a new code.' } });
     }
 
     // Distributed lock on the phone number to serialize all post-OTP operations

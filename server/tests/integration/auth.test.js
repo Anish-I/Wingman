@@ -98,12 +98,14 @@ describe('POST /auth/signup + POST /auth/login', () => {
 
     expect(signupRes.status).toBe(200);
 
-    await redis.set(`otp:${phone}`, require('crypto').createHmac('sha256', process.env.OTP_SECRET).update('123456').digest('hex'), 'EX', 600);
+    const testRequestId = require('crypto').randomUUID();
+    const otpHash = require('crypto').createHmac('sha256', process.env.OTP_SECRET).update('123456').digest('hex');
+    await redis.set(`otp:${phone}`, JSON.stringify({ hash: otpHash, requester: String(signupRes.body.user.id), requestId: testRequestId }), 'EX', 600);
 
     const verifyRes = await supertest(app)
       .post('/auth/verify-otp')
       .set('Authorization', `Bearer ${signupRes.body.token}`)
-      .send({ phone, code: '123456' });
+      .send({ phone, code: '123456', otp_request_id: testRequestId });
 
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.user.phone).toBe(phone);

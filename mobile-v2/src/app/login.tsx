@@ -31,6 +31,7 @@ export default function LoginScreen() {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [otpRequestId, setOtpRequestId] = useState('');
   const inputs = useRef<TextInput[]>([]);
 
   async function handleSendCode() {
@@ -42,7 +43,8 @@ export default function LoginScreen() {
     const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
-      await client.post('/auth/request-otp', { phone: formatted });
+      const { data } = await client.post('/auth/request-otp', { phone: formatted });
+      setOtpRequestId(data.otp_request_id);
     }
     catch {
       showAlert('Error', 'Could not send verification code. Please try again.');
@@ -84,7 +86,7 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
+      const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp, otp_request_id: otpRequestId });
       // Validate token is a well-formed JWT (three base64url segments)
       if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-In Failed', 'No valid authentication token received. Please try again.');
