@@ -1,9 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { Platform, Pressable, Text } from 'react-native';
-import { purple, radii, semantic, shadows } from '@/components/ui/tokens';
-import { actionPressStyle, springs, webInteractive, webHoverStyle, webFocusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { Button } from '@/components/ui/button';
+import { springs, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type GradientButtonProps = {
   title: string;
@@ -14,6 +12,10 @@ type GradientButtonProps = {
   showArrow?: boolean;
 };
 
+/**
+ * Animated wrapper around UI Button for onboarding CTAs.
+ * All button styling is delegated to `<Button variant="gradient" />`.
+ */
 export default function GradientButton({
   title,
   onPress,
@@ -22,9 +24,6 @@ export default function GradientButton({
   icon,
   showArrow,
 }: GradientButtonProps) {
-  const isPrimary = variant === 'primary';
-  const bgColor = isPrimary ? purple[500] : semantic.success;
-  const glowColor = isPrimary ? purple[500] : semantic.success;
   const reduced = useReducedMotion();
 
   return (
@@ -36,57 +35,18 @@ export default function GradientButton({
         transition: { ...springs.snappy, delay: 80 },
       }, reduced)}
     >
-      <Pressable
+      <Button
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ disabled: !!disabled }}
+        variant={variant === 'success' ? 'gradientSuccess' : 'gradient'}
+        size="lg"
+        label={title}
         onPress={onPress}
         disabled={disabled}
-        style={({ pressed, hovered, focused }: any) => [
-          {
-            height: 56,
-            borderRadius: radii.md,
-            backgroundColor: bgColor,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 10,
-          },
-          !disabled && isPrimary ? shadows.purpleGlow : undefined,
-          ...actionPressStyle({ pressed }),
-          disabled ? { opacity: 0.4, backgroundColor: isPrimary ? purple[700] : '#1B6B2A' } : undefined,
-          webInteractive(disabled),
-          // Web hover: amplify glow with smooth transition
-          Platform.OS === 'web' && hovered && !pressed && !disabled
-            ? webHoverStyle(true, glowColor, 'strong')
-            : undefined,
-          // Web focus ring (keyboard navigation)
-          Platform.OS === 'web' && focused && !disabled
-            ? webFocusRing(true, glowColor)
-            : undefined,
-        ]}
-      >
-        {icon
-          ? (
-              <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" />
-            )
-          : null}
-        <Text
-          style={{
-            color: '#FFFFFF',
-            fontFamily: 'Inter_600SemiBold',
-            fontSize: 16,
-            letterSpacing: -0.2,
-          }}
-        >
-          {title}
-        </Text>
-        {showArrow
-          ? (
-              <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={{ marginLeft: 2 }} />
-            )
-          : null}
-      </Pressable>
+        icon={icon}
+        showArrow={showArrow}
+      />
     </MotiView>
   );
 }

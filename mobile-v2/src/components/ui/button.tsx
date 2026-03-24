@@ -1,10 +1,12 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes */
 import type { PressableProps, View } from 'react-native';
 import type { VariantProps } from 'tailwind-variants';
+import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
-import { pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
+import { shadows } from '@/components/ui/tokens';
+import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, webFocusRing } from '@/lib/motion';
 
 const button = tv({
   slots: {
@@ -63,6 +65,18 @@ const button = tv({
         label: 'text-black dark:text-[#A084FF]',
         indicator: 'text-black dark:text-[#A084FF]',
       },
+      /** Gradient — branded primary action with glow (onboarding CTAs) */
+      gradient: {
+        container: 'bg-[#7C5CFC] dark:bg-[#7C5CFC]',
+        label: 'text-white dark:text-white',
+        indicator: 'text-white dark:text-white',
+      },
+      /** Gradient success — green branded action */
+      gradientSuccess: {
+        container: 'bg-[#32D74B] dark:bg-[#32D74B]',
+        label: 'text-white dark:text-white',
+        indicator: 'text-white dark:text-white',
+      },
     },
     size: {
       default: {
@@ -110,9 +124,13 @@ type Props = {
   loading?: boolean;
   className?: string;
   textClassName?: string;
+  icon?: string;
+  showArrow?: boolean;
 } & ButtonVariants & Omit<PressableProps, 'disabled'>;
 
-export function Button({ ref, label: text, loading = false, variant = 'primary', disabled = false, size = 'default', className = '', testID, textClassName = '', ...props }: Props & { ref?: React.RefObject<View | null> }) {
+const isGradient = (v?: string | null) => v === 'gradient' || v === 'gradientSuccess';
+
+export function Button({ ref, label: text, loading = false, variant = 'primary', disabled = false, size = 'default', className = '', testID, textClassName = '', icon, showArrow, ...props }: Props & { ref?: React.RefObject<View | null> }) {
   const styles = React.useMemo(
     () => button({ variant, disabled, size }),
     [variant, disabled, size],
@@ -123,7 +141,11 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
     ? 'rgba(124, 92, 252, 0.8)'
     : variant === 'accent'
       ? 'rgba(110, 198, 184, 0.8)'
-      : 'rgba(124, 92, 252, 0.8)';
+      : variant === 'gradientSuccess'
+        ? 'rgba(50, 215, 75, 0.8)'
+        : 'rgba(124, 92, 252, 0.8)';
+
+  const useActionPress = isGradient(variant);
 
   return (
     <Pressable
@@ -133,19 +155,25 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
       ref={ref}
       testID={testID}
       style={({ pressed, focused, hovered }: any) => [
-        ...pressStyle({ pressed }),
+        // Gradient variants get bolder press + purple glow shadow
+        ...(useActionPress ? actionPressStyle({ pressed }) : pressStyle({ pressed })),
+        !disabled && variant === 'gradient' ? shadows.purpleGlow : undefined,
         webInteractive(disabled || loading),
         // Web focus ring — purple glow
         Platform.OS === 'web' && focused && !disabled
           ? { boxShadow: `0 0 0 2.5px ${glowColor}`, borderRadius: 12 } as any
           : undefined,
-        // Web hover lift — amplified for primary
-        Platform.OS === 'web' && hovered && !pressed && !disabled && variant === 'primary'
+        // Web hover lift — amplified for primary & gradient
+        Platform.OS === 'web' && hovered && !pressed && !disabled && (variant === 'primary' || isGradient(variant))
           ? { transform: [{ scale: 1.02 }], boxShadow: '0 6px 20px rgba(124, 92, 252, 0.25)' } as any
           : undefined,
         // Web hover for secondary variants
         Platform.OS === 'web' && hovered && !pressed && !disabled && (variant === 'secondary' || variant === 'link')
           ? { opacity: 0.9 } as any
+          : undefined,
+        // Gradient disabled dimming
+        disabled && isGradient(variant)
+          ? { opacity: 0.4 } as any
           : undefined,
       ]}
     >
@@ -164,12 +192,20 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
                     />
                   )
                 : (
-                    <Text
-                      testID={testID ? `${testID}-label` : undefined}
-                      className={styles.label({ className: textClassName })}
-                    >
-                      {text}
-                    </Text>
+                    <>
+                      {icon
+                        ? <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        : null}
+                      <Text
+                        testID={testID ? `${testID}-label` : undefined}
+                        className={styles.label({ className: textClassName })}
+                      >
+                        {text}
+                      </Text>
+                      {showArrow
+                        ? <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
+                        : null}
+                    </>
                   )}
             </>
           )}

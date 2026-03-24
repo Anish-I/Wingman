@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
-import { FocusAwareStatusBar } from '@/components/ui';
+import { Button, FocusAwareStatusBar } from '@/components/ui';
 import { purple, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
@@ -203,26 +203,14 @@ export default function LoginScreen() {
             </View>
 
             {/* Send button */}
-            <Pressable
-              accessibilityRole="button"
+            <Button
               accessibilityLabel={loading ? 'Sending verification code' : 'Send verification code'}
-              style={[
-                {
-                  height: 52,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: loading ? purple[700] : purple[500],
-                },
-                Platform.OS === 'web' ? { cursor: loading ? 'default' : 'pointer' } as any : undefined,
-              ]}
+              variant="primary"
+              label={loading ? 'Sending...' : 'Send Code'}
               onPress={handleSendCode}
+              loading={loading}
               disabled={loading}
-            >
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
-                {loading ? 'Sending...' : 'Send Code'}
-              </Text>
-            </Pressable>
+            />
           </>
         ) : (
           <>
@@ -260,58 +248,39 @@ export default function LoginScreen() {
             </View>
 
             {/* Verify button */}
-            <Pressable
-              accessibilityRole="button"
+            <Button
               accessibilityLabel={loading ? 'Verifying code' : 'Verify code'}
-              style={[
-                {
-                  height: 52,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: loading ? purple[700] : purple[500],
-                  opacity: code.join('').length < 6 && !loading ? 0.5 : 1,
-                },
-                Platform.OS === 'web' ? { cursor: loading ? 'default' : 'pointer' } as any : undefined,
-              ]}
-              onPress={handleVerify}
-              disabled={loading}
-            >
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
-                {loading ? 'Verifying...' : 'Verify Code'}
-              </Text>
-            </Pressable>
+              variant="primary"
+              label={loading ? 'Verifying...' : 'Verify Code'}
+              onPress={() => handleVerify()}
+              loading={loading}
+              disabled={loading || code.join('').length < 6}
+            />
 
             {/* Resend / Back */}
             <View className="flex-row items-center justify-between">
-              <Pressable
-                accessibilityRole="button"
+              <Button
                 accessibilityLabel="Change phone number"
+                variant="ghost"
+                size="sm"
+                label="Change number"
                 onPress={() => {
                   setStep('phone');
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);
                 }}
-                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
-              >
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: t.muted }}>
-                  Change number
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+              />
+              <Button
                 accessibilityLabel="Resend verification code"
+                variant="link"
+                size="sm"
+                label="Resend Code"
                 onPress={() => {
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);
                   handleSendCode();
                 }}
-                style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
-              >
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: purple[400] }}>
-                  Resend Code
-                </Text>
-              </Pressable>
+              />
             </View>
           </>
         )}
@@ -320,16 +289,15 @@ export default function LoginScreen() {
           <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: t.muted }}>
             Don't have an account?{' '}
           </Text>
-          <Pressable
+          <Button
             accessibilityRole="link"
             accessibilityLabel="Sign up for a new account"
+            variant="link"
+            size="sm"
+            label="Sign Up"
+            fullWidth={false}
             onPress={() => router.push('/onboarding/signup')}
-            style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
-          >
-            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: purple[400] }}>
-              Sign Up
-            </Text>
-          </Pressable>
+          />
         </View>
       </View>
         </ScrollView>
