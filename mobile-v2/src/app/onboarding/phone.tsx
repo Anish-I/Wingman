@@ -252,6 +252,17 @@ export default function PhoneScreen() {
               >
                 ENTER CODE
               </Text>
+              <Text
+                style={{
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: 13,
+                  color: t.disabled,
+                  textAlign: 'center',
+                  marginTop: -8,
+                }}
+              >
+                {loading ? 'Verifying...' : 'Verifies automatically after entering all 6 digits'}
+              </Text>
 
               {/* OTP boxes */}
               <View className="flex-row justify-center" style={{ gap: 12 }}>
@@ -282,15 +293,6 @@ export default function PhoneScreen() {
                     selectTextOnFocus
                   />
                 ))}
-              </View>
-
-              {/* Verify button — explicit action in case auto-submit is unreliable */}
-              <View className="w-full">
-                <GradientButton
-                  title={loading ? 'Verifying...' : 'Verify Code'}
-                  onPress={handleVerify}
-                  disabled={loading || code.join('').length !== 6}
-                />
               </View>
 
               {/* Resend row */}
