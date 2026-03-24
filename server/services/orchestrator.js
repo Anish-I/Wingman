@@ -239,9 +239,19 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
   }
 
   // Fire-and-forget: update Redis when the underlying call eventually settles.
-  // Track as orphan so the system can enforce limits on background promises.
-  const orphanToken = await _addOrphan(userId);
+  // Only track as orphan when we have a completionPromise that will eventually
+  // settle and clean up.  Previously, _addOrphan was called unconditionally —
+  // when completionPromise was null the orphan token was never removed, leaking
+  // an entry in Redis and inflating the user's orphan count.  Even with a valid
+  // completionPromise, if it never settled the orphan lingered indefinitely.
+  // Now we gate orphan creation on having a promise AND add a reap timer so the
+  // entry is cleaned up even if the promise hangs.
   if (completionPromise) {
+    const orphanToken = await _addOrphan(userId);
+    const reapTimer = setTimeout(() => {
+      _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove reaped inflight orphan from Redis`); });
+    }, ORPHAN_REAP_TIMEOUT);
+    if (reapTimer.unref) reapTimer.unref();
     completionPromise
       .then((result) => {
         const succeeded = result && result.successful !== false;
@@ -263,7 +273,10 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         });
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL).catch(() => {});
       })
-      .finally(() => _removeOrphan(userId, orphanToken));
+      .finally(() => {
+        clearTimeout(reapTimer);
+        _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled inflight orphan from Redis`); });
+      });
   }
 }
 
