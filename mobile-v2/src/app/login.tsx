@@ -4,6 +4,7 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
 import { purple, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
@@ -23,6 +24,10 @@ export default function LoginScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
   const authStatus = useAuthStore.use.status();
+
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const [phone, setPhone] = useState('');

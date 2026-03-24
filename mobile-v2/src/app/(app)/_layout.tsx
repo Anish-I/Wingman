@@ -15,6 +15,7 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 
 export default function TabLayout() {
   const { surface, text: t } = useThemeColors();
+  const hydrated = useAuth.use.hydrated();
   const status = useAuth.use.status();
   const token = useAuth.use.token();
   const [isFirstTime] = useIsFirstTime();
@@ -24,17 +25,23 @@ export default function TabLayout() {
     await SplashScreen.hideAsync();
   }, []);
 
+  // Determine all redirect conditions up-front so splash only hides once the
+  // user is on the correct final screen (tabs), not during a redirect.
+  const needsLogin = !hydrated || status === 'idle' || status === 'signOut' || !token;
+  const needsOnboarding = !needsLogin && isFirstTime !== false;
+  const showTabs = !needsLogin && !needsOnboarding;
+
   useEffect(() => {
-    if (status !== 'idle') {
+    if (showTabs) {
       const timer = setTimeout(() => {
         hideSplash();
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [hideSplash, status]);
+  }, [hideSplash, showTabs]);
 
-  if (status === 'idle') {
-    return null; // Don't render anything until auth state is determined
+  if (!hydrated || status === 'idle') {
+    return null; // Splash screen remains visible via preventAutoHideAsync
   }
   // Guard: redirect to login if signed out OR if token is missing/empty
   if (status === 'signOut' || !token) {

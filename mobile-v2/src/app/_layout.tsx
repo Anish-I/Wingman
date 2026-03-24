@@ -46,7 +46,7 @@ export default function RootLayout() {
         // Storage is unavailable — skip hydration (which would throw accessing
         // null storage) and force signOut directly so the app never stays in
         // the 'idle' state rendering nothing.
-        useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+        _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
       }
       loadSelectedTheme();
       setReady(true);

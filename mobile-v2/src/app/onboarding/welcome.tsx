@@ -3,6 +3,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors, purple, radii } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
@@ -14,6 +15,10 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { surface, text: t } = useThemeColors();
   const reduced = useReducedMotion();
+
+  React.useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   // Theme-dependent styles
   const themed = {
