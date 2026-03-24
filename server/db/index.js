@@ -1,11 +1,26 @@
 const { Pool } = require('pg');
 const logger = require('../services/logger');
 
-const isSupabase = (process.env.DATABASE_URL || '').includes('supabase.co');
-const requiresSsl = isSupabase || process.env.NODE_ENV === 'production';
+function isLocalhost(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
 
 function buildSslConfig() {
-  if (!requiresSsl) return false;
+  const dbUrl = process.env.DATABASE_URL || '';
+
+  // Explicit override: DATABASE_SSL=false disables SSL (e.g. local dev)
+  if (process.env.DATABASE_SSL === 'false') return false;
+
+  // Skip SSL only for localhost connections with no explicit opt-in
+  if (isLocalhost(dbUrl) && process.env.DATABASE_SSL == null) return false;
+
+  // All remote connections use SSL by default
   const sslConfig = { rejectUnauthorized: true };
   if (process.env.DATABASE_CA_CERT) {
     sslConfig.ca = process.env.DATABASE_CA_CERT;
