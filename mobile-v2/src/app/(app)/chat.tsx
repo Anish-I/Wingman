@@ -275,8 +275,8 @@ export default function ChatScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Retry sending message"
                       onPress={() => retry(item.id)}
-                      hitSlop={8}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 4 }}
+                      hitSlop={12}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 4, minHeight: 44, minWidth: 44, justifyContent: 'center' }}
                     >
                       <Ionicons name="refresh-outline" size={13} color={purple[400]} />
                       <Text style={{ fontSize: 11, color: purple[400], fontFamily: 'Inter_600SemiBold' }}>Retry</Text>
