@@ -444,19 +444,23 @@ router.post('/request-otp', otpLimiter, async (req, res) => {
       }
     }
 
-    // If the caller is authenticated, block them from requesting an OTP for a phone
-    // that belongs to a *different* account.  Without this check an attacker who
-    // obtains any valid JWT can call request-otp for a victim's phone, store their
-    // own userId as the otp_requester, and then — if they can intercept the OTP
-    // (e.g. via SIM-swap or SS7) — pass the session-fixation guard in verify-otp
-    // and merge the victim's account into their own.
+    // If the caller is authenticated, only allow OTP requests for phones already
+    // linked to their own account (re-verification). Block ALL other cases:
+    // - Phone belongs to a different account → obvious hijack attempt
+    // - Phone is unclaimed (not in DB) → session-fixation attack: attacker stores
+    //   their userId as otp_requester, intercepts OTP (SIM-swap/SS7), then
+    //   verify-otp's session-fixation guard passes because requester === caller,
+    //   linking the victim's phone to the attacker's account and triggering
+    //   mergeUserAccounts() if the victim later registers with that phone.
+    // Authenticated users who need to add a NEW phone should sign out first and
+    // go through the unauthenticated OTP flow, which creates/links without merge risk.
     if (requestingUserId) {
       const existingPhoneUser = await getUserByPhone(phone);
-      if (existingPhoneUser && String(existingPhoneUser.id) !== String(requestingUserId)) {
+      if (!existingPhoneUser || String(existingPhoneUser.id) !== String(requestingUserId)) {
         return res.status(403).json({
           error: {
-            code: 'PHONE_BELONGS_TO_ANOTHER_ACCOUNT',
-            message: 'This phone number is already associated with a different account.',
+            code: 'PHONE_NOT_YOURS',
+            message: 'You can only request an OTP for the phone number linked to your account.',
           },
         });
       }
