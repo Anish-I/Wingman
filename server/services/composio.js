@@ -16,6 +16,31 @@ const PENDING_TTL = 30; // seconds
 // would allow a retry to execute concurrently, causing duplicate non-idempotent actions.
 const SIDE_EFFECT_PATTERN = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_POST|TWILIO_|TELNYX_|.*_SEND_|.*_CREATE_|.*_DELETE_|.*_UPDATE_|.*_POST_|.*_REMOVE_)/i;
 
+// Max retries for critical Redis idempotency writes (e.g. after side-effecting tool execution).
+const REDIS_IDEMP_RETRY_COUNT = 2;
+const REDIS_IDEMP_RETRY_DELAY_MS = 200;
+
+/**
+ * Attempt a Redis SET with retries.  For side-effecting tools the caller
+ * **must** know if the key was never stored (duplicate execution risk), so
+ * we re-throw after exhausting retries.
+ */
+async function _redisSetWithRetry(key, value, ttl, { label, rethrow }) {
+  for (let attempt = 1; attempt <= REDIS_IDEMP_RETRY_COUNT + 1; attempt++) {
+    try {
+      await redis.set(key, value, 'EX', ttl);
+      return; // success
+    } catch (err) {
+      console.error(`[composio] Redis idempotency set error (attempt ${attempt}/${REDIS_IDEMP_RETRY_COUNT + 1}) for ${label}:`, err.message);
+      if (attempt <= REDIS_IDEMP_RETRY_COUNT) {
+        await new Promise(r => setTimeout(r, REDIS_IDEMP_RETRY_DELAY_MS));
+      } else if (rethrow) {
+        throw new Error(`Failed to store idempotency key after ${attempt} attempts for ${label}: ${err.message}`);
+      }
+    }
+  }
+}
+
 // All 1003 apps available on Composio.
 // Used for connection status checks and OAuth link generation.
 // Tools are fetched without an app filter so Composio returns whatever the user has connected.
@@ -330,8 +355,14 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
 
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
 
-    // Cache the result so retries get the same response
-    await redis.set(idempKey, JSON.stringify(parsed), 'EX', TOOL_IDEMPOTENCY_TTL).catch(err => { console.error('[composio] Redis idempotency set error:', err.message); });
+    // Cache the result so retries get the same response.
+    // For side-effecting tools, failure to cache is critical — a retry would
+    // re-execute the action (send duplicate email, etc.), so we retry + throw.
+    const isSideEffect = SIDE_EFFECT_PATTERN.test(toolCallBlock.name);
+    await _redisSetWithRetry(idempKey, JSON.stringify(parsed), TOOL_IDEMPOTENCY_TTL, {
+      label: toolCallBlock.name,
+      rethrow: isSideEffect,
+    });
     return parsed;
   } catch (err) {
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
@@ -347,7 +378,10 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       // executing, causing duplicate side effects (e.g. sending two emails).
       const errorTTL = TOOL_IDEMPOTENCY_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
-      await redis.set(idempKey, errorResult, 'EX', errorTTL).catch(err => { console.error('[composio] Redis idempotency set error:', err.message); });
+      await _redisSetWithRetry(idempKey, errorResult, errorTTL, {
+        label: toolCallBlock.name,
+        rethrow: true, // side-effecting tool — must not allow duplicate execution
+      });
     } else {
       // Safe/idempotent tool: remove the key so retries can attempt again
       await redis.del(idempKey).catch(err => { console.error('[composio] Redis idempotency del error:', err.message); });
