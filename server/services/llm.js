@@ -161,6 +161,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         try {
           const multiplier = FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)];
           const providerTimeout = Math.round(LLM_CALL_TIMEOUT * multiplier);
+          logger.debug(`[llm] ${provider.name} attempt ${attempt}/${MAX_RETRIES} timeout=${providerTimeout}ms`);
           const response = await provider.client.chat.completions.create(params, {
             signal: AbortSignal.timeout(providerTimeout),
           });
@@ -196,6 +197,12 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
         } catch (err) {
           lastErr = err;
+          // Timeout errors: don't retry, fall back to next provider immediately
+          const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+          if (isTimeout) {
+            console.warn(`[llm] ${provider.name} timed out after ${Math.round(LLM_CALL_TIMEOUT * FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)])}ms, skipping retries`);
+            break;
+          }
           const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status || err.malformedToolArgs;
           if (isRetryable && attempt < MAX_RETRIES) {
             const reason = err.malformedToolArgs ? 'malformed tool args' : (err.status || 'connection error');
@@ -214,8 +221,9 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         throw new Error('Failed to process your message. Please try again.');
       }
 
-      // If transient error (including connection errors) after retries, try next provider
-      const isTransient = TRANSIENT_STATUSES.has(lastErr?.status) || !lastErr?.status;
+      // If transient error (including connection/timeout errors) after retries, try next provider
+      const isTimeout = lastErr?.name === 'TimeoutError' || lastErr?.name === 'AbortError';
+      const isTransient = isTimeout || TRANSIENT_STATUSES.has(lastErr?.status) || !lastErr?.status;
       if (isTransient) {
         console.log(`[llm] ${provider.name} failed (${lastErr?.status || 'connection error'}), falling back to ${providers[i + 1]?.name || 'none'}`);
         continue;
