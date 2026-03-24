@@ -369,7 +369,17 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     const normalizedEmail = email.toLowerCase();
 
-    // Redis-based per-email rate limiting (prevents distributed brute-force)
+    // Escalating lockout for login (prevents brute-forcing PINs across windows)
+    const loginLockoutKey = `login_lockout:${normalizedEmail}`;
+    const loginCumulativeKey = `login_cumulative_fails:${normalizedEmail}`;
+
+    const loginLockoutTTL = await redis.ttl(loginLockoutKey);
+    if (loginLockoutTTL > 0) {
+      const retryMin = Math.ceil(loginLockoutTTL / 60);
+      return res.status(429).json({ error: { code: 'ACCOUNT_LOCKED', message: `Account temporarily locked due to too many failed attempts. Try again in ${retryMin} minute(s).` } });
+    }
+
+    // Per-window rate limiting (prevents distributed brute-force)
     const attemptKey = `login_attempts:${normalizedEmail}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
@@ -387,11 +397,27 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (!user || !user.pin_hash || !valid) {
       const failCount = await redis.incr(attemptKey);
       if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
+
+      // Cumulative counter for escalating lockout (24h TTL)
+      const cumulative = await redis.incr(loginCumulativeKey);
+      if (cumulative === 1) await redis.expire(loginCumulativeKey, 24 * 60 * 60);
+
+      let lockoutSeconds = 0;
+      if (cumulative >= 20) lockoutSeconds = 24 * 60 * 60;
+      else if (cumulative >= 15) lockoutSeconds = 4 * 60 * 60;
+      else if (cumulative >= 10) lockoutSeconds = 60 * 60;
+
+      if (lockoutSeconds > 0) {
+        await redis.set(loginLockoutKey, '1', 'EX', lockoutSeconds);
+      }
+
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
     }
 
-    // Clear attempt counter on success
+    // Clear all counters on success
     await redis.del(attemptKey);
+    await redis.del(loginCumulativeKey);
+    await redis.del(loginLockoutKey);
     if (!user.email) {
       user = await linkUserIdentity(user.id, { email: normalizedEmail }) || user;
     }
@@ -1242,7 +1268,18 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'INVALID_PIN', message: 'PIN must be 4-8 digits.' } });
     }
 
-    // Rate limit: max 5 attempts per userId per 15 minutes
+    // Escalating lockout: cumulative failures trigger exponentially longer lockouts.
+    // This prevents brute-forcing 4-digit PINs across multiple rate-limit windows.
+    const lockoutKey = `pin_lockout:${req.user.id}`;
+    const cumulativeKey = `pin_cumulative_fails:${req.user.id}`;
+
+    const lockoutTTL = await redis.ttl(lockoutKey);
+    if (lockoutTTL > 0) {
+      const retryMin = Math.ceil(lockoutTTL / 60);
+      return res.status(429).json({ error: { code: 'ACCOUNT_LOCKED', message: `Account temporarily locked due to too many failed PIN attempts. Try again in ${retryMin} minute(s).` } });
+    }
+
+    // Per-window rate limit: max 5 attempts per 15 minutes
     const attemptKey = `pin_verify_attempts:${req.user.id}`;
     const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
     if (attempts >= 5) {
@@ -1256,12 +1293,27 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
     const valid = await bcrypt.compare(pin, req.user.pin_hash);
 
     if (!valid) {
-      // TTL set only when count==1 (key just created) so the window is fixed —
-      // not reset on every failure (prevents sliding window lockout).
+      // Per-window counter
       const failCount = await redis.incr(attemptKey);
       if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
+
+      // Cumulative counter for escalating lockout (persists across windows, 24h TTL)
+      const cumulative = await redis.incr(cumulativeKey);
+      if (cumulative === 1) await redis.expire(cumulativeKey, 24 * 60 * 60);
+
+      // Escalating lockout thresholds: 10 → 1h, 15 → 4h, 20 → 24h
+      let lockoutSeconds = 0;
+      if (cumulative >= 20) lockoutSeconds = 24 * 60 * 60;
+      else if (cumulative >= 15) lockoutSeconds = 4 * 60 * 60;
+      else if (cumulative >= 10) lockoutSeconds = 60 * 60;
+
+      if (lockoutSeconds > 0) {
+        await redis.set(lockoutKey, '1', 'EX', lockoutSeconds);
+      }
     } else {
       await redis.del(attemptKey);
+      await redis.del(cumulativeKey);
+      await redis.del(lockoutKey);
     }
 
     res.json({ success: true, valid });
