@@ -57,11 +57,12 @@ const ALLOWED_HISTORY_ROLES = new Set(['user', 'assistant']);
  * Sanitize a single conversation message loaded from Redis.
  * Returns null if the message is invalid or potentially tampered with.
  */
-function sanitizeHistoryMessage(raw) {
+function sanitizeHistoryMessage(raw, index) {
   let parsed;
   try {
     parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch {
+  } catch (err) {
+    logger.warn({ index, preview: typeof raw === 'string' ? raw.slice(0, 120) : typeof raw }, '[redis] Skipping corrupted conversation entry (JSON parse failed)');
     return null;
   }
 
@@ -93,11 +94,25 @@ function sanitizeHistoryMessage(raw) {
 
 async function getConversationHistory(userId) {
   const key = `conv:${userId}`;
-  const messages = await redis.lrange(key, 0, MAX_MESSAGES - 1);
+  let messages;
+  try {
+    messages = await redis.lrange(key, 0, MAX_MESSAGES - 1);
+  } catch (err) {
+    logger.error({ userId, err: err.message }, '[redis] Failed to load conversation history, returning empty');
+    return [];
+  }
   const sanitized = [];
-  for (const m of messages) {
-    const msg = sanitizeHistoryMessage(m);
-    if (msg) sanitized.push(msg);
+  let skipped = 0;
+  for (let i = 0; i < messages.length; i++) {
+    const msg = sanitizeHistoryMessage(messages[i], i);
+    if (msg) {
+      sanitized.push(msg);
+    } else {
+      skipped++;
+    }
+  }
+  if (skipped > 0) {
+    logger.warn({ userId, skipped, total: messages.length }, '[redis] Skipped corrupted entries in conversation history');
   }
   return sanitized.reverse();
 }
