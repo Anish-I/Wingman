@@ -73,14 +73,15 @@ export default function LoginScreen() {
 
   const verifyingRef = useRef(false);
 
-  async function handleVerify() {
+  async function handleVerify(otpOverride?: string) {
     if (verifyingRef.current) return;
-    const otp = code.join('');
+    verifyingRef.current = true;
+    const otp = otpOverride ?? code.join('');
     if (otp.length !== 6) {
+      verifyingRef.current = false;
       showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
     }
-    verifyingRef.current = true;
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp });
@@ -111,8 +112,11 @@ export default function LoginScreen() {
   }
 
   useEffect(() => {
-    if (code.every(d => d !== '') && step === 'verify') {
-      handleVerify();
+    if (step === 'verify' && code.every(d => d !== '')) {
+      // Snapshot OTP synchronously so the ref guard in handleVerify is set
+      // before React can fire this effect again from a batched state update.
+      const otp = code.join('');
+      handleVerify(otp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, step]);
