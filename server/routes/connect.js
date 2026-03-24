@@ -5,6 +5,7 @@ const logger = require('../services/logger');
 const requireAuth = require('../middleware/requireAuth');
 const { redis } = require('../services/redis');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
+const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
 const router = express.Router();
 
@@ -185,16 +186,17 @@ router.post('/disconnect', requireAuth, async (req, res) => {
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
     const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
-    const listRes = await fetch(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
+    const listRes = await fetchWithTimeout(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
     if (listRes.ok) {
       const data = await listRes.json();
       const account = (data.items || []).find(
         c => c.appName.toLowerCase() === app.toLowerCase() && c.status === 'ACTIVE'
       );
       if (account) {
-        const delRes = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
           method: 'DELETE',
           headers: { 'x-api-key': COMPOSIO_API_KEY },
+          timeoutMs: 10_000,
         });
         if (!delRes.ok) {
           logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
@@ -238,16 +240,17 @@ router.delete('/:app', requireAuth, async (req, res) => {
     const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
     const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
-    const listRes = await fetch(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
+    const listRes = await fetchWithTimeout(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
     if (listRes.ok) {
       const data = await listRes.json();
       const account = (data.items || []).find(
         c => c.appName.toLowerCase() === app && c.status === 'ACTIVE'
       );
       if (account) {
-        const delRes = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
           method: 'DELETE',
           headers: { 'x-api-key': COMPOSIO_API_KEY },
+          timeoutMs: 10_000,
         });
         if (!delRes.ok) {
           logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);

@@ -2,6 +2,7 @@ const { OpenAIToolSet, Composio } = require('composio-core');
 const crypto = require('crypto');
 const logger = require('./logger');
 const { redis } = require('./redis');
+const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
@@ -440,7 +441,7 @@ async function getConnectionStatus(userId, appNames = null) {
     // for connectedAccounts. pageSize=200 is the maximum allowed value.
     // In practice this is not a bottleneck — a single user rarely connects 200+ apps.
     const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
-    const res = await fetch(url, { headers: { 'x-api-key': COMPOSIO_API_KEY } });
+    const res = await fetchWithTimeout(url, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
 
     if (!res.ok) {
       const body = await res.text().catch(() => '(no body)');
