@@ -462,7 +462,7 @@ async function getConnectionLink(userId, appName, oauthState = null) {
  * Otherwise filters to only the requested app names.
  * Returns { connected: string[], missing: string[] }
  */
-async function getConnectionStatus(userId, appNames = null) {
+async function getConnectionStatus(userId, appNames = null, { page, pageSize } = {}) {
   if (!COMPOSIO_API_KEY) {
     const msg = 'COMPOSIO_API_KEY is not set — cannot check connection status';
     logger.error(`[composio] ${msg}`);
@@ -470,14 +470,10 @@ async function getConnectionStatus(userId, appNames = null) {
   }
 
   try {
-    // Composio uses entityId (our userId as string) to identify users.
-    // The REST API accepts both `user_uuid` and `entityId` — try entityId first
-    // as it aligns with how getTools/getConnectionLink identify users.
     const entityId = String(userId);
-    // Known limitation: Composio REST API does not support cursor-based pagination
-    // for connectedAccounts. pageSize=200 is the maximum allowed value.
-    // In practice this is not a bottleneck — a single user rarely connects 200+ apps.
-    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
+    const qsPage = page || 1;
+    const qsPageSize = pageSize || 200;
+    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=${qsPageSize}&page=${qsPage}&status=ACTIVE`;
     const res = await fetchWithTimeout(url, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
 
     if (!res.ok) {
@@ -486,40 +482,40 @@ async function getConnectionStatus(userId, appNames = null) {
       return {
         connected: [],
         missing: appNames || [],
+        total: 0,
         error: `Composio API returned HTTP ${res.status}`,
       };
     }
 
     const data = await res.json();
-    console.log(`[composio] getConnectionStatus for user ${entityId}: ${(data.items || []).length} accounts found, ${(data.items || []).filter(c => c.status === 'ACTIVE').length} active`);
+    const items = data.items || [];
+    const totalItems = data.totalItems != null ? data.totalItems : items.length;
+    console.log(`[composio] getConnectionStatus for user ${entityId}: page ${qsPage}, ${items.length} items, total ${totalItems}`);
 
-    const activeItems = (data.items || []).filter(c => c.status === 'ACTIVE');
-
-    if (data.items && data.items.length > 0 && activeItems.length === 0) {
-      const statuses = [...new Set(data.items.map(c => c.status))];
-      console.warn(`[composio] User ${entityId} has ${data.items.length} accounts but none are ACTIVE. Statuses: ${statuses.join(', ')}`);
-    }
-
+    // Filter ACTIVE client-side as a safety net in case the API ignores
+    // the status param — this is a no-op when the API filters correctly.
+    const activeItems = items.filter(c => c.status === 'ACTIVE');
     const connected = new Set(activeItems.map(c => c.appName.toLowerCase()));
 
-    // No filter — return all connected apps
     if (!appNames || appNames.length === 0) {
       return {
         connected: [...connected],
         missing: [],
+        total: totalItems,
       };
     }
 
     return {
       connected: appNames.filter(a => connected.has(a.toLowerCase())),
       missing: appNames.filter(a => !connected.has(a.toLowerCase())),
+      total: totalItems,
     };
   } catch (err) {
     logger.error({ err: err.message || String(err) }, `[composio] getConnectionStatus error for user ${userId}`);
     if (!appNames || appNames.length === 0) {
-      return { connected: [], missing: [], error: err.message };
+      return { connected: [], missing: [], total: 0, error: err.message };
     }
-    return { connected: [], missing: appNames, error: err.message };
+    return { connected: [], missing: appNames, total: 0, error: err.message };
   }
 }
 

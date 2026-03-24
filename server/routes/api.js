@@ -286,14 +286,11 @@ router.patch('/workflows/:id/pause', validateIdParam, requireAuth, async (req, r
 router.get('/apps', requireAuth, async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query);
-    // Composio external API does not support cursor-based pagination — pageSize=200
-    // is the hard maximum. We fetch the full connected-apps list and paginate in
-    // memory. The dataset per user is small (bounded by the number of Composio apps
-    // the user has connected, rarely exceeding 200).
-    const status = await getConnectionStatus(String(req.user.id));
-    const allConnected = status.connected || [];
-    const paginated = allConnected.slice(offset, offset + limit);
-    res.json({ connected: paginated, missing: status.missing || [], total: allConnected.length, limit, offset });
+    // Delegate pagination to Composio API so we only fetch the requested page.
+    const page = Math.floor(offset / limit) + 1;
+    const status = await getConnectionStatus(String(req.user.id), null, { page, pageSize: limit });
+    const connected = status.connected || [];
+    res.json({ connected, missing: status.missing || [], total: status.total || connected.length, limit, offset });
   } catch (err) {
     logger.error({ err: err.message }, '[api] apps status error');
     res.status(500).json({ error: { code: 'APPS_STATUS_ERROR', message: 'Failed to fetch app connection status.' } });
