@@ -6,15 +6,29 @@ type AppsResponse = { connected: string[]; missing: string[] };
 export const useApps = createQuery<AppsResponse>({
   queryKey: ['apps'],
   fetcher: async () => {
+    // Shared abort controller caps total time across both endpoints to 8s,
+    // preventing the old 20s worst-case (10s × 2 sequential requests).
+    const controller = new AbortController();
+    const overallTimeout = setTimeout(() => controller.abort(), 8000);
     try {
-      // Try the authenticated endpoint first, fall back to connect/status
-      const { data } = await client.get<AppsResponse>('/api/apps');
-      return data;
-    } catch {
-      // Try the fallback endpoint — but let it throw on failure so the
-      // UI can detect errors instead of silently returning empty data.
-      const { data } = await client.get<AppsResponse>('/connect/status');
-      return data;
+      try {
+        const { data } = await client.get<AppsResponse>('/api/apps', {
+          signal: controller.signal,
+          timeout: 5000,
+        });
+        return data;
+      } catch (err) {
+        // If the overall timeout already fired, don't bother with fallback.
+        if (controller.signal.aborted) throw err;
+        // Fallback endpoint — let it throw so the UI can detect errors.
+        const { data } = await client.get<AppsResponse>('/connect/status', {
+          signal: controller.signal,
+          timeout: 5000,
+        });
+        return data;
+      }
+    } finally {
+      clearTimeout(overallTimeout);
     }
   },
 });
