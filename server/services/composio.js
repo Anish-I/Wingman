@@ -8,6 +8,8 @@ const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 const TOOLS_CACHE_COOLDOWN_TTL = 15; // seconds — after cache invalidation, don't re-cache to prevent stale re-population
 const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
+const SIDE_EFFECT_ERROR_TTL = 60;  // 1 minute — shorter cache for definitive failures on side-effect tools
+                                   // (long enough to debounce rapid retries, short enough to unblock legitimate ones)
 // Pending TTL must be short enough that a timed-out external call doesn't strand the key for
 // the full dedup window.  30 s > the typical 20 s orchestrator timeout, giving the in-flight
 // call time to write its result while still expiring quickly if it is abandoned.
@@ -412,7 +414,11 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     return parsed;
   } catch (err) {
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
-      const errorTTL = TOOL_IDEMPOTENCY_TTL;
+      // Timeout/abort: the action may have partially succeeded — cache longer
+      // to prevent duplicate execution.  Other errors: the action definitively
+      // failed — use a shorter TTL so legitimate retries aren't blocked for 5 min.
+      const isTimeout = err.name === 'AbortError' || err.timedOut;
+      const errorTTL = isTimeout ? TOOL_IDEMPOTENCY_TTL : SIDE_EFFECT_ERROR_TTL;
       const errorResult = JSON.stringify({ error: err.message || 'Tool execution failed' });
       await _redisSetWithRetry(idempKey, errorResult, errorTTL, {
         label: toolCallBlock.name,
