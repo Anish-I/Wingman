@@ -470,8 +470,14 @@ async function updateWorkflowRunMessages(runId, { messages, step_log, context, s
  */
 async function appendWorkflowRunState(runId, { newMessages, newStepLogs, contextPatch, status }) {
   await withTransaction(async (txQuery) => {
-    // Serialize appends per run so seq allocation and context/status updates stay ordered.
-    await txQuery('SELECT id FROM workflow_runs WHERE id = $1 FOR UPDATE', [runId]);
+    // Advisory lock keyed on run_id serializes concurrent appends for the same
+    // run without depending on a FOR UPDATE lock on a different table.  The two
+    // halves of the UUID are combined into a single bigint hash so
+    // pg_advisory_xact_lock gets a stable, collision-resistant key.
+    await txQuery(
+      `SELECT pg_advisory_xact_lock(('x' || left(replace($1::text, '-', ''), 16))::bit(64)::bigint)`,
+      [runId]
+    );
 
     const eventRows = [];
     if ((newMessages && newMessages.length > 0) || (newStepLogs && newStepLogs.length > 0)) {
