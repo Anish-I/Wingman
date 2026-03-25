@@ -11,7 +11,7 @@ import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
-import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey } from '@/features/chat/store';
+import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey, trackFailedContent, getFailedContentKey, clearFailedContent } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
@@ -119,6 +119,10 @@ export default function ChatScreen() {
   /** Reset pending refs when a failed message is dismissed so the next send
    *  generates fresh IDs/keys instead of reusing stale ones. */
   function clearPendingForMessage(messageId: string) {
+    // Clear failed-content tracking so a fresh send of the same text isn't
+    // deduplicated against the dismissed failure.
+    const msg = useChatStore.getState().messages.find(m => m.id === messageId);
+    if (msg) clearFailedContent(msg.content);
     if (pendingUserMsgId.current === messageId) {
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
@@ -167,7 +171,14 @@ export default function ChatScreen() {
     // to its sha256(message) content-hash dedup, preventing duplicates even when
     // the original client key was lost (e.g. after navigation).
     if (!pendingIdempotencyKey.current && !isRetry) {
-      pendingIdempotencyKey.current = `${Date.now()}-${pendingUserMsgId.current}`;
+      // If this content previously failed (possibly partially succeeded server-side),
+      // reuse the original key so the server deduplicates against the first attempt.
+      const failedKey = getFailedContentKey(msg);
+      if (failedKey) {
+        pendingIdempotencyKey.current = failedKey;
+      } else {
+        pendingIdempotencyKey.current = `${Date.now()}-${pendingUserMsgId.current}`;
+      }
     }
     const userMsgId = pendingUserMsgId.current;
     const assistantMsgId = pendingAssistantMsgId.current;
@@ -223,6 +234,7 @@ export default function ChatScreen() {
       pendingAssistantMsgId.current = null;
       pendingIdempotencyKey.current = null;
       deleteIdempotencyKey(userMsgId);
+      clearFailedContent(msg);
       // Auto-purge any lingering failed messages + error replies from prior attempts
       useChatStore.getState().purgeFailedMessages();
     }
@@ -253,6 +265,10 @@ export default function ChatScreen() {
       }
       // Keep pending IDs on failure so retry reuses them
       lastFailedMsgRef.current = msg;
+      // Track content → key mapping so re-sending the same content after
+      // navigation reuses the original key, preventing server-side duplicates
+      // when the first attempt partially succeeded (saved but response lost).
+      if (idempotencyKey) trackFailedContent(msg, idempotencyKey);
       // Auto-dismiss failed message after 30 seconds if user doesn't interact
       const timerId = setTimeout(() => {
         autoDismissTimers.current.delete(userMsgId);

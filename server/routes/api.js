@@ -149,6 +149,23 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     const idemKey = deriveIdempotencyKey(req);
     const redisKey = IDEM_PREFIX + req.user.id + ':' + idemKey;
 
+    // Before claiming, check the content-hash alias — catches re-sends where
+    // the client generated a new idempotency key (e.g. after navigation cleared
+    // the original key) but the first attempt already succeeded server-side.
+    const contentHash = crypto.createHash('sha256').update(message.trim()).digest('hex').slice(0, 32);
+    const contentHashKey = IDEM_PREFIX + req.user.id + ':' + contentHash;
+    if (contentHashKey !== redisKey) {
+      try {
+        const aliasRaw = await redis.get(contentHashKey);
+        if (aliasRaw) {
+          const alias = JSON.parse(aliasRaw);
+          if (alias.status === 'done' && alias.reply) {
+            return res.json({ reply: alias.reply });
+          }
+        }
+      } catch { /* ignore — fall through to normal flow */ }
+    }
+
     // Try to claim this request. SET NX returns 'OK' only for the first caller.
     const claimed = await redis.set(redisKey, JSON.stringify({ status: 'processing' }), 'EX', IDEM_TTL_SECONDS, 'NX');
 
@@ -183,10 +200,19 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     // We own this idempotency slot — process the message.
     try {
       const reply = await processMessage(req.user, message.trim());
+      const donePayload = JSON.stringify({ status: 'done', reply });
       // Cache the successful result for the TTL window
-      await redis.set(redisKey, JSON.stringify({ status: 'done', reply }), 'EX', IDEM_TTL_SECONDS).catch(e =>
+      await redis.set(redisKey, donePayload, 'EX', IDEM_TTL_SECONDS).catch(e =>
         logger.error({ err: e.message }, '[api] Failed to cache idempotency result')
       );
+      // Also cache under the content-hash key so that re-sends with a different
+      // client-provided key (e.g. after navigation cleared the original) still
+      // hit the cached result instead of creating a duplicate.
+      if (contentHashKey !== redisKey) {
+        await redis.set(contentHashKey, donePayload, 'EX', IDEM_TTL_SECONDS).catch(e =>
+          logger.error({ err: e.message }, '[api] Failed to cache content-hash idempotency alias')
+        );
+      }
       res.json({ reply });
     } catch (err) {
       const status = err.statusCode || 500;

@@ -40,6 +40,42 @@ function evictStaleIdempotencyKeys() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Failed-content → idempotency-key tracker — survives navigation so that
+// re-sending the same message content after navigating away from a failure
+// reuses the original key, preventing server-side duplicates when the first
+// attempt partially succeeded (message saved but response lost).
+// ---------------------------------------------------------------------------
+const _failedContentKeys = new Map<string, { key: string; ts: number }>();
+
+/** Remember the idempotency key used for a failed send of this content. */
+export function trackFailedContent(content: string, idempotencyKey: string) {
+  _failedContentKeys.set(content.trim(), { key: idempotencyKey, ts: Date.now() });
+}
+
+/** Retrieve the original idempotency key for content that previously failed. */
+export function getFailedContentKey(content: string): string | null {
+  const entry = _failedContentKeys.get(content.trim());
+  if (!entry) return null;
+  if (Date.now() - entry.ts > IDEM_KEY_TTL) {
+    _failedContentKeys.delete(content.trim());
+    return null;
+  }
+  return entry.key;
+}
+
+/** Clear tracking after confirmed success or intentional dismissal. */
+export function clearFailedContent(content: string) {
+  _failedContentKeys.delete(content.trim());
+}
+
+function evictStaleFailedContent() {
+  const now = Date.now();
+  for (const [content, entry] of _failedContentKeys) {
+    if (now - entry.ts > IDEM_KEY_TTL) _failedContentKeys.delete(content);
+  }
+}
+
 type ChatState = {
   messages: Message[];
   loading: boolean;
@@ -104,9 +140,9 @@ const _useChatStore = create<ChatState>((set) => ({
           if (next.role === 'assistant') toRemove.add(next.id);
         }
       }
-      // Purge stale error messages older than 60 seconds — catches orphans
+      // Purge stale error messages older than 30 seconds — catches orphans
       // from race conditions or late-arriving failures.
-      const staleErrorThreshold = now - 60_000;
+      const staleErrorThreshold = now - 30_000;
       for (const m of state.messages) {
         if (m.isError && m.timestamp < staleErrorThreshold) {
           toRemove.add(m.id);
@@ -143,6 +179,7 @@ const _useChatStore = create<ChatState>((set) => ({
 setInterval(() => {
   _useChatStore.getState().purgeFailedMessages();
   evictStaleIdempotencyKeys();
+  evictStaleFailedContent();
 }, 60_000);
 
 export const useChatStore = createSelectors(_useChatStore);
