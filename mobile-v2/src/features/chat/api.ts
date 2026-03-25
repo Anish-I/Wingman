@@ -10,7 +10,7 @@ function generateIdempotencyKey(): string {
 }
 
 type ChatResponse = { reply: string };
-type ChatVariables = { message: string };
+type ChatVariables = { message: string; idempotencyKey?: string };
 
 const DEMO_TOKEN = 'demo-mock-token';
 
@@ -27,9 +27,12 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
     }
 
     try {
-      const { data } = await client.post<ChatResponse>('/api/chat', variables, {
-        headers: { 'X-Idempotency-Key': generateIdempotencyKey() },
-      });
+      const key = variables.idempotencyKey ?? generateIdempotencyKey();
+      const { data } = await client.post<ChatResponse>(
+        '/api/chat',
+        { message: variables.message },
+        { headers: { 'X-Idempotency-Key': key } },
+      );
       return data;
     } catch (err) {
       if (err instanceof AxiosError) {

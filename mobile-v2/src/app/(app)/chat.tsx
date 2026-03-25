@@ -105,6 +105,7 @@ export default function ChatScreen() {
   // Stable message IDs for dedup — survives retries without generating new UUIDs each call
   const pendingUserMsgId = useRef<string | null>(null);
   const pendingAssistantMsgId = useRef<string | null>(null);
+  const pendingIdempotencyKey = useRef<string | null>(null);
   const lastFailedMsgRef = useRef<string | null>(null);
 
   async function send(text?: string) {
@@ -122,8 +123,14 @@ export default function ChatScreen() {
     if (!pendingAssistantMsgId.current) {
       pendingAssistantMsgId.current = Crypto.randomUUID();
     }
+    // Stable idempotency key per message attempt — retries reuse the same key
+    // to prevent server-side duplicates when API partially succeeds
+    if (!pendingIdempotencyKey.current) {
+      pendingIdempotencyKey.current = `${Date.now()}-${pendingUserMsgId.current}`;
+    }
     const userMsgId = pendingUserMsgId.current;
     const assistantMsgId = pendingAssistantMsgId.current;
+    const idempotencyKey = pendingIdempotencyKey.current;
 
     // Deduplicate: skip if user message was already added (e.g. retry path)
     const currentMessages = useChatStore.getState().messages;
@@ -145,7 +152,7 @@ export default function ChatScreen() {
     Keyboard.dismiss();
     setLoading(true);
     try {
-      const result = await sendMutation.mutateAsync({ message: msg });
+      const result = await sendMutation.mutateAsync({ message: msg, idempotencyKey });
       // Mark user message as sent
       updateMessage(userMsgId, { status: 'sent' });
       // Fresh snapshot from store to avoid stale closure
@@ -161,6 +168,7 @@ export default function ChatScreen() {
       // Success — clear pending IDs so next send generates fresh ones
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
+      pendingIdempotencyKey.current = null;
     }
     catch (err: unknown) {
       // Mark user message as failed
@@ -195,13 +203,25 @@ export default function ChatScreen() {
       useChatStore.setState((state) => ({
         messages: state.messages.filter(m => m.id !== errorMsgId),
       }));
-      // Reset assistant ID so a new one is generated
+      // Reset assistant ID and idempotency key so fresh ones are generated
       pendingAssistantMsgId.current = null;
+      pendingIdempotencyKey.current = null;
     }
     // Reuse the same user message ID for retry
     pendingUserMsgId.current = messageId;
     send(msg.content);
   }
+
+  // Purge failed user messages and their error assistant replies on unmount
+  // so they don't persist across navigation
+  useEffect(() => {
+    return () => {
+      useChatStore.getState().purgeFailedMessages();
+      pendingUserMsgId.current = null;
+      pendingAssistantMsgId.current = null;
+      pendingIdempotencyKey.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (messages.length)
