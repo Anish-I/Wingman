@@ -139,7 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_wf_run_events_run_id ON workflow_run_events(run_i
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wf_run_events_run_seq ON workflow_run_events(run_id, seq);
 
 -- Unique indexes on identity columns (partial: only non-null values)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_apple_id ON users(apple_id) WHERE apple_id IS NOT NULL;
 
