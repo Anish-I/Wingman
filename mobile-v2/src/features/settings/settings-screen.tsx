@@ -1,6 +1,7 @@
 import Env from 'env';
 import { useUniwind } from 'uniwind';
 
+import { spacing } from '@/components/ui/tokens';
 import {
   colors,
   FocusAwareStatusBar,
@@ -26,7 +27,7 @@ export function SettingsScreen() {
       <FocusAwareStatusBar />
 
       <ScrollView>
-        <View className="flex-1 px-4 pt-16">
+        <View className="flex-1" style={{ paddingHorizontal: spacing.lg, paddingTop: spacing['3xl'] + spacing.lg }}>
           <Text className="text-xl font-bold">
             {translate('settings.title')}
           </Text>
@@ -79,7 +80,7 @@ export function SettingsScreen() {
             />
           </SettingsContainer>
 
-          <View className="my-8">
+          <View style={{ marginVertical: spacing['3xl'] }}>
             <SettingsContainer>
               <SettingsItem text="settings.logout" onPress={signOut} />
             </SettingsContainer>

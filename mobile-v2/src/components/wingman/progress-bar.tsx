@@ -1,7 +1,7 @@
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { purple, semantic, useThemeColors } from '@/components/ui/tokens';
+import { layout, purple, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { springs, staggerDelay, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type ProgressBarProps = {
@@ -16,7 +16,7 @@ export default function ProgressBar({ step, total = 7, variant = 'purple' }: Pro
   const reduced = useReducedMotion();
 
   return (
-    <View className="flex-row gap-2 px-6 pt-3 pb-2">
+    <View className="flex-row" style={{ gap: spacing.xs, paddingHorizontal: layout.screenPaddingH, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
       {Array.from({ length: total }, (_, i) => {
         const isActive = i < step;
 

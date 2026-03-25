@@ -1,12 +1,13 @@
 import { Link, Stack } from 'expo-router';
 
 import { Text, View } from '@/components/ui';
+import { spacing } from '@/components/ui/tokens';
 
 export default function NotFoundScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
-      <View className="flex-1 items-center justify-center p-4">
+      <View className="flex-1 items-center justify-center" style={{ padding: spacing.lg }}>
         <Text className="mb-4 text-2xl font-bold">
           This screen doesn&apos;t exist.
         </Text>

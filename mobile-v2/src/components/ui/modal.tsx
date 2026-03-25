@@ -39,7 +39,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
-import { useThemeColors } from './tokens';
+import { spacing, useThemeColors } from './tokens';
 import { Text } from './text';
 
 /**
@@ -225,7 +225,7 @@ function getDetachedProps(detached: boolean) {
     return {
       detached: true,
       bottomInset: 46,
-      style: { marginHorizontal: 16, overflow: 'hidden' },
+      style: { marginHorizontal: spacing.lg, overflow: 'hidden' },
     } as Partial<BottomSheetModalProps>;
   }
   return {} as Partial<BottomSheetModalProps>;
@@ -239,7 +239,7 @@ const ModalHeader = React.memo(({ title, dismiss }: ModalHeaderProps) => {
   return (
     <>
       {title && (
-        <View className="flex-row px-2 py-4">
+        <View className="flex-row" style={{ paddingHorizontal: spacing.sm, paddingVertical: spacing.lg }}>
           <View className="size-6" />
           <View className="flex-1">
             <Text className="text-center text-[16px] font-bold text-foreground">

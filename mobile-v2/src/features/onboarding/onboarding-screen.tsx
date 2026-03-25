@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from '@/components/ui';
+import { spacing } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks';
 import { Cover } from './components/cover';
 
@@ -21,24 +22,24 @@ export function OnboardingScreen() {
         <Cover />
       </View>
       <View className="justify-end">
-        <Text className="my-3 text-center text-5xl font-bold">
+        <Text className="text-center text-5xl font-bold" style={{ marginVertical: spacing.md }}>
           Obytes Starter
         </Text>
         <Text className="mb-2 text-center text-lg text-gray-600">
           The right way to build your mobile app
         </Text>
 
-        <Text className="my-1 pt-6 text-left text-lg">
+        <Text className="text-left text-lg" style={{ marginVertical: spacing.xs, paddingTop: spacing['2xl'] }}>
           🚀 Production-ready
           {' '}
         </Text>
-        <Text className="my-1 text-left text-lg">
+        <Text className="text-left text-lg" style={{ marginVertical: spacing.xs }}>
           🥷 Developer experience + Productivity
         </Text>
-        <Text className="my-1 text-left text-lg">
+        <Text className="text-left text-lg" style={{ marginVertical: spacing.xs }}>
           🧩 Minimal code and dependencies
         </Text>
-        <Text className="my-1 text-left text-lg">
+        <Text className="text-left text-lg" style={{ marginVertical: spacing.xs }}>
           💪 well maintained third-party libraries
         </Text>
       </View>

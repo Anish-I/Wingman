@@ -3,6 +3,7 @@ import type { TxKeyPath } from '@/lib/i18n';
 import * as React from 'react';
 import { Pressable, Text, View } from '@/components/ui';
 import { ArrowRight } from '@/components/ui/icons';
+import { spacing } from '@/components/ui/tokens';
 
 type ItemProps = {
   text: TxKeyPath;
@@ -20,7 +21,7 @@ export function SettingsItem({ text, value, icon, onPress }: ItemProps) {
       accessibilityHint={isPressable ? 'Double tap to open' : undefined}
       onPress={onPress}
       pointerEvents={isPressable ? 'auto' : 'none'}
-      className="flex-1 flex-row items-center justify-between px-4 py-2"
+      className="flex-1 flex-row items-center justify-between" style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}
     >
       <View className="flex-row items-center">
         {icon && <View className="pr-2">{icon}</View>}

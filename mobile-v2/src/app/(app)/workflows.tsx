@@ -303,7 +303,7 @@ export default function WorkflowsScreen() {
       <FlatList
         data={workflows}
         keyExtractor={(w) => w.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] + spacing.lg + spacing['3xl'] }}
         ListHeaderComponent={
           workflows.length === 0 ? (
             <View style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>

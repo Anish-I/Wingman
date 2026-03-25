@@ -9,7 +9,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { base, purple, radii, spacing, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, purple, radii, spacing, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -226,7 +226,7 @@ export default function SignupScreen() {
     <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={3} />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerClassName="px-6 pb-8 items-center" keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerClassName="items-center" contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing['3xl'] }} keyboardShouldPersistTaps="handled">
           <PipCard expression="excited" size="small" />
 
           <View className="mt-4 mb-2 self-center">

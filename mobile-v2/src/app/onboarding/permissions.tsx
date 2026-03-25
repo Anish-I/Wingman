@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   permTextContainer: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xs / 2,
   },
   permTitle: {
     fontSize: 14,

@@ -179,8 +179,8 @@ export default function PhoneScreen() {
       <ProgressBar step={5} />
       <ScrollView
         className="flex-1 w-full"
-        contentContainerClassName="px-6 items-center"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerClassName="items-center"
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: layout.screenPaddingH }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Pip */}

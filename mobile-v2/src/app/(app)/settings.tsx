@@ -235,8 +235,8 @@ export default function SettingsScreen() {
                 animate: { opacity: 1, scale: 1 },
                 transition: { ...springs.bouncy, delay: staggerDelay(2 + i, delays.normal) },
               }, reducedMotion)}
-              className="flex-1 rounded-2xl py-3 items-center"
-              style={statCardBase}
+              className="flex-1 rounded-2xl items-center"
+              style={[statCardBase, { paddingVertical: spacing.md }]}
             >
               <Text style={[styles.statNumber, { color: stat.color }]}>{stat.num}</Text>
               <Text style={[styles.statLabel, { color: t.muted }]}>{stat.label}</Text>
