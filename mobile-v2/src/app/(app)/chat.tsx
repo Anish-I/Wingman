@@ -5,7 +5,7 @@ import Env from 'env';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -304,9 +304,11 @@ export default function ChatScreen() {
     }
     // Restore per-message idempotency key so retry reuses the original key —
     // prevents server-side duplicates when the first attempt partially succeeded.
-    // Keys now survive navigation (stored at module level). If truly expired,
-    // fall back to null so the server's sha256-content-hash dedup catches it.
-    const storedKey = getIdempotencyKey(messageId);
+    // Keys now survive navigation (stored at module level). If the per-message
+    // key expired, try the content-based key (slightly later timestamp may still
+    // be alive). If both expired, pass null so the server's sha256-content-hash
+    // dedup catches it.
+    const storedKey = getIdempotencyKey(messageId) ?? getFailedContentKey(msg.content);
     pendingUserMsgId.current = messageId;
     pendingAssistantMsgId.current = null;
     pendingIdempotencyKey.current = storedKey ?? null;
@@ -350,6 +352,18 @@ export default function ChatScreen() {
       };
     }, []),
   );
+
+  // Purge stale failed/error messages when the app returns from background.
+  // useFocusEffect only handles tab navigation — AppState covers home-button
+  // backgrounding where failed messages would otherwise persist indefinitely.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        useChatStore.getState().purgeFailedMessages();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (messages.length)

@@ -76,6 +76,11 @@ function evictStaleFailedContent() {
   }
 }
 
+// Hard cap — absolute safety net. No failed/error message should persist
+// beyond this, even if auto-dismiss, navigation cleanup, and the 30-second
+// purge threshold all somehow missed it.
+const MAX_ERROR_LIFETIME = 5 * 60_000; // 5 min
+
 type ChatState = {
   messages: Message[];
   loading: boolean;
@@ -126,8 +131,14 @@ const _useChatStore = create<ChatState>((set) => ({
       // Only remove failed messages older than 30 seconds — fresh ones survive
       // so the user has time to retry or dismiss before they vanish.
       const failedThreshold = now - 30_000;
+      const hardCap = now - MAX_ERROR_LIFETIME;
       for (const m of state.messages) {
         if (m.status === 'failed' && m.timestamp < failedThreshold) {
+          toRemove.add(m.id);
+        }
+        // Hard cap: unconditionally remove any failed/error message older than
+        // MAX_ERROR_LIFETIME, regardless of other conditions.
+        if ((m.status === 'failed' || m.isError) && m.timestamp < hardCap) {
           toRemove.add(m.id);
         }
       }
@@ -173,13 +184,13 @@ const _useChatStore = create<ChatState>((set) => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Background purge — runs every 60s regardless of which screen is focused,
+// Background purge — runs every 30s regardless of which screen is focused,
 // preventing error/failed messages from persisting indefinitely in the store.
 // ---------------------------------------------------------------------------
 setInterval(() => {
   _useChatStore.getState().purgeFailedMessages();
   evictStaleIdempotencyKeys();
   evictStaleFailedContent();
-}, 60_000);
+}, 30_000);
 
 export const useChatStore = createSelectors(_useChatStore);
