@@ -66,6 +66,14 @@ const _useChatStore = create<ChatState>((set) => ({
           errorIds.add(m.id);
         }
       }
+      // Purge orphaned "sending" messages older than 2 minutes — handles app
+      // crashes or force-kills where the send never resolved.
+      const sendingThreshold = Date.now() - 2 * 60 * 1000;
+      for (const m of state.messages) {
+        if (m.status === 'sending' && m.timestamp < sendingThreshold) {
+          failedIds.add(m.id);
+        }
+      }
       if (failedIds.size === 0 && errorIds.size === 0) return state;
       return {
         messages: state.messages.filter(

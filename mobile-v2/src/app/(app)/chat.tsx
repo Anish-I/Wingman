@@ -116,6 +116,8 @@ export default function ChatScreen() {
   const abortRef = useRef<AbortController | null>(null);
   // Guard against late-arriving failures adding messages after navigation blur
   const mountedRef = useRef(true);
+  // Auto-dismiss timers for failed messages — cleaned up on blur/unmount
+  const autoDismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
@@ -216,6 +218,14 @@ export default function ChatScreen() {
       }
       // Keep pending IDs on failure so retry reuses them
       lastFailedMsgRef.current = msg;
+      // Auto-dismiss failed message after 30 seconds if user doesn't interact
+      const timerId = setTimeout(() => {
+        autoDismissTimers.current.delete(userMsgId);
+        if (mountedRef.current) {
+          useChatStore.getState().dismissFailedMessage(userMsgId);
+        }
+      }, 30_000);
+      autoDismissTimers.current.set(userMsgId, timerId);
     }
     finally {
       setLoading(false);
@@ -226,6 +236,9 @@ export default function ChatScreen() {
   function retry(messageId: string) {
     const msg = useChatStore.getState().messages.find(m => m.id === messageId);
     if (!msg || msg.status !== 'failed') return;
+    // Cancel auto-dismiss timer since user chose to retry
+    const timer = autoDismissTimers.current.get(messageId);
+    if (timer) { clearTimeout(timer); autoDismissTimers.current.delete(messageId); }
     // Remove the error assistant message that followed the failed user message
     const msgs = useChatStore.getState().messages;
     const failedIdx = msgs.findIndex(m => m.id === messageId);
@@ -254,13 +267,22 @@ export default function ChatScreen() {
       mountedRef.current = true;
       // On focus — clean up any failures that resolved/lingered while away
       useChatStore.getState().purgeFailedMessages();
+      // Periodic purge while focused — activates stale-message TTL checks
+      // so failed/error messages don't persist indefinitely on-screen.
+      const purgeInterval = setInterval(() => {
+        useChatStore.getState().purgeFailedMessages();
+      }, 30_000);
       return () => {
+        clearInterval(purgeInterval);
         // Mark unmounted FIRST so late-arriving catch blocks roll back
         // instead of adding failed/error messages to the store.
         mountedRef.current = false;
         // On blur — abort in-flight send so late failures don't pollute the store
         abortRef.current?.abort();
         abortRef.current = null;
+        // Cancel all auto-dismiss timers
+        for (const t of autoDismissTimers.current.values()) clearTimeout(t);
+        autoDismissTimers.current.clear();
         // Clean up before leaving
         useChatStore.getState().purgeFailedMessages();
         setLoading(false);
@@ -377,7 +399,11 @@ export default function ChatScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Dismiss failed message"
-                      onPress={() => dismissFailedMessage(item.id)}
+                      onPress={() => {
+                        const t2 = autoDismissTimers.current.get(item.id);
+                        if (t2) { clearTimeout(t2); autoDismissTimers.current.delete(item.id); }
+                        dismissFailedMessage(item.id);
+                      }}
                       hitSlop={12}
                       style={styles.retryButton}
                     >
