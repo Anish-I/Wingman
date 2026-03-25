@@ -469,33 +469,56 @@ async function getConnectionStatus(userId, appNames = null, { page, pageSize } =
     return { connected: [], missing: appNames || [], error: msg };
   }
 
+  const entityId = String(userId);
+  const explicitPage = page != null;
+
+  // When caller provides explicit page/pageSize, return only that page
+  // (used by GET /api/apps for server-side pagination).
+  // Otherwise, auto-paginate through all pages to build the complete set
+  // (used by orchestrator/workflow-agent for tool authorization).
+  const PAGE_SIZE = pageSize || 100;
+  const MAX_PAGES = 10; // safety cap: 10 × 100 = 1000 accounts max
+
   try {
-    const entityId = String(userId);
-    const qsPage = page || 1;
-    const qsPageSize = pageSize || 200;
-    const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=${qsPageSize}&page=${qsPage}&status=ACTIVE`;
-    const res = await fetchWithTimeout(url, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
+    const allActive = [];
+    let totalItems = 0;
+    let currentPage = explicitPage ? page : 1;
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => '(no body)');
-      logger.error({ status: res.status }, '[composio] getConnectionStatus failed');
-      return {
-        connected: [],
-        missing: appNames || [],
-        total: 0,
-        error: `Composio API returned HTTP ${res.status}`,
-      };
-    }
+    do {
+      const url = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=${PAGE_SIZE}&page=${currentPage}&status=ACTIVE`;
+      const res = await fetchWithTimeout(url, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
 
-    const data = await res.json();
-    const items = data.items || [];
-    const totalItems = data.totalItems != null ? data.totalItems : items.length;
-    console.log(`[composio] getConnectionStatus for user ${entityId}: page ${qsPage}, ${items.length} items, total ${totalItems}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '(no body)');
+        logger.error({ status: res.status }, '[composio] getConnectionStatus failed');
+        return {
+          connected: [],
+          missing: appNames || [],
+          total: 0,
+          error: `Composio API returned HTTP ${res.status}`,
+        };
+      }
 
-    // Filter ACTIVE client-side as a safety net in case the API ignores
-    // the status param — this is a no-op when the API filters correctly.
-    const activeItems = items.filter(c => c.status === 'ACTIVE');
-    const connected = new Set(activeItems.map(c => c.appName.toLowerCase()));
+      const data = await res.json();
+      const items = data.items || [];
+      totalItems = data.totalItems != null ? data.totalItems : items.length;
+
+      // Filter ACTIVE client-side as a safety net in case the API ignores
+      // the status param — this is a no-op when the API filters correctly.
+      const activeItems = items.filter(c => c.status === 'ACTIVE');
+      allActive.push(...activeItems);
+
+      // Single-page mode: return immediately after fetching the requested page.
+      if (explicitPage) break;
+
+      // Auto-paginate: stop when we've fetched all items or hit the safety cap.
+      if (items.length < PAGE_SIZE || currentPage >= MAX_PAGES) break;
+      currentPage++;
+    } while (allActive.length < totalItems);
+
+    logger.info(`[composio] getConnectionStatus for user ${entityId}: ${allActive.length} active items fetched (total ${totalItems}, pages ${explicitPage ? page : currentPage})`);
+
+    const connected = new Set(allActive.map(c => c.appName.toLowerCase()));
 
     if (!appNames || appNames.length === 0) {
       return {
