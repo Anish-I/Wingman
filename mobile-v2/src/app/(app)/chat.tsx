@@ -6,6 +6,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
@@ -203,25 +204,30 @@ export default function ChatScreen() {
       useChatStore.setState((state) => ({
         messages: state.messages.filter(m => m.id !== errorMsgId),
       }));
-      // Reset assistant ID and idempotency key so fresh ones are generated
+      // Reset assistant ID so a fresh one is generated for the new response.
+      // Keep pendingIdempotencyKey so the retry reuses it — prevents
+      // server-side duplicates when the first attempt partially succeeded
+      // (message saved but response lost).
       pendingAssistantMsgId.current = null;
-      pendingIdempotencyKey.current = null;
     }
     // Reuse the same user message ID for retry
     pendingUserMsgId.current = messageId;
     send(msg.content);
   }
 
-  // Purge failed user messages and their error assistant replies on unmount
-  // so they don't persist across navigation
-  useEffect(() => {
-    return () => {
-      useChatStore.getState().purgeFailedMessages();
-      pendingUserMsgId.current = null;
-      pendingAssistantMsgId.current = null;
-      pendingIdempotencyKey.current = null;
-    };
-  }, []);
+  // Purge failed user messages and their error assistant replies when leaving
+  // the screen. useFocusEffect fires on blur (tab switch, back nav) — unlike
+  // useEffect cleanup which only fires on unmount (tab screens stay mounted).
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        useChatStore.getState().purgeFailedMessages();
+        pendingUserMsgId.current = null;
+        pendingAssistantMsgId.current = null;
+        pendingIdempotencyKey.current = null;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     if (messages.length)
