@@ -10,7 +10,7 @@ function generateIdempotencyKey(): string {
 }
 
 type ChatResponse = { reply: string };
-type ChatVariables = { message: string; idempotencyKey?: string };
+type ChatVariables = { message: string; idempotencyKey?: string; signal?: AbortSignal };
 
 const DEMO_TOKEN = 'demo-mock-token';
 
@@ -31,11 +31,13 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
       const { data } = await client.post<ChatResponse>(
         '/api/chat',
         { message: variables.message },
-        { headers: { 'X-Idempotency-Key': key } },
+        { headers: { 'X-Idempotency-Key': key }, signal: variables.signal },
       );
       return data;
     } catch (err) {
       if (err instanceof AxiosError) {
+        // Propagate cancellation directly — caller checks signal.aborted
+        if (variables.signal?.aborted) throw err;
         if (err.response?.status === 401) {
           throw new Error('Your session has expired. Please sign in again.');
         }

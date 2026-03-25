@@ -5,6 +5,7 @@ import { useCallback, useEffect } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
+import { useChatStore } from '@/features/chat/store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -30,6 +31,14 @@ export default function TabLayout() {
   const needsLogin = !hydrated || status === 'idle' || status === 'signOut' || !token;
   const needsOnboarding = !needsLogin && isFirstTime !== false;
   const showTabs = !needsLogin && !needsOnboarding;
+
+  // Clear chat messages on sign-out so a subsequent sign-in (potentially a
+  // different user) doesn't see stale messages from the previous session.
+  useEffect(() => {
+    if (status === 'signOut') {
+      useChatStore.getState().clearMessages();
+    }
+  }, [status]);
 
   useEffect(() => {
     if (showTabs) {

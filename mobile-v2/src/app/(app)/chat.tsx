@@ -170,7 +170,7 @@ export default function ChatScreen() {
     Keyboard.dismiss();
     setLoading(true);
     try {
-      const result = await sendMutation.mutateAsync({ message: msg, idempotencyKey });
+      const result = await sendMutation.mutateAsync({ message: msg, idempotencyKey, signal });
       // Mark user message as sent
       updateMessage(userMsgId, { status: 'sent' });
       // Fresh snapshot from store to avoid stale closure
@@ -290,9 +290,9 @@ export default function ChatScreen() {
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        // Preserve idempotencyKeys — they're needed if the server processed
-        // a request whose response was lost; reusing the key on retry
-        // prevents server-side duplicates.
+        // Clear orphaned idempotency keys — failed messages were purged above
+        // so there are no retryable messages left; keeping stale keys would leak.
+        idempotencyKeys.current.clear();
       };
     }, []),
   );
