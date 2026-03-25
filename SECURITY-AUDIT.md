@@ -54,6 +54,14 @@ The `.env` file is listed in `.gitignore` but is **not currently tracked**. Prev
 
 **Fix:** Added two layers of rate limiting to `POST /auth/verify-otp`: (1) `express-rate-limit` middleware (`otpVerifyLimiter`) keyed by phone number — 5 attempts per 15 minutes; (2) Redis-based per-phone attempt counter (`otp_attempts:<phone>`) — 5 failed attempts per 10-minute OTP TTL window, with sliding TTL refreshed on each failure. On successful verification, both the OTP and attempt counter are cleared. OTP comparison uses `crypto.timingSafeEqual()` to prevent timing side-channel attacks.
 
+### H2a. ~~OTP HMAC Uses JWT_SECRET Instead of Dedicated Key~~ — FIXED (2026-03-25)
+
+**File:** `server/routes/auth.js`, `server/routes/connect.js`, `server/config/validate.js`
+
+OTP verification used HMAC-SHA256 with `JWT_SECRET` as the key. Using the same secret for JWT signing and OTP hashing violates cryptographic key separation — compromise of `JWT_SECRET` would simultaneously compromise OTP integrity.
+
+**Fix:** Introduced a dedicated `OTP_SECRET` environment variable for all HMAC operations (OTP hashing, PIN reset codes, OAuth state binding). `JWT_SECRET` is now used exclusively for JWT sign/verify. Startup validation in `config/validate.js` enforces that `OTP_SECRET` is present, at least 32 characters, and differs from `JWT_SECRET`.
+
 ### H2. ~~OTP Generated with Math.random() (Not Cryptographically Secure)~~ — FIXED (2026-03-17)
 
 **File:** `server/routes/auth.js`
@@ -212,7 +220,7 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
-| HIGH     | 7 | 7 | 0 | All fixed |
+| HIGH     | 8 | 8 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
 | LOW      | 6 | 4 | 2 | localStorage JWT (L1), trust proxy (L6) |
 
