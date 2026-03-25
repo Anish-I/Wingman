@@ -4,41 +4,57 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
+import { getToken } from '@/lib/auth/utils';
 import { getItem, removeItem } from '@/lib/storage';
 import { purple, useThemeColors } from '@/components/ui/tokens';
 
 /**
  * OAuth callback route for web.
- * The server redirects here with ?code=...&clientState=... on success,
- * or ?error=...&clientState=... on failure. The clientState is validated
- * against a locally-stored CSRF token before exchanging the code.
+ *
+ * Handles two distinct flows:
+ * 1. Google Sign-In: ?code=...&clientState=... (or ?error=...&clientState=...)
+ *    CSRF validated via locally-stored oauth_pending token.
+ * 2. Composio app connection: ?app=... (redirected from server after OAuth)
+ *    Already-authenticated users connecting a new app — routes to apps tab.
  */
 
-const DEFAULT_RETURN_TO = '/onboarding/permissions';
 const ALLOWED_RETURN_PATHS = ['/onboarding/permissions', '/(app)', '/(app)/apps', '/(app)/settings'];
 
 export default function OAuthCallbackScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{ code?: string; error?: string; clientState?: string }>();
+  const params = useLocalSearchParams<{ code?: string; error?: string; clientState?: string; app?: string }>();
 
   useEffect(() => {
     let code = params.code;
     let error = params.error;
     let clientState = params.clientState;
+    let app = params.app;
 
     // Expo Router on web may not always parse query params from OAuth redirects,
     // so fall back to reading window.location directly.
-    if (Platform.OS === 'web' && !code && !error) {
+    if (Platform.OS === 'web' && !code && !error && !app) {
       try {
         const url = new URL(window.location.href);
         code = url.searchParams.get('code') ?? undefined;
         error = url.searchParams.get('error') ?? undefined;
         clientState = url.searchParams.get('clientState') ?? undefined;
+        app = url.searchParams.get('app') ?? undefined;
       } catch {
         // ignore parse errors
       }
     }
+
+    // Composio app connection callback — user is already authenticated.
+    // The server redirects here with ?app=<slug> after a successful OAuth flow.
+    if (app && !code && !clientState) {
+      router.replace('/(app)/apps' as any);
+      return;
+    }
+
+    // Default return path depends on auth state: authenticated users go to
+    // the apps tab, unauthenticated users continue onboarding.
+    const defaultReturnTo = getToken() ? '/(app)/apps' : '/onboarding/permissions';
 
     // Validate CSRF state — the clientState in the URL must match what we stored
     // before initiating OAuth. This prevents login CSRF attacks where an attacker
@@ -60,7 +76,7 @@ export default function OAuthCallbackScreen() {
     // Use stored returnTo for context-aware redirect (not from URL to prevent open redirect)
     const returnTo = (pending.returnTo && ALLOWED_RETURN_PATHS.includes(pending.returnTo))
       ? pending.returnTo
-      : DEFAULT_RETURN_TO;
+      : defaultReturnTo;
 
     if (error) {
       showMessage({
@@ -104,7 +120,7 @@ export default function OAuthCallbackScreen() {
         });
         router.replace('/onboarding/signup');
       });
-  }, [params.code, params.error, params.clientState, router]);
+  }, [params.code, params.error, params.clientState, params.app, router]);
 
   const containerStyle = { backgroundColor: surface.bg };
   const statusTextStyle = { color: t.muted };

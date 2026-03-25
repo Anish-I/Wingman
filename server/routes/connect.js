@@ -225,7 +225,7 @@ router.get('/callback', async (req, res) => {
       }
     }
 
-    res.redirect(`${WEB_URL}/connect/success?app=${sanitizedApp}`);
+    res.redirect(`${WEB_URL}/connect/callback?app=${sanitizedApp}`);
   } catch (err) {
     logger.error({ err: err.message }, 'OAuth callback error');
     res.status(500).json({ error: { code: 'OAUTH_CALLBACK_ERROR', message: 'Something went wrong.' } });
