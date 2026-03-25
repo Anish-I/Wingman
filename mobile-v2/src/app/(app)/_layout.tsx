@@ -3,7 +3,7 @@ import { Redirect, SplashScreen, Tabs } from 'expo-router';
 import * as React from 'react';
 import { useCallback, useEffect } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import { purple, useThemeColors } from '@/components/ui/tokens';
+import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 
@@ -60,8 +60,8 @@ export default function TabLayout() {
             backgroundColor: surface.bg,
             borderTopColor: surface.border,
             height: isLandscape ? 44 : 72,
-            paddingBottom: isLandscape ? 2 : 8,
-            paddingTop: isLandscape ? 2 : 8,
+            paddingBottom: isLandscape ? 2 : spacing.sm,
+            paddingTop: isLandscape ? 2 : spacing.sm,
           },
         ],
         tabBarActiveTintColor: purple[500],

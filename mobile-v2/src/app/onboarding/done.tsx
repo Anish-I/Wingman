@@ -8,7 +8,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { blue, semantic, teal, typography, useThemeColors } from '@/components/ui/tokens';
+import { blue, semantic, spacing, teal, typography, useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   hintBanner: {
     height: 38,
     borderWidth: 1,
-    gap: 8,
+    gap: spacing.sm,
   },
   hintText: {
     fontFamily: 'Inter_400Regular',
@@ -175,13 +175,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   contentGap: {
-    gap: 24,
+    gap: spacing['2xl'],
   },
   headerGap: {
-    gap: 12,
+    gap: spacing.md,
   },
   completeLabelRow: {
-    gap: 12,
+    gap: spacing.md,
   },
   completeLine: {
     width: 24,

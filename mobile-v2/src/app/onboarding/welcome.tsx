@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors, purple, radii } from '@/components/ui/tokens';
+import { useThemeColors, purple, radii, spacing } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -91,22 +91,22 @@ const styles = StyleSheet.create({
   },
   entranceContainer: {
     width: '100%',
-    gap: 16,
+    gap: spacing.lg,
   },
   welcomeCard: {
     borderRadius: radii.xl,
     borderWidth: 1,
-    padding: 24,
+    padding: spacing['2xl'],
     width: '100%',
-    marginTop: 24,
+    marginTop: spacing['2xl'],
   },
   trustCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    padding: 14,
+    gap: spacing.md,
+    padding: spacing.md,
   },
   // --- Original static styles ---
   meetPipTitle: {
@@ -114,18 +114,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Sora_700Bold',
     letterSpacing: -0.6,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   assistantSubtitle: {
     fontSize: 18,
     textAlign: 'center',
     fontFamily: 'Inter_600SemiBold',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: spacing.xs,
     fontFamily: 'Inter_400Regular',
     lineHeight: 21,
   },

@@ -107,21 +107,21 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: radii.lg,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
   },
   // --- Original static styles ---
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing['2xl'],
   },
   mainTitle: {
     fontSize: 30,
     fontFamily: 'Sora_700Bold',
     letterSpacing: -1.5,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   subTitle: {
     fontSize: 18,

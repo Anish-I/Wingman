@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
   tabCount: {
     fontSize: 10,
     fontWeight: '700',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   categoryTabsListContent: {
     paddingHorizontal: spacing['2xl'],

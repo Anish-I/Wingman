@@ -533,12 +533,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Sora_700Bold',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   emptySubtitle: {
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     lineHeight: 22,
   },
   tryAskingLabel: {
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 1.5,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   promptChipBase: {
     flexDirection: 'row',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     color: teal[200],
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   messageAvatarImage: {
     width: 32,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 3,
+    marginTop: spacing.xs,
     gap: spacing.xs,
   },
   statusSentRow: {

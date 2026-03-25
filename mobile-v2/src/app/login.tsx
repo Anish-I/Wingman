@@ -175,7 +175,7 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingVertical: isLandscape ? 16 : 0 },
+            { paddingVertical: isLandscape ? spacing.lg : 0 },
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   phoneDivider: {
     width: 1,
     height: 32,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.md,
   },
   phoneInput: {
     fontFamily: 'Inter_400Regular',

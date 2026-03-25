@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { base, radii, semantic, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { chipPressStyle, webInteractive } from '@/lib/motion';
 import { useResponsive } from '@/lib/responsive';
 
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   cardBase: {
     borderRadius: radii.lg,
     borderWidth: 1.5,
-    padding: 12,
+    padding: spacing.md,
     alignItems: 'center',
   },
   cardConnected: {
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     borderWidth: 1,
   },
   emoji: {

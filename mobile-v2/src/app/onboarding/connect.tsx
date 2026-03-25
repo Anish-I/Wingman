@@ -7,7 +7,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
-import { base, semantic, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 
 interface OnboardingApp {
   slug: string;
@@ -147,8 +147,8 @@ export default function ConnectScreen() {
 const styles = StyleSheet.create({
   // --- Extracted from themed object ---
   infoBanner: {
-    paddingVertical: 8,
-    gap: 6,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   infoText: {
     fontFamily: 'Inter_400Regular',
@@ -157,8 +157,8 @@ const styles = StyleSheet.create({
   searchBar: {
     height: 44,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   searchInput: {
     fontFamily: 'Inter_400Regular',
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   appCard: {
     height: 80,
     borderWidth: 1,
-    gap: 6,
+    gap: spacing.sm,
   },
   appName: {
     fontFamily: 'Inter_500Medium',
@@ -175,19 +175,19 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   mainContainer: {
-    gap: 20,
+    gap: spacing.xl,
   },
   headerGap: {
-    gap: 8,
+    gap: spacing.sm,
   },
   headerTitle: {
     ...typography.hero,
     textAlign: 'center',
   },
   gridContainer: {
-    gap: 10,
+    gap: spacing.sm,
   },
   gridRow: {
-    gap: 10,
+    gap: spacing.sm,
   },
 });

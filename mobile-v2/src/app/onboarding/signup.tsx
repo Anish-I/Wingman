@@ -9,7 +9,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { base, purple, radii, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, purple, radii, spacing, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -370,24 +370,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContainer: {
-    gap: 14,
+    gap: spacing.md,
     width: '100%',
   },
   inputRow: {
     height: 52,
     borderRadius: radii.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
   },
   dividerLine: {
     flex: 1,
     height: 1,
   },
   socialContainer: {
-    gap: 12,
+    gap: spacing.md,
     width: '100%',
   },
   googleButton: {
@@ -397,30 +397,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    marginTop: spacing['2xl'],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.md,
     borderWidth: 1,
-    gap: 8,
+    gap: spacing.sm,
     width: '100%',
   },
   // --- Original static styles ---
   title: {
     ...typography.hero,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   dividerText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    marginHorizontal: 16,
+    marginHorizontal: spacing.lg,
   },
   socialButtonText: {
     fontSize: 15,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   appleButtonHovered: {
     backgroundColor: '#F5F5F5',

@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     height: 32,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.md,
   },
   otpBoxBase: {
     width: 48,
@@ -382,10 +382,10 @@ const styles = StyleSheet.create({
   phoneInput: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   otpSection: {
-    gap: 16,
+    gap: spacing.lg,
   },
   otpLabel: {
     fontFamily: 'Inter_700Bold',
@@ -396,13 +396,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     textAlign: 'center',
-    marginTop: -8,
+    marginTop: -spacing.sm,
   },
   otpBoxRow: {
-    gap: 12,
+    gap: spacing.md,
   },
   resendRow: {
-    gap: 4,
+    gap: spacing.xs,
   },
   resendLink: {
     fontFamily: 'Inter_600SemiBold',
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     color: semantic.info,
   },
   successSection: {
-    gap: 12,
+    gap: spacing.md,
   },
   successIcon: {
     width: 56,

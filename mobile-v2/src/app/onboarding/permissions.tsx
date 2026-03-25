@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, useThemeColors, purple, radii, semantic, teal } from '@/components/ui/tokens';
+import { base, useThemeColors, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -213,22 +213,22 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radii.lg,
     borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   permissionCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   comingSoonBadge: {
     borderRadius: radii.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   // --- Original static styles ---
   speechText: {
@@ -236,8 +236,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   cardList: {
-    gap: 10,
-    marginTop: 16,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
   iconCircle: {
     width: 38,
@@ -269,14 +269,14 @@ const styles = StyleSheet.create({
   grantedBadge: {
     backgroundColor: semantic.success,
     borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   allowBadge: {
     backgroundColor: purple[500],
     borderRadius: radii.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   badgeText: {
     color: base.white,
