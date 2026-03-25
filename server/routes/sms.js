@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('../services/logger');
 const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
-const { appendMessage, deduplicateAndEnqueue, drainSMSQueue, acquireConversationLock } = require('../services/redis');
+const { appendMessage, deduplicateAndEnqueue, drainSMSQueue, acquireConversationLock, redis } = require('../services/redis');
 
 const router = express.Router();
 
@@ -27,7 +27,17 @@ const smsLimiter = rateLimit({
 router.get('/sms', (req, res) => res.status(200).send('OK'));
 
 // Twilio sends form-urlencoded; Telnyx sends JSON — handle both
+// Compute the dedup key the same way deduplicateAndEnqueue does internally,
+// so we can clear it on failure to allow provider retries.
+function computeDedupKey(msgId, phone, messageText) {
+  if (msgId) return `sms:dedup:${msgId}`;
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex').slice(0, 16);
+  return `sms:dedup:content:${hash}`;
+}
+
 router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (req, res) => {
+  let dedupKey = null; // track so we can clear on failure to allow provider retries
   try {
     const isTwilio = !!req.body?.MessageSid;
 
@@ -78,6 +88,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
       const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
       if (!isNew) return res.status(200).send('<Response></Response>');
+      dedupKey = computeDedupKey(msgId, phone, messageText);
 
       await handleIncomingSMS(phone, messageText, res, true);
     } else {
@@ -139,6 +150,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
       const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
       if (!isNew) return res.sendStatus(200);
+      dedupKey = computeDedupKey(msgId, phone, messageText);
 
       await handleIncomingSMS(phone, messageText, res, false);
     }
@@ -153,6 +165,11 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       : 'WEBHOOK_ERROR';
     const status = isRetriable ? 503 : 500;
     logger.error({ err: err.message, code }, 'SMS webhook error');
+    // Clear the dedup key so the provider's retry can reprocess the message
+    // instead of being silently deduplicated with a 200 response.
+    if (dedupKey) {
+      try { await redis.del(dedupKey); } catch (_) { /* best-effort */ }
+    }
     res.status(status).json({ error: { code, message: 'Internal server error' } });
   }
 });
