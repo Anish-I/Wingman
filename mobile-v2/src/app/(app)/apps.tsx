@@ -309,7 +309,7 @@ const CategorySection = React.memo(function CategorySection({
         </Text>
         <View
           className="rounded-full"
-          style={[s.categoryBadge, { paddingHorizontal: spacing.sm, paddingVertical: 2 }]}
+          style={[s.categoryBadge, { paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs }]}
         >
           <Text style={s.categoryBadgeText}>
             {connectedCount}/{section.apps.length}

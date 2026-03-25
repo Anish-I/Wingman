@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   settingsRowDivider: {
     height: 1,
-    marginLeft: 56,
+    marginLeft: spacing.lg + spacing['3xl'] + spacing.sm,  // 16+32+8 = 56 (icon + gap alignment)
   },
   settingsRowIcon: {},
   rowHovered: {
@@ -377,6 +377,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });

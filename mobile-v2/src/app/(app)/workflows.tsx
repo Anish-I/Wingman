@@ -287,7 +287,7 @@ export default function WorkflowsScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text style={[s.mutedText, { marginTop: 2 }]} className="text-sm">Let Pip handle the boring stuff</Text>
+            <Text style={[s.mutedText, { marginTop: spacing.xxs }]} className="text-sm">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
             {...maybeReduce(popIn(0, delays.slow), reduced)}
@@ -374,10 +374,10 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text style={[s.mutedText, { marginTop: 2 }]} className="text-[13px]" numberOfLines={2}>{item.description}</Text>
+                      <Text style={[s.mutedText, { marginTop: spacing.xxs }]} className="text-[13px]" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <View className="flex-row items-center" style={{ gap: spacing.xs + 2 }}>
+                  <View className="flex-row items-center" style={{ gap: spacing.xs + spacing.xxs }}>
                     <Text
                       style={item.active ? s.activeStatusColor : s.inactiveStatusColor}
                       className="text-[11px] font-semibold"

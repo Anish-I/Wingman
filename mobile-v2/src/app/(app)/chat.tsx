@@ -281,7 +281,7 @@ export default function ChatScreen() {
           transition: { ...springs.snappy, delay: delays.fast },
         }, reducedMotion)}
       >
-        <View className={`flex-row items-end ${isUser ? 'justify-end' : 'justify-start'}`} style={{ marginVertical: 2, gap: spacing.sm }}>
+        <View className={`flex-row items-end ${isUser ? 'justify-end' : 'justify-start'}`} style={{ marginVertical: spacing.xxs, gap: spacing.sm }}>
           {!isUser && (
             <MotiView
               {...maybeReduce(popIn(0, delays.fast), reducedMotion)}

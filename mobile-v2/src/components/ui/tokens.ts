@@ -182,6 +182,7 @@ export const typography = {
  *   '3xl' (32) — screen-level bottom safe-area padding
  */
 export const spacing = {
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,

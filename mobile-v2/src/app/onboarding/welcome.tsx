@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   trustTitle: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   trustDescription: {
     fontSize: 12,
