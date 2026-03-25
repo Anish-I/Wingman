@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   // --- Original static styles ---
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing['2xl'],
+    paddingHorizontal: layout.screenPaddingH,
   },
   mainTitle: {
     fontSize: 30,

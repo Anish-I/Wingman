@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   settingsRowDivider: {
     height: 1,
-    marginLeft: spacing.lg + 36 + spacing.md,  // row paddingH + icon w-9 (36) + row gap
+    marginLeft: layout.settingsRowIndent,
   },
   settingsRowIcon: {},
   rowHovered: {

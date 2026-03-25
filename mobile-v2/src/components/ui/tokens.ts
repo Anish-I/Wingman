@@ -219,6 +219,8 @@ export const layout = {
   inlineGap: spacing.sm,  // 8px
   /** Scroll-view bottom padding — clears tab bar + safe area */
   scrollPaddingBottom: spacing['4xl'],  // 48px
+  /** Settings-row divider indent — aligns with content after icon column */
+  settingsRowIndent: spacing.lg + 36 + spacing.md,  // rowPaddingH (16) + icon w-9 (36) + gap (12) = 64
 } as const;
 
 // ── Radii ─────────────────────────────────────────────────────
