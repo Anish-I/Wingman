@@ -61,10 +61,18 @@ async function seed() {
       console.log('✓ Created test user');
     }
 
-    // Store OTP in Redis with 10-minute TTL
+    // Store HMAC-hashed OTP in Redis (matches auth.js verify-otp format)
+    const crypto = require('crypto');
+    if (!process.env.OTP_SECRET) {
+      console.error('❌ OTP_SECRET environment variable is required');
+      process.exit(1);
+    }
+    const otpHash = crypto.createHmac('sha256', process.env.OTP_SECRET).update(TEST_OTP).digest('hex');
+    const otpRequestId = crypto.randomUUID();
     const otpKey = `otp:${TEST_PHONE}`;
-    await redis.set(otpKey, TEST_OTP, 'EX', 600);
-    console.log('✓ Stored OTP in Redis for test user (TTL: 600s)');
+    const otpValue = JSON.stringify({ hash: otpHash, requester: String(userId), requestId: otpRequestId });
+    await redis.set(otpKey, otpValue, 'EX', 600);
+    console.log('✓ Stored HMAC-hashed OTP in Redis for test user (TTL: 600s)');
 
     // Generate JWT token for testing (using hardcoded secret for QA)
     const jwt = require('jsonwebtoken');
