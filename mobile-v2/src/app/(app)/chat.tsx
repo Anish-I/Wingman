@@ -114,6 +114,8 @@ export default function ChatScreen() {
   const idempotencyKeys = useRef<Map<string, string>>(new Map());
   // AbortController for cancelling in-flight sends on navigation
   const abortRef = useRef<AbortController | null>(null);
+  // Guard against late-arriving failures adding messages after navigation blur
+  const mountedRef = useRef(true);
 
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
@@ -188,13 +190,15 @@ export default function ChatScreen() {
       useChatStore.getState().purgeFailedMessages();
     }
     catch (err: unknown) {
-      // If aborted (navigation away), roll back the optimistic message entirely
-      if (signal.aborted) {
+      // If aborted (navigation away) or component unmounted, roll back entirely —
+      // prevents orphaned failed/error messages from accumulating in the store.
+      if (signal.aborted || !mountedRef.current) {
         useChatStore.getState().removeMessage(userMsgId);
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        idempotencyKeys.current.delete(userMsgId);
+        // Keep idempotency key in case the server processed the request —
+        // if the user navigates back and retries, the same key prevents duplicates.
         return;
       }
       // Mark user message as failed
@@ -247,9 +251,13 @@ export default function ChatScreen() {
   // Blur-purge prevents stale errors from lingering across navigation.
   useFocusEffect(
     useCallback(() => {
+      mountedRef.current = true;
       // On focus — clean up any failures that resolved/lingered while away
       useChatStore.getState().purgeFailedMessages();
       return () => {
+        // Mark unmounted FIRST so late-arriving catch blocks roll back
+        // instead of adding failed/error messages to the store.
+        mountedRef.current = false;
         // On blur — abort in-flight send so late failures don't pollute the store
         abortRef.current?.abort();
         abortRef.current = null;
@@ -260,7 +268,9 @@ export default function ChatScreen() {
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        idempotencyKeys.current.clear();
+        // Preserve idempotencyKeys — they're needed if the server processed
+        // a request whose response was lost; reusing the key on retry
+        // prevents server-side duplicates.
       };
     }, []),
   );

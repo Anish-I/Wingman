@@ -58,6 +58,14 @@ const _useChatStore = create<ChatState>((set) => ({
           if (next.role === 'assistant') errorIds.add(next.id);
         }
       }
+      // Also purge stale error messages older than 5 minutes — catches any
+      // that slipped past earlier cleanup (e.g. race with late-arriving failures).
+      const staleThreshold = Date.now() - 5 * 60 * 1000;
+      for (const m of state.messages) {
+        if (m.isError && m.timestamp < staleThreshold) {
+          errorIds.add(m.id);
+        }
+      }
       if (failedIds.size === 0 && errorIds.size === 0) return state;
       return {
         messages: state.messages.filter(
