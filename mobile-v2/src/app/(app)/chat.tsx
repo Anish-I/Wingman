@@ -109,6 +109,9 @@ export default function ChatScreen() {
   const pendingAssistantMsgId = useRef<string | null>(null);
   const pendingIdempotencyKey = useRef<string | null>(null);
   const lastFailedMsgRef = useRef<string | null>(null);
+  // Per-message idempotency keys — lets retry of any failed message reuse its
+  // original key even when multiple messages have failed independently.
+  const idempotencyKeys = useRef<Map<string, string>>(new Map());
 
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
@@ -133,6 +136,8 @@ export default function ChatScreen() {
     const userMsgId = pendingUserMsgId.current;
     const assistantMsgId = pendingAssistantMsgId.current;
     const idempotencyKey = pendingIdempotencyKey.current;
+    // Persist key per message so retry can look it up even after pending refs reset
+    idempotencyKeys.current.set(userMsgId, idempotencyKey);
 
     // Deduplicate: skip if user message was already added (e.g. retry path)
     const currentMessages = useChatStore.getState().messages;
@@ -171,6 +176,7 @@ export default function ChatScreen() {
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
       pendingIdempotencyKey.current = null;
+      idempotencyKeys.current.delete(userMsgId);
       // Auto-purge any lingering failed messages + error replies from prior attempts
       useChatStore.getState().purgeFailedMessages();
     }
@@ -185,6 +191,7 @@ export default function ChatScreen() {
           role: 'assistant',
           content: err instanceof Error ? err.message : 'Something went wrong.',
           timestamp: Date.now(),
+          isError: true,
         });
       }
       // Keep pending IDs on failure so retry reuses them
@@ -207,27 +214,30 @@ export default function ChatScreen() {
       useChatStore.setState((state) => ({
         messages: state.messages.filter(m => m.id !== errorMsgId),
       }));
-      // Reset assistant ID so a fresh one is generated for the new response.
-      // Keep pendingIdempotencyKey so the retry reuses it — prevents
-      // server-side duplicates when the first attempt partially succeeded
-      // (message saved but response lost).
-      pendingAssistantMsgId.current = null;
     }
-    // Reuse the same user message ID for retry
+    // Restore per-message idempotency key so retry reuses the original key —
+    // prevents server-side duplicates when the first attempt partially succeeded.
+    // Reset assistant ID so a fresh one is generated for the new response.
     pendingUserMsgId.current = messageId;
+    pendingAssistantMsgId.current = null;
+    pendingIdempotencyKey.current = idempotencyKeys.current.get(messageId) ?? null;
     send(msg.content);
   }
 
-  // Purge failed user messages and their error assistant replies when leaving
-  // the screen. useFocusEffect fires on blur (tab switch, back nav) — unlike
-  // useEffect cleanup which only fires on unmount (tab screens stay mounted).
+  // Purge failed messages on both focus (returning to screen) and blur (leaving).
+  // Focus-purge handles failures that arrived while the user was on another tab.
+  // Blur-purge prevents stale errors from lingering across navigation.
   useFocusEffect(
     useCallback(() => {
+      // On focus — clean up any failures that resolved/lingered while away
+      useChatStore.getState().purgeFailedMessages();
       return () => {
+        // On blur — clean up before leaving
         useChatStore.getState().purgeFailedMessages();
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
+        idempotencyKeys.current.clear();
       };
     }, []),
   );

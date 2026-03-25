@@ -45,9 +45,11 @@ const _useChatStore = create<ChatState>((set) => ({
       const failedIds = new Set(
         state.messages.filter((m) => m.status === 'failed').map((m) => m.id),
       );
-      if (failedIds.size === 0) return state;
-      // Collect IDs of error assistant messages that immediately follow a failed user message
-      const errorIds = new Set<string>();
+      // Collect IDs of error assistant messages — tagged with isError flag,
+      // plus positional fallback for any that were added before the flag existed.
+      const errorIds = new Set<string>(
+        state.messages.filter((m) => m.isError).map((m) => m.id),
+      );
       for (let i = 0; i < state.messages.length; i++) {
         const m = state.messages[i];
         if (failedIds.has(m.id) && i + 1 < state.messages.length) {
@@ -55,6 +57,7 @@ const _useChatStore = create<ChatState>((set) => ({
           if (next.role === 'assistant') errorIds.add(next.id);
         }
       }
+      if (failedIds.size === 0 && errorIds.size === 0) return state;
       return {
         messages: state.messages.filter(
           (m) => !failedIds.has(m.id) && !errorIds.has(m.id),

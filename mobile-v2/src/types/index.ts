@@ -14,6 +14,7 @@ export interface Message {
   content: string;
   timestamp: number;
   status?: MessageStatus;
+  isError?: boolean;
 }
 
 export interface ConnectedApp {
