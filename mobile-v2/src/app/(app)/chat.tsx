@@ -130,13 +130,27 @@ export default function ChatScreen() {
     idempotencyKeys.current.delete(messageId);
   }
 
-  async function send(text?: string) {
+  async function send(text?: string, isRetry = false) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
     const msg = text ?? input.trim();
     if (!msg || loading)
       return;
 
     isSendingRef.current = true;
+
+    // If there's a stale failed message and this is NOT a retry,
+    // dismiss it and clear pending refs so we generate fresh IDs.
+    if (!isRetry && pendingUserMsgId.current) {
+      const stale = useChatStore.getState().messages.find(
+        m => m.id === pendingUserMsgId.current && m.status === 'failed'
+      );
+      if (stale) {
+        const timer = autoDismissTimers.current.get(stale.id);
+        if (timer) { clearTimeout(timer); autoDismissTimers.current.delete(stale.id); }
+        useChatStore.getState().dismissFailedMessage(stale.id);
+        clearPendingForMessage(stale.id);
+      }
+    }
 
     // Cancel any previous in-flight request
     abortRef.current?.abort();
@@ -268,7 +282,7 @@ export default function ChatScreen() {
     pendingUserMsgId.current = messageId;
     pendingAssistantMsgId.current = null;
     pendingIdempotencyKey.current = idempotencyKeys.current.get(messageId) ?? null;
-    send(msg.content);
+    send(msg.content, true);
   }
 
   // Purge failed messages on both focus (returning to screen) and blur (leaving).
