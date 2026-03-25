@@ -2,6 +2,44 @@ import { create } from 'zustand';
 import type { Message } from '@/types';
 import { createSelectors } from '@/lib/utils';
 
+// ---------------------------------------------------------------------------
+// Module-level idempotency key storage — survives component remount and
+// navigation so retries after navigating away can still reuse the original
+// key, preventing server-side duplicates on partial success.
+// ---------------------------------------------------------------------------
+const IDEM_KEY_TTL = 5 * 60_000; // 5 min — matches server-side Redis TTL
+
+const _idempotencyKeys = new Map<string, { key: string; ts: number }>();
+
+/** Retrieve a stored idempotency key, returning null if expired or missing. */
+export function getIdempotencyKey(msgId: string): string | null {
+  const entry = _idempotencyKeys.get(msgId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > IDEM_KEY_TTL) {
+    _idempotencyKeys.delete(msgId);
+    return null;
+  }
+  return entry.key;
+}
+
+/** Store an idempotency key for a message. */
+export function setIdempotencyKey(msgId: string, key: string) {
+  _idempotencyKeys.set(msgId, { key, ts: Date.now() });
+}
+
+/** Remove a single idempotency key (e.g. after confirmed success). */
+export function deleteIdempotencyKey(msgId: string) {
+  _idempotencyKeys.delete(msgId);
+}
+
+/** Evict expired keys — called by the background purge interval. */
+function evictStaleIdempotencyKeys() {
+  const now = Date.now();
+  for (const [id, entry] of _idempotencyKeys) {
+    if (now - entry.ts > IDEM_KEY_TTL) _idempotencyKeys.delete(id);
+  }
+}
+
 type ChatState = {
   messages: Message[];
   loading: boolean;
@@ -97,5 +135,14 @@ const _useChatStore = create<ChatState>((set) => ({
   setLoading: (loading) => set({ loading }),
   clearMessages: () => set({ messages: [] }),
 }));
+
+// ---------------------------------------------------------------------------
+// Background purge — runs every 60s regardless of which screen is focused,
+// preventing error/failed messages from persisting indefinitely in the store.
+// ---------------------------------------------------------------------------
+setInterval(() => {
+  _useChatStore.getState().purgeFailedMessages();
+  evictStaleIdempotencyKeys();
+}, 60_000);
 
 export const useChatStore = createSelectors(_useChatStore);

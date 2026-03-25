@@ -11,7 +11,7 @@ import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
-import { useChatStore } from '@/features/chat/store';
+import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
@@ -109,9 +109,6 @@ export default function ChatScreen() {
   const pendingAssistantMsgId = useRef<string | null>(null);
   const pendingIdempotencyKey = useRef<string | null>(null);
   const lastFailedMsgRef = useRef<string | null>(null);
-  // Per-message idempotency keys — lets retry of any failed message reuse its
-  // original key even when multiple messages have failed independently.
-  const idempotencyKeys = useRef<Map<string, string>>(new Map());
   // AbortController for cancelling in-flight sends on navigation
   const abortRef = useRef<AbortController | null>(null);
   // Guard against late-arriving failures adding messages after navigation blur
@@ -127,7 +124,7 @@ export default function ChatScreen() {
       pendingAssistantMsgId.current = null;
       pendingIdempotencyKey.current = null;
     }
-    idempotencyKeys.current.delete(messageId);
+    deleteIdempotencyKey(messageId);
   }
 
   async function send(text?: string, isRetry = false) {
@@ -175,8 +172,8 @@ export default function ChatScreen() {
     const userMsgId = pendingUserMsgId.current;
     const assistantMsgId = pendingAssistantMsgId.current;
     const idempotencyKey = pendingIdempotencyKey.current;
-    // Persist key per message so retry can look it up even after pending refs reset
-    if (idempotencyKey) idempotencyKeys.current.set(userMsgId, idempotencyKey);
+    // Persist key in module-level store so it survives component remount/navigation
+    if (idempotencyKey) setIdempotencyKey(userMsgId, idempotencyKey);
 
     // Deduplicate: skip if user message was already added (e.g. retry path)
     const currentMessages = useChatStore.getState().messages;
@@ -206,7 +203,7 @@ export default function ChatScreen() {
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        idempotencyKeys.current.delete(userMsgId);
+        deleteIdempotencyKey(userMsgId);
         return;
       }
       // Mark user message as sent
@@ -225,7 +222,7 @@ export default function ChatScreen() {
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
       pendingIdempotencyKey.current = null;
-      idempotencyKeys.current.delete(userMsgId);
+      deleteIdempotencyKey(userMsgId);
       // Auto-purge any lingering failed messages + error replies from prior attempts
       useChatStore.getState().purgeFailedMessages();
     }
@@ -237,8 +234,8 @@ export default function ChatScreen() {
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        // Keep idempotency key in case the server processed the request —
-        // if the user navigates back and retries, the same key prevents duplicates.
+        // Idempotency key is preserved in module-level storage — survives
+        // navigation so retries reuse the same key to prevent duplicates.
         return;
       }
       // Mark user message as failed
@@ -291,10 +288,9 @@ export default function ChatScreen() {
     }
     // Restore per-message idempotency key so retry reuses the original key —
     // prevents server-side duplicates when the first attempt partially succeeded.
-    // If the stored key is lost (e.g. cleared by navigation), compute a
-    // deterministic fallback from the message content so the server's
-    // sha256-content-hash dedup catches it even if the client key changed.
-    const storedKey = idempotencyKeys.current.get(messageId);
+    // Keys now survive navigation (stored at module level). If truly expired,
+    // fall back to null so the server's sha256-content-hash dedup catches it.
+    const storedKey = getIdempotencyKey(messageId);
     pendingUserMsgId.current = messageId;
     pendingAssistantMsgId.current = null;
     pendingIdempotencyKey.current = storedKey ?? null;
@@ -332,9 +328,9 @@ export default function ChatScreen() {
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
-        // Clear orphaned idempotency keys — failed messages were purged above
-        // so there are no retryable messages left; keeping stale keys would leak.
-        idempotencyKeys.current.clear();
+        // Idempotency keys are intentionally NOT cleared here — they live at
+        // module level and auto-expire after 5 min (matching server TTL) so
+        // retries after navigation still prevent server-side duplicates.
       };
     }, []),
   );

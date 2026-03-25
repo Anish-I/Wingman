@@ -51,6 +51,7 @@ const MAX_CHAT_MESSAGE_LENGTH = 4000;
 // Values: JSON { status: 'processing' | 'done', reply?: string, error?: object }
 const IDEM_PREFIX = 'wingman:chat-idem:';
 const IDEM_TTL_SECONDS = 300; // cached result TTL — 5 min to cover delayed retries
+const IDEM_ERROR_TTL_SECONDS = 5; // short TTL for errors — catches concurrent double-taps but allows manual retries
 const IDEM_POLL_INTERVAL_MS = 250;
 const IDEM_POLL_MAX_MS = 130000; // slightly longer than PROCESS_MESSAGE_TIMEOUT (120s)
 
@@ -194,8 +195,9 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
         : err.message?.includes('timeout') ? 'ORCHESTRATOR_TIMEOUT'
         : 'ORCHESTRATOR_ERROR';
       const errorBody = { code, message: status === 429 ? 'Server is overloaded — please try again shortly.' : 'Failed to process chat message.' };
-      // Cache the error so duplicate callers get the same response
-      await redis.set(redisKey, JSON.stringify({ status: 'done', error: { status, body: errorBody } }), 'EX', IDEM_TTL_SECONDS).catch(e =>
+      // Cache the error with a short TTL — long enough to catch concurrent
+      // duplicate submissions but short enough to allow manual retries.
+      await redis.set(redisKey, JSON.stringify({ status: 'done', error: { status, body: errorBody } }), 'EX', IDEM_ERROR_TTL_SECONDS).catch(e =>
         logger.error({ err: e.message }, '[api] Failed to cache idempotency error')
       );
       logger.error({ err: err.message }, '[api] chat error');
