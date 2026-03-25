@@ -229,7 +229,7 @@ export default function SignupScreen() {
         <ScrollView contentContainerClassName="items-center" contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing['3xl'] }} keyboardShouldPersistTaps="handled">
           <PipCard expression="excited" size="small" />
 
-          <View className="mt-4 mb-2 self-center">
+          <View className="self-center" style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
             <SectionLabel text="JOIN THE FLOCK" />
           </View>
 
@@ -279,12 +279,12 @@ export default function SignupScreen() {
             </View>
           </View>
 
-          <View className="mt-4 w-full">
+          <View className="w-full" style={{ marginTop: spacing.lg }}>
             <GradientButton title={loading ? "Signing Up..." : "Sign Up"} onPress={handleSignUp} disabled={loading} />
           </View>
 
           {/* Divider */}
-          <View className="my-5 w-full flex-row items-center">
+          <View className="w-full flex-row items-center" style={{ marginVertical: spacing.xl }}>
             <View style={themed.dividerLine} />
             <Text style={[styles.dividerText, themed.dividerText]}>
               or continue with
@@ -340,7 +340,7 @@ export default function SignupScreen() {
           </View>
 
           {/* Footer — link to login */}
-          <View className="mt-4 mb-4 flex-row items-center justify-center">
+          <View className="flex-row items-center justify-center" style={{ marginVertical: spacing.lg }}>
             <Text style={[styles.footerText, themed.footerText]}>
               Already have an account?
               {' '}

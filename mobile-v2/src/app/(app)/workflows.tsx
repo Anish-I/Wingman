@@ -427,7 +427,8 @@ export default function WorkflowsScreen() {
           animate: { opacity: 1, scale: 1, rotate: '0deg' },
           transition: { ...springs.bouncier, delay: delays.slow },
         }, reduced)}
-        className="absolute bottom-6 right-6"
+        className="absolute"
+        style={{ bottom: spacing['2xl'], right: spacing['2xl'] }}
       >
         <Pressable
           accessibilityRole="button"

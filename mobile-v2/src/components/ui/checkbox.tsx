@@ -12,7 +12,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import colors from '@/components/ui/colors';
-import { radii } from '@/components/ui/tokens';
+import { radii, spacing } from '@/components/ui/tokens';
 
 import { Text } from './text';
 
@@ -65,11 +65,12 @@ type LabelProps = {
   text: string;
   className?: string;
   testID?: string;
+  style?: import('react-native').StyleProp<import('react-native').TextStyle>;
 };
 
-function Label({ text, testID, className = '' }: LabelProps) {
+function Label({ text, testID, className = '', style }: LabelProps) {
   return (
-    <Text testID={testID} className={`${className} pl-2`}>
+    <Text testID={testID} className={className} style={[{ paddingLeft: spacing.sm }, style]}>
       {text}
     </Text>
   );
@@ -134,7 +135,7 @@ function CheckboxBase({
             <Label
               text={label}
               testID={testID ? `${testID}-label` : undefined}
-              className="pr-2"
+              style={{ paddingRight: spacing.sm }}
             />
           )
         : null}

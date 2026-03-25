@@ -63,7 +63,7 @@ export function LoginForm({ onSubmit = () => {} }: LoginFormProps) {
             Sign In
           </RNText>
 
-          <RNText className="mb-6 max-w-xs text-center text-muted-foreground">
+          <RNText className="max-w-xs text-center text-muted-foreground" style={{ marginBottom: spacing['2xl'] }}>
             Welcome! 👋 This is a demo login screen! Feel free to use any email
             and password to sign in and try it out.
           </RNText>

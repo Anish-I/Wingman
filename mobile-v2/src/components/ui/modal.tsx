@@ -155,7 +155,7 @@ export function Modal({ ref, snapPoints: _snapPoints = ['60%'] as (string | numb
   const renderHandleComponent = React.useCallback(
     () => (
       <>
-        <View className="mt-2 mb-8 h-1 w-12 self-center rounded-lg bg-gray-300 dark:bg-gray-700" />
+        <View className="h-1 w-12 self-center rounded-lg bg-gray-300 dark:bg-gray-700" style={{ marginTop: spacing.sm, marginBottom: spacing['3xl'] }} />
         <ModalHeader title={title} dismiss={modal.dismiss} />
       </>
     ),
@@ -257,7 +257,8 @@ function CloseButton({ close }: { close: () => void }) {
   return (
     <Pressable
       onPress={close}
-      className="absolute top-3 right-3 size-6 items-center justify-center"
+      className="absolute size-6 items-center justify-center"
+      style={{ top: spacing.md, right: spacing.md }}
       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
       accessibilityLabel="close modal"
       accessibilityRole="button"

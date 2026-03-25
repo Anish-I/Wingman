@@ -22,10 +22,10 @@ import { Text } from './text';
 
 const selectTv = tv({
   slots: {
-    container: 'mb-4',
-    label: 'text-grey-100 mb-1 text-lg dark:text-neutral-100',
+    container: '',
+    label: 'text-grey-100 text-lg dark:text-neutral-100',
     input:
-      'border-grey-50 mt-0 flex-row items-center justify-center rounded-xl border-[0.5px] p-3 dark:border-neutral-500 dark:bg-neutral-800',
+      'border-grey-50 flex-row items-center justify-center rounded-xl border-[0.5px] dark:border-neutral-500 dark:bg-neutral-800',
     inputValue: 'dark:text-neutral-100',
   },
 
@@ -181,17 +181,19 @@ export function Select(props: SelectProps) {
 
   return (
     <>
-      <View className={styles.container()}>
+      <View className={styles.container()} style={{ marginBottom: spacing.lg }}>
         {label && (
           <Text
             testID={testID ? `${testID}-label` : undefined}
             className={styles.label()}
+            style={{ marginBottom: spacing.xs }}
           >
             {label}
           </Text>
         )}
         <Pressable
           className={styles.input()}
+          style={{ padding: spacing.md }}
           disabled={disabled}
           onPress={modal.present}
           testID={testID ? `${testID}-trigger` : undefined}

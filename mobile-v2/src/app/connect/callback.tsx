@@ -6,7 +6,7 @@ import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
 import { getItem, removeItem } from '@/lib/storage';
-import { purple, useThemeColors } from '@/components/ui/tokens';
+import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 
 /**
  * OAuth callback route for web.
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusText: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
   },

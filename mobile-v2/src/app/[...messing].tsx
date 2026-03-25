@@ -8,11 +8,11 @@ export default function NotFoundScreen() {
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View className="flex-1 items-center justify-center" style={{ padding: spacing.lg }}>
-        <Text className="mb-4 text-2xl font-bold">
+        <Text className="text-2xl font-bold" style={{ marginBottom: spacing.lg }}>
           This screen doesn&apos;t exist.
         </Text>
 
-        <Link href="/" className="mt-4">
+        <Link href="/" style={{ marginTop: spacing.lg }}>
           <Text className="text-blue-500 underline">Go to home screen!</Text>
         </Link>
       </View>

@@ -194,7 +194,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="pb-12">
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing['3xl'] + spacing.lg }}>
         {/* Profile header */}
         <MotiView
           {...maybeReduce({

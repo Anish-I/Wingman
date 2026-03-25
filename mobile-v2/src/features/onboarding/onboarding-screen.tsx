@@ -25,7 +25,7 @@ export function OnboardingScreen() {
         <Text className="text-center text-5xl font-bold" style={{ marginVertical: spacing.md }}>
           Obytes Starter
         </Text>
-        <Text className="mb-2 text-center text-lg text-gray-600">
+        <Text className="text-center text-lg text-gray-600" style={{ marginBottom: spacing.sm }}>
           The right way to build your mobile app
         </Text>
 
@@ -43,7 +43,7 @@ export function OnboardingScreen() {
           💪 well maintained third-party libraries
         </Text>
       </View>
-      <SafeAreaView className="mt-6">
+      <SafeAreaView style={{ marginTop: spacing['2xl'] }}>
         <Button
           label="Let's Get Started "
           onPress={() => {

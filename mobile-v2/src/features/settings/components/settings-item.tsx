@@ -24,13 +24,13 @@ export function SettingsItem({ text, value, icon, onPress }: ItemProps) {
       className="flex-1 flex-row items-center justify-between" style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}
     >
       <View className="flex-row items-center">
-        {icon && <View className="pr-2">{icon}</View>}
+        {icon && <View style={{ paddingRight: spacing.sm }}>{icon}</View>}
         <Text tx={text} />
       </View>
       <View className="flex-row items-center">
         <Text className="text-neutral-600 dark:text-white">{value}</Text>
         {isPressable && (
-          <View className="pl-2">
+          <View style={{ paddingLeft: spacing.sm }}>
             <ArrowRight />
           </View>
         )}
