@@ -57,7 +57,8 @@ export function LoginForm({ onSubmit = () => {} }: LoginFormProps) {
         <View className="items-center justify-center">
           <RNText
             testID="form-title"
-            className="pb-6 text-center text-4xl font-bold text-foreground"
+            className="text-center text-4xl font-bold text-foreground"
+            style={{ paddingBottom: spacing['2xl'] }}
           >
             Sign In
           </RNText>

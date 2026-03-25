@@ -5,12 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { tv } from 'tailwind-variants';
-import { base, radii, shadows } from '@/components/ui/tokens';
+import { base, radii, shadows, spacing } from '@/components/ui/tokens';
 import { actionPressStyle, pressStyle, webInteractive, webHoverStyle, focusRing } from '@/lib/motion';
 
 const button = tv({
   slots: {
-    container: 'flex flex-row items-center justify-center rounded-xl px-4',
+    container: 'flex flex-row items-center justify-center rounded-xl',
     label: 'font-inter text-base font-semibold',
     indicator: 'h-6 text-white',
   },
@@ -80,15 +80,15 @@ const button = tv({
     },
     size: {
       default: {
-        container: 'h-12 px-5 my-2',
+        container: 'h-12',
         label: 'text-base',
       },
       lg: {
-        container: 'h-14 px-8 my-3',
+        container: 'h-14',
         label: 'text-lg',
       },
       sm: {
-        container: 'h-9 px-3 my-1',
+        container: 'h-9',
         label: 'text-sm',
         indicator: 'h-4',
       },
@@ -130,6 +130,14 @@ type Props = {
 
 const isGradient = (v?: string | null) => v === 'gradient' || v === 'gradientSuccess';
 
+/** Token-based spacing per size variant (replaces hard-coded Tailwind px/my classes) */
+const sizeSpacing = {
+  default: { paddingHorizontal: spacing.xl, marginVertical: spacing.sm },       // 20px / 8px
+  lg:      { paddingHorizontal: spacing['3xl'], marginVertical: spacing.md },   // 32px / 12px
+  sm:      { paddingHorizontal: spacing.md, marginVertical: spacing.xs },       // 12px / 4px
+  icon:    {},
+} as const;
+
 export function Button({ ref, label: text, loading = false, variant = 'primary', disabled = false, size = 'default', className = '', testID, textClassName = '', icon, showArrow, ...props }: Props & { ref?: React.RefObject<View | null> }) {
   const styles = React.useMemo(
     () => button({ variant, disabled, size }),
@@ -155,6 +163,7 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
       ref={ref}
       testID={testID}
       style={({ pressed, focused, hovered }: any) => [
+        sizeSpacing[size ?? 'default'],
         // Gradient variants get bolder press + purple glow shadow
         ...(useActionPress ? actionPressStyle({ pressed }) : pressStyle({ pressed })),
         !disabled && variant === 'gradient' ? shadows.purpleGlow : undefined,
@@ -215,9 +224,9 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
 
 const buttonStyles = StyleSheet.create({
   iconMargin: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   arrowMargin: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
 });

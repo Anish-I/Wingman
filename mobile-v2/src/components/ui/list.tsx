@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Text } from './text';
+import { spacing } from './tokens';
 
 type Props = {
   isLoading: boolean;
@@ -18,7 +19,7 @@ export const EmptyList = React.memo(({ isLoading }: Props) => {
         ? (
             <View>
               <NoData />
-              <Text className="pt-4 text-center">Sorry! No data found</Text>
+              <Text className="text-center" style={{ paddingTop: spacing.lg }}>Sorry! No data found</Text>
             </View>
           )
         : (

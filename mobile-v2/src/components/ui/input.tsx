@@ -6,13 +6,14 @@ import { tv } from 'tailwind-variants';
 
 import colors from './colors';
 import { Text } from './text';
+import { spacing } from './tokens';
 
 const inputTv = tv({
   slots: {
-    container: 'mb-3',
-    label: 'text-grey-100 mb-2 text-sm font-medium dark:text-[#D2D2DE]',
+    container: '',
+    label: 'text-grey-100 text-sm font-medium dark:text-[#D2D2DE]',
     input:
-      'font-inter mt-0 rounded-md border border-neutral-300 bg-neutral-100 px-4 py-3 text-base font-medium dark:border-[#232330] dark:bg-[#1F1F24] dark:text-[#F0F0F5] placeholder:dark:text-[#8E8E9D]',
+      'font-inter mt-0 rounded-md border border-neutral-300 bg-neutral-100 text-base font-medium dark:border-[#232330] dark:bg-[#1F1F24] dark:text-[#F0F0F5] placeholder:dark:text-[#8E8E9D]',
   },
 
   variants: {
@@ -74,11 +75,12 @@ export function Input({ ref, ...props }: NInputProps & { ref?: React.Ref<NTextIn
   });
 
   return (
-    <View className={styles.container()}>
+    <View className={styles.container()} style={inputStyles.container}>
       {label && (
         <Text
           testID={testID ? `${testID}-label` : undefined}
           className={styles.label()}
+          style={inputStyles.label}
         >
           {label}
         </Text>
@@ -92,6 +94,7 @@ export function Input({ ref, ...props }: NInputProps & { ref?: React.Ref<NTextIn
         onFocus={onFocus}
         {...inputProps}
         style={StyleSheet.flatten([
+          inputStyles.input,
           { writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr' },
           { textAlign: I18nManager.isRTL ? 'right' : 'left' },
           inputProps.style,
@@ -108,3 +111,10 @@ export function Input({ ref, ...props }: NInputProps & { ref?: React.Ref<NTextIn
     </View>
   );
 }
+
+const inputStyles = StyleSheet.create({
+  container: { marginBottom: spacing.md },          // 12px, was mb-3
+  label:     { marginBottom: spacing.sm },          // 8px, was mb-2
+  input:     { paddingHorizontal: spacing.lg,       // 16px, was px-4
+               paddingVertical: spacing.md },        // 12px, was py-3
+});
