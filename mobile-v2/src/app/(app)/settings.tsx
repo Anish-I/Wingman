@@ -51,7 +51,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
       <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
-      <View className="flex-row items-center" style={{ gap: spacing.xs + 2 }}>
+      <View className="flex-row items-center" style={{ gap: spacing.xsPlus }}>
         {value ? (
           <View style={valueBadge}>
             <Text style={valueBadgeText}>{value}</Text>
@@ -194,7 +194,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing['3xl'] + spacing.lg }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: layout.scrollPaddingBottom }}>
         {/* Profile header */}
         <MotiView
           {...maybeReduce({
@@ -207,7 +207,7 @@ export default function SettingsScreen() {
         >
           <PipCard expression="happy" size="medium" className="mb-0" />
           <Text className="text-foreground text-xl font-extrabold" style={{ marginTop: spacing.sm }}>{displayName}</Text>
-          <View className="flex-row items-center" style={{ gap: spacing.xs + 2, marginTop: spacing.xs }}>
+          <View className="flex-row items-center" style={{ gap: spacing.xsPlus, marginTop: spacing.xs }}>
             <View className="w-2 h-2 rounded-full bg-[#4ADE80]" />
             <Text className="text-[#4ADE80] text-xs font-semibold">Active</Text>
           </View>
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   // --- Extracted from inline SettingsRow styles ---
   valueBadge: {
     borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
   },
   valueBadgeText: {
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   settingsRowDivider: {
     height: 1,
-    marginLeft: spacing.lg + spacing['3xl'] + spacing.sm,  // 16+32+8 = 56 (icon + gap alignment)
+    marginLeft: 56,  // icon (36) + gap (8) + padding (12) alignment
   },
   settingsRowIcon: {},
   rowHovered: {

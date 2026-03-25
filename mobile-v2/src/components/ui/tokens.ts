@@ -184,12 +184,18 @@ export const typography = {
 export const spacing = {
   xxs: 2,
   xs: 4,
+  /** Extra-small plus — status dots, badge gaps, small icon–text pairs */
+  xsPlus: 6,
   sm: 8,
+  /** Small plus — badge padding, chip gaps, compact element spacing */
+  smPlus: 10,
   md: 12,
   lg: 16,
   xl: 20,
   '2xl': 24,
   '3xl': 32,
+  /** Extra-large — scroll-view bottom padding, safe-area + tab clearance */
+  '4xl': 48,
 } as const;
 
 // ── Layout ──────────────────────────────────────────────────
@@ -211,6 +217,8 @@ export const layout = {
   itemGap: spacing.md,  // 12px
   /** Gap between inline elements (icon–label, badge pairs) */
   inlineGap: spacing.sm,  // 8px
+  /** Scroll-view bottom padding — clears tab bar + safe area */
+  scrollPaddingBottom: spacing['4xl'],  // 48px
 } as const;
 
 // ── Radii ─────────────────────────────────────────────────────

@@ -303,7 +303,7 @@ export default function WorkflowsScreen() {
       <FlatList
         data={workflows}
         keyExtractor={(w) => w.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] + spacing.lg + spacing['3xl'] }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] + layout.scrollPaddingBottom }}
         ListHeaderComponent={
           workflows.length === 0 ? (
             <View style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
@@ -377,7 +377,7 @@ export default function WorkflowsScreen() {
                       <Text style={[s.mutedText, { marginTop: spacing.xxs }]} className="text-[13px]" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <View className="flex-row items-center" style={{ gap: spacing.xs + spacing.xxs }}>
+                  <View className="flex-row items-center" style={{ gap: spacing.xsPlus }}>
                     <Text
                       style={item.active ? s.activeStatusColor : s.inactiveStatusColor}
                       className="text-[11px] font-semibold"
@@ -402,13 +402,13 @@ export default function WorkflowsScreen() {
                 <View className="flex-row items-center" style={{ gap: spacing.sm }}>
                   <View
                     className="rounded-full flex-row items-center"
-                    style={[styles.triggerBadge, { backgroundColor: trigger.color + '15', paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs, gap: spacing.xs }]}
+                    style={[styles.triggerBadge, { backgroundColor: trigger.color + '15', paddingHorizontal: spacing.smPlus, paddingVertical: spacing.xs, gap: spacing.xs }]}
                   >
                     <Ionicons name={trigger.icon} size={12} color={trigger.color} />
                     <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.label}</Text>
                   </View>
                   {item.active && (
-                    <View className="rounded-full bg-[#4ADE80]/15 flex-row items-center" style={{ paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs, gap: spacing.xs }}>
+                    <View className="rounded-full bg-[#4ADE80]/15 flex-row items-center" style={{ paddingHorizontal: spacing.smPlus, paddingVertical: spacing.xs, gap: spacing.xs }}>
                       <View className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
                       <Text className="text-[#4ADE80] text-[11px] font-semibold">Running</Text>
                     </View>
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     padding: spacing['2xl'],
-    paddingBottom: spacing['3xl'] + spacing.lg,
+    paddingBottom: layout.scrollPaddingBottom,
   },
   modalInput: {
     borderWidth: 1,

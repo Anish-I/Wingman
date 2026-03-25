@@ -225,7 +225,7 @@ const AppCard = React.memo(function AppCard({
       accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
       className="rounded-2xl items-center relative"
       style={({ pressed, hovered, focused }: any) => [
-        { padding: spacing.md, marginRight: spacing.sm + 2 },
+        { padding: spacing.md, marginRight: spacing.smPlus },
         isConnected ? s.appCardConnected : s.appCardDisconnected,
         ...chipPressStyle({ pressed }),
         webInteractive(isConnecting),
@@ -240,7 +240,7 @@ const AppCard = React.memo(function AppCard({
       disabled={isConnecting}
     >
       {isConnected && (
-        <View className="absolute w-5 h-5 rounded-full bg-pip-success items-center justify-center z-10" style={{ top: spacing.xs + 2, right: spacing.xs + 2 }}>
+        <View className="absolute w-5 h-5 rounded-full bg-pip-success items-center justify-center z-10" style={{ top: spacing.xsPlus, right: spacing.xsPlus }}>
           <Ionicons name="checkmark" size={12} color={base.white} />
         </View>
       )}
@@ -391,7 +391,7 @@ const CategoryTabs = React.memo(function CategoryTabs({
             onPress={() => onSelect(isAll ? null : cat)}
             className="rounded-full flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
-              { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2 },
+              { paddingHorizontal: spacing.md, paddingVertical: spacing.xsPlus },
               active ? s.tabActive : s.tabInactive,
               ...chipPressStyle({ pressed }),
               webInteractive(),
@@ -679,7 +679,7 @@ export default function AppsScreen() {
               <MotiView {...pulse} className="w-6 h-6 rounded-md" style={ts.skeletonBg} />
               <MotiView {...pulse} className="h-5 w-28 rounded-md" style={ts.skeletonBg} />
             </View>
-            <View className="flex-row" style={{ gap: spacing.sm + 2 }}>
+            <View className="flex-row" style={{ gap: spacing.smPlus }}>
               {[0, 1, 2, 3].map((card) => (
                 <MotiView key={card} {...pulse} className="rounded-2xl" style={[ts.skeletonBg, { width: appCardWidth, height: appCardWidth * 1.1 }]} />
               ))}
@@ -737,7 +737,7 @@ export default function AppsScreen() {
         />
         <TextInput
           className="flex-1 text-foreground text-[15px]"
-          style={{ paddingVertical: spacing.md + 2 }}
+          style={{ paddingVertical: spacing.md }}
           placeholder={`Search ${ALL_APPS.length} apps...`}
           placeholderTextColor={t.muted}
           value={search}
@@ -762,12 +762,12 @@ export default function AppsScreen() {
       <FlatList
         data={sections}
         keyExtractor={(s) => s.category}
-        contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing['3xl'] + spacing.lg }}
+        contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.scrollPaddingBottom }}
         initialNumToRender={5}
         maxToRenderPerBatch={5}
         windowSize={5}
         ListEmptyComponent={
-          <View className="items-center" style={{ marginTop: spacing.xl * 2 }}>
+          <View className="items-center" style={{ marginTop: spacing['4xl'] }}>
             <PipCard
               expression="thinking"
               message={`No apps matching "${search}"`}

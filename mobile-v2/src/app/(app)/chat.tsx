@@ -26,7 +26,7 @@ const PIP_GREETINGS = [
 function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
   const { surface } = useThemeColors();
   return (
-    <View className="flex-row items-center" style={{ gap: spacing.xs + 2, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+    <View className="flex-row items-center" style={{ gap: spacing.xsPlus, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
       <MotiView
         {...maybeReduce({
           from: { scale: 0.8, opacity: 0 },
@@ -498,7 +498,7 @@ export default function ChatScreen() {
           >
             <TextInput
               className="flex-1 text-[15px]"
-              style={[s.textInputColor, { paddingVertical: spacing.xs + 2 }]}
+              style={[s.textInputColor, { paddingVertical: spacing.xsPlus }]}
               value={input}
               onChangeText={setInput}
               placeholder="Text Pip..."
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
   messageBubbleBase: {
     borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.smPlus,
   },
   statusRow: {
     flexDirection: 'row',
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
   demoBadge: {
     backgroundColor: '#F5A62318',
     borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
   },
   demoBadgeText: {
