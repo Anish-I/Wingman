@@ -309,6 +309,15 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     }
 
     if (_isPending(finalVal)) {
+      // For side-effecting tools, the original executor may still be in-flight
+      // (just slow, not dead).  Reclaiming the key and re-executing would cause
+      // duplicate non-idempotent actions (e.g. sending two emails).  Refuse the
+      // retry and let the original finish.
+      if (isSideEffecting) {
+        console.warn(`[user:${userId}] Stale pending key for side-effecting tool ${toolCallBlock.name}, refusing retry to prevent duplicates`);
+        return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original may still be completing. Please wait and retry later.` };
+      }
+
       // Key is stale — the original executor likely died.  Atomically reclaim
       // the slot: replace the old executor's token with ours in a single Lua
       // script.  The old executor's fenced writes will now fail harmlessly.
