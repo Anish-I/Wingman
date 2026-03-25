@@ -63,7 +63,7 @@ if (providers.length === 0) {
 const MODEL_DEFAULT = providers[0]?.model || 'gemini-2.5-flash';
 const MODEL_COMPLEX = providers[0]?.modelComplex || 'gemini-2.5-flash';
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || '2048', 10);
-const LLM_CALL_TIMEOUT = parseInt(process.env.LLM_CALL_TIMEOUT || '60000', 10);
+const LLM_CALL_TIMEOUT = parseInt(process.env.LLM_CALL_TIMEOUT || '30000', 10);
 // Decreasing timeouts per fallback level so total wait stays reasonable
 const FALLBACK_TIMEOUT_MULTIPLIERS = [1, 0.5, 0.33];
 
