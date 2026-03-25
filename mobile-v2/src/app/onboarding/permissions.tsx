@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   cardList: {
-    gap: spacing.sm,
+    gap: layout.itemGap,
     marginTop: spacing.lg,
   },
   iconCircle: {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   permTextContainer: {
     flex: 1,
-    gap: spacing.xs / 2,
+    gap: spacing.xxs,
   },
   permTitle: {
     fontSize: 14,

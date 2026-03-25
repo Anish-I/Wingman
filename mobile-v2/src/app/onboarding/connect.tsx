@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   mainContainer: {
-    gap: spacing.xl,
+    gap: layout.sectionGap,
   },
   headerGap: {
     gap: spacing.sm,
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   gridContainer: {
-    gap: spacing.sm,
+    gap: layout.inlineGap,
   },
   gridRow: {
-    gap: spacing.sm,
+    gap: layout.inlineGap,
   },
 });

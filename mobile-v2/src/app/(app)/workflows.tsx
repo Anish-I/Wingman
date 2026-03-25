@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   templateList: {
-    gap: spacing.sm,
+    gap: layout.itemGap,
   },
   fabGradient: {
     width: 56,

@@ -302,7 +302,7 @@ const CategorySection = React.memo(function CategorySection({
   return (
     <View style={{ marginBottom: layout.sectionGap }}>
       {/* Category header */}
-      <View className="flex-row items-center" style={{ gap: spacing.sm, marginBottom: spacing.md, marginLeft: spacing.xs }}>
+      <View className="flex-row items-center" style={{ gap: layout.inlineGap, marginBottom: layout.itemGap, marginLeft: spacing.xs }}>
         <Text className="text-lg">{meta.icon}</Text>
         <Text className="text-foreground text-base font-bold">
           {section.category}
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categorySectionListContent: {
-    paddingRight: spacing.lg,
+    paddingRight: layout.screenPaddingH,
   },
   // --- CategoryTabs ---
   tabActive: {
@@ -838,9 +838,9 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   categoryTabsListContent: {
-    paddingHorizontal: spacing['2xl'],
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: layout.screenPaddingH,
+    paddingBottom: layout.itemGap,
+    gap: layout.inlineGap,
   },
   tabHoveredActive: {
     backgroundColor: 'rgba(124, 92, 252, 0.18)',

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   entranceContainer: {
     width: '100%',
-    gap: spacing.lg,
+    gap: layout.sectionGap,
   },
   welcomeCard: {
     borderRadius: radii.xl,
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   // --- Original static styles ---
   meetPipTitle: {

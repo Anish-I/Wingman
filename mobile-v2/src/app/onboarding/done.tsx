@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   contentGap: {
-    gap: spacing['2xl'],
+    gap: layout.sectionGap,
   },
   headerGap: {
-    gap: spacing.md,
+    gap: layout.itemGap,
   },
   completeLabelRow: {
     gap: spacing.md,

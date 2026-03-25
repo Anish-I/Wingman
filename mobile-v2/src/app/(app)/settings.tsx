@@ -251,7 +251,7 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(3, delays.normal) },
           }, reducedMotion)}
-          style={{ marginTop: spacing.sm, paddingHorizontal: layout.screenPaddingH }}
+          style={{ marginTop: layout.sectionGap, paddingHorizontal: layout.screenPaddingH }}
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Account</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   settingsRowDivider: {
     height: 1,
-    marginLeft: spacing.lg + 36 + spacing.md,  // row padding + icon w-9 (36) + row gap
+    marginLeft: spacing.lg + 36 + spacing.md,  // row paddingH + icon w-9 (36) + row gap
   },
   settingsRowIcon: {},
   rowHovered: {

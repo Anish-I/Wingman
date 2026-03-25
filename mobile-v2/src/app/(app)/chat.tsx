@@ -496,7 +496,7 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={m => m.id}
           renderItem={renderItem}
-          contentContainerStyle={[{ paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.lg, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
+          contentContainerStyle={[{ paddingHorizontal: layout.screenPaddingH, paddingVertical: layout.screenPaddingTop, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
           ListEmptyComponent={(
             <View className="items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
               {/* Pip avatar — floats gently to feel alive */}
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   messageBubbleBase: {
     borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.smPlus,
+    paddingVertical: spacing.sm,
   },
   statusRow: {
     flexDirection: 'row',
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   statusSentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs / 2,
+    gap: spacing.xxs,
   },
   statusSentText: {
     fontSize: 11,
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs / 2,
+    gap: spacing.xxs,
     marginLeft: spacing.xs,
     minHeight: 44,
     minWidth: 44,
