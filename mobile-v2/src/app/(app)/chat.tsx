@@ -112,6 +112,8 @@ export default function ChatScreen() {
   // Per-message idempotency keys — lets retry of any failed message reuse its
   // original key even when multiple messages have failed independently.
   const idempotencyKeys = useRef<Map<string, string>>(new Map());
+  // AbortController for cancelling in-flight sends on navigation
+  const abortRef = useRef<AbortController | null>(null);
 
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
@@ -120,6 +122,11 @@ export default function ChatScreen() {
       return;
 
     isSendingRef.current = true;
+
+    // Cancel any previous in-flight request
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
 
     // Reuse pending IDs on retry; only generate fresh ones for new messages
     if (!pendingUserMsgId.current) {
@@ -181,6 +188,15 @@ export default function ChatScreen() {
       useChatStore.getState().purgeFailedMessages();
     }
     catch (err: unknown) {
+      // If aborted (navigation away), roll back the optimistic message entirely
+      if (signal.aborted) {
+        useChatStore.getState().removeMessage(userMsgId);
+        pendingUserMsgId.current = null;
+        pendingAssistantMsgId.current = null;
+        pendingIdempotencyKey.current = null;
+        idempotencyKeys.current.delete(userMsgId);
+        return;
+      }
       // Mark user message as failed
       updateMessage(userMsgId, { status: 'failed' });
       // Fresh snapshot from store to avoid stale closure
@@ -209,11 +225,13 @@ export default function ChatScreen() {
     // Remove the error assistant message that followed the failed user message
     const msgs = useChatStore.getState().messages;
     const failedIdx = msgs.findIndex(m => m.id === messageId);
-    if (failedIdx >= 0 && failedIdx + 1 < msgs.length && msgs[failedIdx + 1].role === 'assistant') {
-      const errorMsgId = msgs[failedIdx + 1].id;
-      useChatStore.setState((state) => ({
-        messages: state.messages.filter(m => m.id !== errorMsgId),
-      }));
+    if (failedIdx >= 0 && failedIdx + 1 < msgs.length) {
+      const next = msgs[failedIdx + 1];
+      if (next.role === 'assistant' && next.isError) {
+        useChatStore.setState((state) => ({
+          messages: state.messages.filter(m => m.id !== next.id),
+        }));
+      }
     }
     // Restore per-message idempotency key so retry reuses the original key —
     // prevents server-side duplicates when the first attempt partially succeeded.
@@ -232,8 +250,13 @@ export default function ChatScreen() {
       // On focus — clean up any failures that resolved/lingered while away
       useChatStore.getState().purgeFailedMessages();
       return () => {
-        // On blur — clean up before leaving
+        // On blur — abort in-flight send so late failures don't pollute the store
+        abortRef.current?.abort();
+        abortRef.current = null;
+        // Clean up before leaving
         useChatStore.getState().purgeFailedMessages();
+        setLoading(false);
+        isSendingRef.current = false;
         pendingUserMsgId.current = null;
         pendingAssistantMsgId.current = null;
         pendingIdempotencyKey.current = null;
@@ -404,7 +427,7 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={m => m.id}
           renderItem={renderItem}
-          contentContainerStyle={[{ padding: spacing.lg, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
+          contentContainerStyle={[{ paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.lg, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
           ListEmptyComponent={(
             <View className="items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
               {/* Pip avatar — floats gently to feel alive */}
@@ -549,7 +572,7 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: layout.screenPaddingH,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     gap: spacing.md,

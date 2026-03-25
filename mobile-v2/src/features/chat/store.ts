@@ -34,9 +34,10 @@ const _useChatStore = create<ChatState>((set) => ({
       const idx = state.messages.findIndex((m) => m.id === id);
       if (idx === -1 || state.messages[idx].status !== 'failed') return state;
       const toRemove = new Set<string>([id]);
-      // Also remove the error assistant message that immediately follows
-      if (idx + 1 < state.messages.length && state.messages[idx + 1].role === 'assistant') {
-        toRemove.add(state.messages[idx + 1].id);
+      // Also remove the error assistant message that immediately follows (only if tagged)
+      const next = idx + 1 < state.messages.length ? state.messages[idx + 1] : null;
+      if (next && next.role === 'assistant' && next.isError) {
+        toRemove.add(next.id);
       }
       return { messages: state.messages.filter((m) => !toRemove.has(m.id)) };
     }),
