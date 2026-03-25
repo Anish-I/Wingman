@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
-import { purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { layout, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -179,7 +179,7 @@ export default function LoginScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="px-6" style={contentGap}>
+          <View style={[{ paddingHorizontal: layout.screenPaddingH }, contentGap]}>
         {/* Header */}
         <View style={styles.headerGroup}>
           <Text style={themed.headerTitle}>
@@ -196,8 +196,8 @@ export default function LoginScreen() {
           <>
             {/* Phone input */}
             <View
-              className="flex-row items-center rounded-lg px-4"
-              style={themed.phoneInputContainer}
+              className="flex-row items-center rounded-lg"
+              style={[themed.phoneInputContainer, { paddingHorizontal: spacing.lg }]}
             >
               <Text style={themed.phoneCountryCode}>+1</Text>
               <View style={themed.phoneDivider} />
@@ -286,7 +286,7 @@ export default function LoginScreen() {
           </>
         )}
         {/* Sign up link */}
-        <View className="mt-4 flex-row items-center justify-center">
+        <View className="flex-row items-center justify-center" style={{ marginTop: spacing.lg }}>
           <Text style={themed.signupText}>
             Don't have an account?{' '}
           </Text>

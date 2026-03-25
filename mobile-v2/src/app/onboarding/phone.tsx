@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { base, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -199,8 +199,8 @@ export default function PhoneScreen() {
 
         {/* Phone input row */}
         <View
-          className="w-full flex-row items-center rounded-lg px-4"
-          style={themed.phoneRow}
+          className="w-full flex-row items-center rounded-lg"
+          style={[themed.phoneRow, { paddingHorizontal: spacing.lg }]}
         >
           {/* US-only country indicator (static) */}
           <Text style={themed.countryLabel}>

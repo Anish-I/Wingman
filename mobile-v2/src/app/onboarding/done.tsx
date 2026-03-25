@@ -8,7 +8,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { blue, semantic, spacing, teal, typography, useThemeColors } from '@/components/ui/tokens';
+import { blue, layout, semantic, spacing, teal, typography, useThemeColors } from '@/components/ui/tokens';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -102,7 +102,7 @@ export default function DoneScreen() {
       )}
 
       {/* Content */}
-      <View className="flex-1 items-center justify-center px-6" style={styles.contentGap}>
+      <View className="flex-1 items-center justify-center" style={[styles.contentGap, { paddingHorizontal: layout.screenPaddingH }]}>
         {/* Pip */}
         <MotiView {...maybeReduce(popIn(0, delays.none), reduced)}>
           <PipCard expression="clap" size="large" className="" />
@@ -130,8 +130,8 @@ export default function DoneScreen() {
         {/* Hint to connect apps */}
         <MotiView {...maybeReduce(popIn(0, delays.sequence), reduced)}>
           <View
-            className="flex-row items-center rounded-lg px-4"
-            style={themed.hintBanner}
+            className="flex-row items-center rounded-lg"
+            style={[themed.hintBanner, { paddingHorizontal: spacing.lg }]}
           >
             <Ionicons name="apps-outline" size={14} color={semantic.info} />
             <Text style={themed.hintText}>
@@ -142,7 +142,7 @@ export default function DoneScreen() {
       </View>
 
       {/* Bottom button */}
-      <View className="w-full px-6 pb-8">
+      <View className="w-full" style={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.screenPaddingBottom }}>
         <GradientButton
           title="Start Texting Pip"
           variant="success"

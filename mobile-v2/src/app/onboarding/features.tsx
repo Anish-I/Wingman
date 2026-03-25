@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import * as React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, blue, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
+import { useThemeColors, blue, layout, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -45,7 +45,7 @@ export default function FeaturesScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <PipCard expression="thumbsup" size="tiny" />
 
-        <View className="mt-4">
+        <View style={{ marginTop: spacing.lg }}>
           <SectionLabel text="WHAT I CAN DO" />
         </View>
 
@@ -88,7 +88,7 @@ export default function FeaturesScreen() {
         </View>
       </ScrollView>
 
-      <View className="px-6 pb-8">
+      <View style={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.screenPaddingBottom }}>
         <GradientButton
           title="Let's Go"
           onPress={() => router.push('/onboarding/signup')}

@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors, purple, radii, spacing } from '@/components/ui/tokens';
+import { useThemeColors, layout, purple, radii, spacing } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -36,7 +36,7 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={1} />
-      <View className="flex-1 items-center justify-center px-6">
+      <View className="flex-1 items-center justify-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
         {/* Pip avatar with floating animation */}
         <MotiView {...maybeReduce(popIn(0, delays.fast), reduced)}>
           <MotiView {...maybeReduce(gentleFloat(delays.sequence), reduced)}>
@@ -73,7 +73,7 @@ export default function WelcomeScreen() {
         </MotiView>
       </View>
 
-      <View className="px-6 pb-8">
+      <View style={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.screenPaddingBottom }}>
         <GradientButton
           title="Nice to meet you!"
           showArrow

@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
-import { radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { layout, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
 import { cardPressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
 
@@ -51,7 +51,7 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
       <Text className="flex-1 text-[15px] font-semibold text-foreground">{label}</Text>
-      <View className="flex-row items-center gap-1.5">
+      <View className="flex-row items-center" style={{ gap: spacing.xs + 2 }}>
         {value ? (
           <View style={valueBadge}>
             <Text style={valueBadgeText}>{value}</Text>
@@ -66,11 +66,11 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
     return (
       <>
         <View
-          className="flex-row items-center py-4 px-4 gap-3"
+          className="flex-row items-center"
           accessible
           accessibilityLabel={label}
           accessibilityHint={value ? `Current value: ${value}` : undefined}
-          style={containerStyle}
+          style={[{ paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.md }, ...containerStyle]}
         >
           {content}
         </View>
@@ -82,11 +82,12 @@ function SettingsRow({ icon, iconColor = '#8A8A8A', label, value, onPress, showC
   return (
     <>
       <Pressable
-        className="flex-row items-center py-4 px-4 gap-3"
+        className="flex-row items-center"
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={value ? `Current value: ${value}` : undefined}
         style={({ pressed, hovered, focused }: any) => [
+          { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.md },
           ...containerStyle,
           ...cardPressStyle({ pressed }),
           webInteractive(),
@@ -201,11 +202,12 @@ export default function SettingsScreen() {
             animate: { opacity: 1, scale: 1 },
             transition: springs.gentle,
           }, reducedMotion)}
-          className="items-center pt-6 pb-4"
+          className="items-center"
+          style={{ paddingTop: layout.screenPaddingTop, paddingBottom: spacing.lg }}
         >
           <PipCard expression="happy" size="medium" className="mb-0" />
-          <Text className="text-foreground text-xl font-extrabold mt-2">{displayName}</Text>
-          <View className="flex-row items-center gap-1.5 mt-1">
+          <Text className="text-foreground text-xl font-extrabold" style={{ marginTop: spacing.sm }}>{displayName}</Text>
+          <View className="flex-row items-center" style={{ gap: spacing.xs + 2, marginTop: spacing.xs }}>
             <View className="w-2 h-2 rounded-full bg-[#4ADE80]" />
             <Text className="text-[#4ADE80] text-xs font-semibold">Active</Text>
           </View>
@@ -218,7 +220,8 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateY: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(1, delays.normal) },
           }, reducedMotion)}
-          className="flex-row gap-3 px-4 mb-6"
+          className="flex-row"
+          style={{ gap: spacing.md, paddingHorizontal: spacing.lg, marginBottom: layout.sectionGap }}
         >
           {[
             { num: String(stats.apps), label: 'Apps', color: semantic.info },
@@ -248,9 +251,9 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(3, delays.normal) },
           }, reducedMotion)}
-          className="mt-2 px-4"
+          style={{ marginTop: spacing.sm, paddingHorizontal: spacing.lg }}
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>Account</Text>
+          <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Account</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="person-outline" iconColor="#6EC6B8" label="Profile" isFirst />
             <SettingsRow icon="call-outline" iconColor="#F5A623" label="Phone Number" value={displayPhone} showChevron={false} />
@@ -265,9 +268,9 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(4, delays.normal) },
           }, reducedMotion)}
-          className="mt-6 px-4"
+          style={{ marginTop: layout.sectionGap, paddingHorizontal: spacing.lg }}
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>Preferences</Text>
+          <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Preferences</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" value={notificationsEnabled ? 'On' : 'Off'} onPress={handleToggleNotifications} isFirst />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value={currentTheme} onPress={handleSelectTheme} />
@@ -282,9 +285,9 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(5, delays.normal) },
           }, reducedMotion)}
-          className="mt-6 px-4"
+          style={{ marginTop: layout.sectionGap, paddingHorizontal: spacing.lg }}
         >
-          <Text className="text-[14px] font-bold uppercase tracking-widest mb-2 ml-1" style={sectionLabel}>About</Text>
+          <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>About</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="information-circle-outline" iconColor={semantic.info} label="Version" value="1.0.0" showChevron={false} isFirst />
             <SettingsRow icon="shield-outline" iconColor="#6EC6B8" label="Privacy" />
@@ -303,9 +306,10 @@ export default function SettingsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Log out"
-            className="flex-row items-center justify-center gap-2 py-4 mt-8 mx-4 bg-[#FF3B30]/10 rounded-2xl"
+            className="flex-row items-center justify-center bg-[#FF3B30]/10 rounded-2xl"
             onPress={handleLogout}
             style={({ pressed, hovered, focused }: any) => [
+              { gap: spacing.sm, paddingVertical: spacing.lg, marginTop: spacing['3xl'], marginHorizontal: spacing.lg },
               ...cardPressStyle({ pressed }),
               webInteractive(),
               // Web hover: enhance background

@@ -191,6 +191,27 @@ export const spacing = {
   '3xl': 32,
 } as const;
 
+// ── Layout ──────────────────────────────────────────────────
+/**
+ * Standardised layout constants for consistent screen structure.
+ * Use these for screen-level padding, section spacing, and content gaps
+ * instead of ad-hoc Tailwind classes (px-4/px-6/mt-4/gap-3/etc.).
+ */
+export const layout = {
+  /** Screen horizontal padding — consistent edge insets across all screens */
+  screenPaddingH: spacing['2xl'],  // 24px
+  /** Screen top padding for content headers */
+  screenPaddingTop: spacing['2xl'],  // 24px
+  /** Screen bottom safe-area / footer padding */
+  screenPaddingBottom: spacing['3xl'],  // 32px
+  /** Gap between major sections on a screen */
+  sectionGap: spacing['2xl'],  // 24px
+  /** Gap between items within a section (cards, rows, list items) */
+  itemGap: spacing.md,  // 12px
+  /** Gap between inline elements (icon–label, badge pairs) */
+  inlineGap: spacing.sm,  // 8px
+} as const;
+
 // ── Radii ─────────────────────────────────────────────────────
 export const radii = {
   xs: 4,
@@ -384,6 +405,7 @@ const tokens = {
   blue,
   typography,
   spacing,
+  layout,
   radii,
   shadows,
   presets,

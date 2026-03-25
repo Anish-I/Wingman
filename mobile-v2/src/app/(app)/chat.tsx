@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, blue, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
+import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
 import { useChatStore } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -25,15 +25,15 @@ const PIP_GREETINGS = [
 function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
   const { surface } = useThemeColors();
   return (
-    <View className="flex-row items-center gap-1.5 px-4 pb-3">
+    <View className="flex-row items-center" style={{ gap: spacing.xs + 2, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
       <MotiView
         {...maybeReduce({
           from: { scale: 0.8, opacity: 0 },
           animate: { scale: 1, opacity: 1 },
           transition: springs.gentle,
         }, !!reducedMotion)}
-        className="flex-row items-center gap-2 rounded-2xl rounded-bl-[4px] px-4 py-3"
-        style={[styles.typingDotsContainer, { backgroundColor: surface.card }]}
+        className="flex-row items-center rounded-2xl rounded-bl-[4px]"
+        style={[styles.typingDotsContainer, { backgroundColor: surface.card, gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}
       >
         {[0, 1, 2].map(i => (
           <MotiView
@@ -252,7 +252,7 @@ export default function ChatScreen() {
           transition: { ...springs.snappy, delay: delays.fast },
         }, reducedMotion)}
       >
-        <View className={`my-0.5 flex-row items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+        <View className={`flex-row items-end ${isUser ? 'justify-end' : 'justify-start'}`} style={{ marginVertical: 2, gap: spacing.sm }}>
           {!isUser && (
             <MotiView
               {...maybeReduce(popIn(0, delays.fast), reducedMotion)}
@@ -355,10 +355,9 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={m => m.id}
           renderItem={renderItem}
-          contentContainerClassName="p-4 gap-1"
-          contentContainerStyle={messages.length === 0 ? styles.emptyContentContainer : undefined}
+          contentContainerStyle={[{ padding: spacing.lg, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
           ListEmptyComponent={(
-            <View className="items-center px-6">
+            <View className="items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
               {/* Pip avatar — floats gently to feel alive */}
               <MotiView
                 {...maybeReduce(popIn(0, delays.slow), reducedMotion)}
@@ -386,13 +385,13 @@ export default function ChatScreen() {
               {/* Prompt suggestions */}
               <MotiView
                 {...maybeReduce(entrance(0, delays.slow * 2 + delays.normal), reducedMotion)}
-                className="mt-4 w-full"
-                style={styles.promptSuggestionsGap}
+                className="w-full"
+                style={[styles.promptSuggestionsGap, { marginTop: spacing.lg }]}
               >
                 <Text style={s.tryAskingLabel}>
                   TRY ASKING
                 </Text>
-                <View className="flex-row flex-wrap justify-center gap-2">
+                <View className="flex-row flex-wrap justify-center" style={{ gap: spacing.sm }}>
                   {examplePrompts.map((prompt, i) => (
                     <MotiView
                       key={prompt.text}
@@ -449,8 +448,8 @@ export default function ChatScreen() {
             style={s.inputBar}
           >
             <TextInput
-              className="flex-1 py-1.5 text-[15px]"
-              style={s.textInputColor}
+              className="flex-1 text-[15px]"
+              style={[s.textInputColor, { paddingVertical: spacing.xs + 2 }]}
               value={input}
               onChangeText={setInput}
               placeholder="Text Pip..."

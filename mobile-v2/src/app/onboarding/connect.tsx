@@ -7,7 +7,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
-import { base, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 
 interface OnboardingApp {
   slug: string;
@@ -66,7 +66,7 @@ export default function ConnectScreen() {
   return (
     <SafeAreaView className="flex-1 items-center" style={themed.safeArea}>
       <ProgressBar step={6} />
-      <View className="flex-1 w-full px-6" style={styles.mainContainer}>
+      <View className="flex-1 w-full" style={[styles.mainContainer, { paddingHorizontal: layout.screenPaddingH }]}>
         {/* Header */}
         <View className="items-center" style={styles.headerGap}>
           <SectionLabel text="INTEGRATIONS" />
@@ -75,8 +75,8 @@ export default function ConnectScreen() {
           </Text>
           {/* Info banner */}
           <View
-            className="flex-row items-center rounded-lg px-3"
-            style={themed.infoBanner}
+            className="flex-row items-center rounded-lg"
+            style={[themed.infoBanner, { paddingHorizontal: spacing.md }]}
           >
             <Ionicons name="information-circle-outline" size={16} color={semantic.info} />
             <Text style={themed.infoText}>
@@ -132,7 +132,7 @@ export default function ConnectScreen() {
         <View className="flex-1" />
 
         {/* Bottom button */}
-        <View className="pb-8">
+        <View style={{ paddingBottom: layout.screenPaddingBottom }}>
           <GradientButton
             title="Continue"
             icon="arrow-forward"

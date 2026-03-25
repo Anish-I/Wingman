@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { base, useThemeColors, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
+import { base, useThemeColors, layout, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -103,9 +103,9 @@ export default function PermissionsScreen() {
   return (
     <SafeAreaView style={themed.safeArea}>
       <ProgressBar step={4} />
-      <View className="flex-1 px-6">
+      <View className="flex-1" style={{ paddingHorizontal: layout.screenPaddingH }}>
         {/* Pip speech bubble row */}
-        <View className="mt-4 flex-row items-center gap-3">
+        <View className="flex-row items-center" style={{ marginTop: spacing.lg, gap: spacing.md }}>
           <PipCard expression="question" size="mini" />
           <View style={themed.speechBubble}>
             <Text style={[styles.speechText, themed.speechText]}>
@@ -114,7 +114,7 @@ export default function PermissionsScreen() {
           </View>
         </View>
 
-        <View className="mt-5">
+        <View style={{ marginTop: spacing.xl }}>
           <SectionLabel text="PERMISSIONS" />
         </View>
 
@@ -194,7 +194,7 @@ export default function PermissionsScreen() {
         </View>
       </View>
 
-      <View className="px-6 pb-8">
+      <View style={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.screenPaddingBottom }}>
         <GradientButton
           title="Continue"
           onPress={() => router.push('/onboarding/phone')}

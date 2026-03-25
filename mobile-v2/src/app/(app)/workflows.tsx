@@ -8,7 +8,7 @@ import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
-import { base, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -205,12 +205,12 @@ export default function WorkflowsScreen() {
 
   if (fetchError || (isLoading && loadingTimedOut)) {
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
+      <SafeAreaView className="flex-1 bg-background justify-center items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
         <Ionicons name="cloud-offline-outline" size={40} color={t.muted} />
-        <Text className="text-foreground text-base font-bold mt-4">
+        <Text className="text-foreground text-base font-bold" style={{ marginTop: spacing.lg }}>
           Failed to load
         </Text>
-        <Text style={s.mutedText} className="text-sm text-center mt-1">
+        <Text style={[s.mutedText, { marginTop: spacing.xs }]} className="text-sm text-center">
           {fetchError
             ? 'Could not load workflows. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -218,7 +218,8 @@ export default function WorkflowsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading workflows"
-          className="mt-5 bg-pip-purple rounded-xl px-6 py-3"
+          className="bg-pip-purple rounded-xl"
+          style={{ marginTop: spacing.xl, paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.md }}
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
           <Text className="text-white text-sm font-bold">Retry</Text>
@@ -237,7 +238,7 @@ export default function WorkflowsScreen() {
       <SafeAreaView className="flex-1 bg-background">
         {/* Slow-loading hint */}
         {loadingSlow && (
-          <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={s.slowHintBg}>
+          <View className="rounded-xl flex-row items-center" style={[s.slowHintBg, { marginHorizontal: layout.screenPaddingH, marginTop: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
             <Ionicons name="time-outline" size={18} color="#F5A623" style={s.slowHintIcon} />
             <Text style={s.slowHintText}>
               Still loading — check your connection if this persists
@@ -245,28 +246,28 @@ export default function WorkflowsScreen() {
           </View>
         )}
         {/* Skeleton header */}
-        <View className="px-6 pt-6 pb-2">
+        <View style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, paddingBottom: spacing.sm }}>
           <View className="flex-row items-center justify-between">
             <View>
               <MotiView {...pulse} className="h-7 w-40 rounded-lg" style={s.skeletonCardBg} />
-              <MotiView {...pulse} className="h-4 w-52 rounded-md mt-2" style={s.skeletonCardBg} />
+              <MotiView {...pulse} className="h-4 w-52 rounded-md" style={[s.skeletonCardBg, { marginTop: spacing.sm }]} />
             </View>
             <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={s.skeletonCardBg} />
           </View>
         </View>
         {/* Skeleton workflow cards */}
-        <View className="px-4 gap-3 mt-2">
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, marginTop: spacing.sm }}>
           {[0, 1, 2, 3].map((i) => (
-            <MotiView key={i} {...pulse} className="rounded-2xl p-4" style={s.skeletonCardBg}>
-              <View className="flex-row items-center gap-3">
+            <MotiView key={i} {...pulse} className="rounded-2xl" style={[s.skeletonCardBg, { padding: spacing.lg }]}>
+              <View className="flex-row items-center" style={{ gap: spacing.md }}>
                 <View className="w-[42px] h-[42px] rounded-xl" style={s.skeletonSectionBg} />
                 <View className="flex-1">
                   <View className="h-4 w-40 rounded-md" style={s.skeletonSectionBg} />
-                  <View className="h-3 w-56 rounded-md mt-2" style={s.skeletonSectionBg} />
+                  <View className="h-3 w-56 rounded-md" style={[s.skeletonSectionBg, { marginTop: spacing.sm }]} />
                 </View>
                 <View className="w-12 h-7 rounded-full" style={s.skeletonSectionBg} />
               </View>
-              <View className="flex-row items-center gap-2 mt-3">
+              <View className="flex-row items-center" style={{ gap: spacing.sm, marginTop: spacing.md }}>
                 <View className="h-6 w-20 rounded-full" style={s.skeletonSectionBg} />
               </View>
             </MotiView>
@@ -281,17 +282,17 @@ export default function WorkflowsScreen() {
       {/* Header */}
       <MotiView
         {...maybeReduce(headerEntrance, reduced)}
-        className="px-6 pt-6 pb-2"
+        style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, paddingBottom: spacing.sm }}
       >
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">Automations</Text>
-            <Text style={s.mutedText} className="text-sm mt-0.5">Let Pip handle the boring stuff</Text>
+            <Text style={[s.mutedText, { marginTop: 2 }]} className="text-sm">Let Pip handle the boring stuff</Text>
           </View>
           <MotiView
             {...maybeReduce(popIn(0, delays.slow), reduced)}
           >
-            <View className="bg-pip-purple/15 rounded-2xl px-4 py-2 items-center">
+            <View className="bg-pip-purple/15 rounded-2xl items-center" style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
               <Text className="text-pip-purple text-[20px] font-extrabold">{workflows.length}</Text>
               <Text className="text-pip-purple text-[10px] font-bold uppercase">Active</Text>
             </View>
@@ -302,18 +303,19 @@ export default function WorkflowsScreen() {
       <FlatList
         data={workflows}
         keyExtractor={(w) => w.id}
-        contentContainerClassName="px-4 gap-3 pb-[100px]"
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: 100 }}
         ListHeaderComponent={
           workflows.length === 0 ? (
-            <View className="mt-4 mb-2">
+            <View style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
               {/* Empty state with templates */}
               <MotiView
                 {...maybeReduce(popIn(0, delays.slow), reduced)}
-                className="items-center mb-6"
+                className="items-center"
+                style={{ marginBottom: layout.sectionGap }}
               >
                 <PipCard expression="thinking" size="small" />
-                <Text className="text-foreground text-lg font-bold mt-2">No automations yet</Text>
-                <Text style={s.mutedText} className="text-sm text-center mt-1">
+                <Text className="text-foreground text-lg font-bold" style={{ marginTop: spacing.sm }}>No automations yet</Text>
+                <Text style={[s.mutedText, { marginTop: spacing.xs }]} className="text-sm text-center">
                   Tell me what to automate, or try a template:
                 </Text>
               </MotiView>
@@ -328,9 +330,10 @@ export default function WorkflowsScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Create automation: ${t.title}`}
-                      className="flex-row items-center rounded-2xl p-4 gap-3"
+                      className="flex-row items-center rounded-2xl"
                       onPress={() => createWorkflow(t.title)}
                       style={({ pressed, hovered }: any) => [
+                        { padding: spacing.lg, gap: spacing.md },
                         s.templateCardBase,
                         ...pressStyle({ pressed }),
                         webInteractive(),
@@ -360,8 +363,8 @@ export default function WorkflowsScreen() {
             <MotiView
               {...maybeReduce(entrance(index, delays.normal), reduced)}
             >
-              <View className="rounded-2xl p-4 gap-3" style={s.workflowCard}>
-                <View className="flex-row items-center gap-3">
+              <View className="rounded-2xl" style={[s.workflowCard, { padding: spacing.lg, gap: spacing.md }]}>
+                <View className="flex-row items-center" style={{ gap: spacing.md }}>
                   <View
                     className="w-[42px] h-[42px] rounded-xl items-center justify-center"
                     style={[styles.triggerIcon, { backgroundColor: trigger.color + '20' }]}
@@ -371,10 +374,10 @@ export default function WorkflowsScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground text-base font-bold">{item.name}</Text>
                     {item.description ? (
-                      <Text style={s.mutedText} className="text-[13px] mt-0.5" numberOfLines={2}>{item.description}</Text>
+                      <Text style={[s.mutedText, { marginTop: 2 }]} className="text-[13px]" numberOfLines={2}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <View className="flex-row items-center gap-1.5">
+                  <View className="flex-row items-center" style={{ gap: spacing.xs + 2 }}>
                     <Text
                       style={item.active ? s.activeStatusColor : s.inactiveStatusColor}
                       className="text-[11px] font-semibold"
@@ -396,16 +399,16 @@ export default function WorkflowsScreen() {
                   </View>
                 </View>
                 {/* Trigger badge */}
-                <View className="flex-row items-center gap-2">
+                <View className="flex-row items-center" style={{ gap: spacing.sm }}>
                   <View
-                    className="rounded-full px-2.5 py-1 flex-row items-center gap-1"
-                    style={[styles.triggerBadge, { backgroundColor: trigger.color + '15' }]}
+                    className="rounded-full flex-row items-center"
+                    style={[styles.triggerBadge, { backgroundColor: trigger.color + '15', paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs, gap: spacing.xs }]}
                   >
                     <Ionicons name={trigger.icon} size={12} color={trigger.color} />
                     <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.label}</Text>
                   </View>
                   {item.active && (
-                    <View className="rounded-full px-2.5 py-1 bg-[#4ADE80]/15 flex-row items-center gap-1">
+                    <View className="rounded-full bg-[#4ADE80]/15 flex-row items-center" style={{ paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs, gap: spacing.xs }}>
                       <View className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
                       <Text className="text-[#4ADE80] text-[11px] font-semibold">Running</Text>
                     </View>
@@ -455,7 +458,7 @@ export default function WorkflowsScreen() {
             style={s.modalContent}
             {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'New Automation' } as any : {})}
           >
-            <View className="flex-row items-center gap-3 mb-5">
+            <View className="flex-row items-center" style={{ gap: spacing.md, marginBottom: spacing.xl }}>
               <View className="w-10 h-10 rounded-xl bg-pip-purple/20 items-center justify-center">
                 <Ionicons name="sparkles" size={20} color={purple[500]} />
               </View>
@@ -465,8 +468,8 @@ export default function WorkflowsScreen() {
               </View>
             </View>
             <TextInput
-              className="rounded-2xl p-4 text-foreground text-[15px] mb-4"
-              style={s.modalInput}
+              className="rounded-2xl text-foreground text-[15px]"
+              style={[s.modalInput, { padding: spacing.lg, marginBottom: spacing.lg }]}
               placeholder="e.g., Every morning, summarize my calendar in Slack..."
               placeholderTextColor={t.muted}
               value={nlInput}
@@ -477,10 +480,11 @@ export default function WorkflowsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={isPending ? 'Creating automation' : 'Create automation'}
-              className="rounded-2xl py-4 items-center mb-2 overflow-hidden"
+              className="rounded-2xl items-center overflow-hidden"
               onPress={() => createWorkflow()}
               disabled={isPending || !nlInput.trim()}
               style={({ pressed }) => [
+                { paddingVertical: spacing.lg, marginBottom: spacing.sm },
                 isPending || !nlInput.trim() ? styles.disabledOpacity : undefined,
                 ...pressStyle({ pressed }),
                 webInteractive(isPending || !nlInput.trim()),
@@ -499,9 +503,10 @@ export default function WorkflowsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel"
-              className="py-3 items-center"
+              className="items-center"
               onPress={() => setModalVisible(false)}
               style={({ pressed }) => [
+                { paddingVertical: spacing.md },
                 ...chipPressStyle({ pressed }),
                 webInteractive(),
               ]}

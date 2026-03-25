@@ -22,7 +22,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
-import { base, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, popIn, delays, chipPressStyle, pressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 // ---------------------------------------------------------------------------
@@ -223,16 +223,15 @@ const AppCard = React.memo(function AppCard({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${app.name}, ${isConnected ? 'connected' : 'not connected'}`}
-      className="rounded-2xl p-3 items-center relative mr-2.5"
+      className="rounded-2xl items-center relative"
       style={({ pressed, hovered, focused }: any) => [
+        { padding: spacing.md, marginRight: spacing.sm + 2 },
         isConnected ? s.appCardConnected : s.appCardDisconnected,
         ...chipPressStyle({ pressed }),
         webInteractive(isConnecting),
-        // Web hover: subtle lift with glow
         Platform.OS === 'web' && hovered && !pressed && !isConnecting
           ? s.appCardHovered
           : undefined,
-        // Web focus ring
         Platform.OS === 'web' && focused && !isConnecting
           ? styles.appCardFocusRing
           : undefined,
@@ -241,16 +240,16 @@ const AppCard = React.memo(function AppCard({
       disabled={isConnecting}
     >
       {isConnected && (
-        <View className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-pip-success items-center justify-center z-10">
+        <View className="absolute w-5 h-5 rounded-full bg-pip-success items-center justify-center z-10" style={{ top: spacing.xs + 2, right: spacing.xs + 2 }}>
           <Ionicons name="checkmark" size={12} color={base.white} />
         </View>
       )}
       {isConnecting && (
-        <View className="absolute top-2 right-2 z-10">
+        <View className="absolute z-10" style={{ top: spacing.sm, right: spacing.sm }}>
           <ActivityIndicator size="small" color={purple[500]} />
         </View>
       )}
-      <View className="rounded-2xl items-center justify-center mb-2" style={s.iconContainer}>
+      <View className="rounded-2xl items-center justify-center" style={[s.iconContainer, { marginBottom: spacing.sm }]}>
         <Image
           source={{ uri: app.logo }}
           style={s.logo}
@@ -301,16 +300,16 @@ const CategorySection = React.memo(function CategorySection({
   };
 
   return (
-    <View className="mb-6">
+    <View style={{ marginBottom: layout.sectionGap }}>
       {/* Category header */}
-      <View className="flex-row items-center gap-2 mb-3 ml-1">
+      <View className="flex-row items-center" style={{ gap: spacing.sm, marginBottom: spacing.md, marginLeft: spacing.xs }}>
         <Text className="text-lg">{meta.icon}</Text>
         <Text className="text-foreground text-base font-bold">
           {section.category}
         </Text>
         <View
-          className="rounded-full px-2 py-0.5"
-          style={s.categoryBadge}
+          className="rounded-full"
+          style={[s.categoryBadge, { paddingHorizontal: spacing.sm, paddingVertical: 2 }]}
         >
           <Text style={s.categoryBadgeText}>
             {connectedCount}/{section.apps.length}
@@ -390,8 +389,9 @@ const CategoryTabs = React.memo(function CategoryTabs({
             accessibilityLabel={`${cat} category, ${count} apps`}
             accessibilityState={{ selected: active }}
             onPress={() => onSelect(isAll ? null : cat)}
-            className="rounded-full px-3 py-1.5 flex-row items-center"
+            className="rounded-full flex-row items-center"
             style={({ pressed, hovered, focused }: any) => [
+              { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2 },
               active ? s.tabActive : s.tabInactive,
               ...chipPressStyle({ pressed }),
               webInteractive(),
@@ -598,12 +598,12 @@ export default function AppsScreen() {
 
   if (fetchError || (isLoading && loadingTimedOut)) {
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center px-6">
+      <SafeAreaView className="flex-1 bg-background justify-center items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
         <Ionicons name="cloud-offline-outline" size={40} color={t.muted} />
-        <Text className="text-foreground text-base font-bold mt-4">
+        <Text className="text-foreground text-base font-bold" style={{ marginTop: spacing.lg }}>
           Failed to load
         </Text>
-        <Text style={[styles.mutedText, { color: t.muted }]} className="text-sm text-center mt-1">
+        <Text style={[styles.mutedText, { color: t.muted, marginTop: spacing.xs }]} className="text-sm text-center">
           {fetchError
             ? 'Could not load your apps. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
@@ -611,7 +611,8 @@ export default function AppsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading apps"
-          className="mt-5 bg-pip-purple rounded-xl px-6 py-3"
+          className="bg-pip-purple rounded-xl"
+          style={{ marginTop: spacing.xl, paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.md }}
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
         >
           <Text className="text-white text-sm font-bold">Retry</Text>
@@ -629,7 +630,7 @@ export default function AppsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background">
         {/* Immediate loading indicator — visible from second 0 */}
-        <View className="mx-6 mt-4 rounded-xl px-4 py-3 flex-row items-center" style={loadingSlow ? styles.slowHintBg : styles.loadingHintBg}>
+        <View className="rounded-xl flex-row items-center" style={[loadingSlow ? styles.slowHintBg : styles.loadingHintBg, { marginHorizontal: layout.screenPaddingH, marginTop: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
           {loadingSlow ? (
             <>
               <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
@@ -638,8 +639,8 @@ export default function AppsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Retry loading apps"
                 onPress={() => { setLoadingSlow(false); refetch(); }}
-                className="ml-2 rounded-lg px-3 py-1"
-                style={styles.slowHintRetry}
+                className="rounded-lg"
+                style={[styles.slowHintRetry, { marginLeft: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }]}
               >
                 <Text style={styles.slowHintRetryText}>Retry</Text>
               </Pressable>
@@ -652,33 +653,33 @@ export default function AppsScreen() {
           )}
         </View>
         {/* Skeleton header */}
-        <View className="px-6 pt-6 pb-4">
+        <View style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, paddingBottom: spacing.lg }}>
           <View className="flex-row items-center justify-between">
             <View>
               <MotiView {...pulse} className="h-7 w-36 rounded-lg" style={ts.skeletonBg} />
-              <MotiView {...pulse} className="h-4 w-28 rounded-md mt-2" style={ts.skeletonBg} />
+              <MotiView {...pulse} className="h-4 w-28 rounded-md" style={[ts.skeletonBg, { marginTop: spacing.sm }]} />
             </View>
             <MotiView {...pulse} className="w-16 h-14 rounded-2xl" style={ts.skeletonBg} />
           </View>
         </View>
         {/* Skeleton search bar */}
-        <View className="mx-6 mb-3">
+        <View style={{ marginHorizontal: layout.screenPaddingH, marginBottom: spacing.md }}>
           <MotiView {...pulse} className="h-12 rounded-2xl" style={ts.skeletonBg} />
         </View>
         {/* Skeleton category tabs */}
-        <View className="flex-row px-6 mb-4 gap-2">
+        <View className="flex-row" style={{ paddingHorizontal: layout.screenPaddingH, marginBottom: spacing.lg, gap: spacing.sm }}>
           {[72, 88, 96, 64, 80].map((w, i) => (
             <MotiView key={i} {...pulse} className="h-8 rounded-full" style={[ts.skeletonBg, { width: w }]} />
           ))}
         </View>
         {/* Skeleton category sections */}
         {[0, 1, 2].map((section) => (
-          <View key={section} className="px-6 mb-6">
-            <View className="flex-row items-center gap-2 mb-3">
+          <View key={section} style={{ paddingHorizontal: layout.screenPaddingH, marginBottom: layout.sectionGap }}>
+            <View className="flex-row items-center" style={{ gap: spacing.sm, marginBottom: spacing.md }}>
               <MotiView {...pulse} className="w-6 h-6 rounded-md" style={ts.skeletonBg} />
               <MotiView {...pulse} className="h-5 w-28 rounded-md" style={ts.skeletonBg} />
             </View>
-            <View className="flex-row gap-2.5">
+            <View className="flex-row" style={{ gap: spacing.sm + 2 }}>
               {[0, 1, 2, 3].map((card) => (
                 <MotiView key={card} {...pulse} className="rounded-2xl" style={[ts.skeletonBg, { width: appCardWidth, height: appCardWidth * 1.1 }]} />
               ))}
@@ -696,21 +697,21 @@ export default function AppsScreen() {
       {/* Header */}
       <MotiView
         {...maybeReduce(headerEntrance, reduced)}
-        className="px-6 pt-6 pb-4"
+        style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, paddingBottom: spacing.lg }}
       >
         <View className="flex-row items-center justify-between">
           <View>
             <Text className="text-foreground text-[28px] font-extrabold">
               Your Apps
             </Text>
-            <Text style={[styles.mutedText, { color: t.muted }]} className="text-sm mt-1">
+            <Text style={[styles.mutedText, { color: t.muted, marginTop: spacing.xs }]} className="text-sm">
               {ALL_APPS.length} apps available
             </Text>
           </View>
           <MotiView
             {...maybeReduce(popIn(0), reduced)}
           >
-            <View className="bg-[#4ADE80]/15 rounded-2xl px-4 py-2 items-center">
+            <View className="bg-[#4ADE80]/15 rounded-2xl items-center" style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
               <Text className="text-[#4ADE80] text-[20px] font-extrabold">
                 {connected.length}
               </Text>
@@ -725,8 +726,8 @@ export default function AppsScreen() {
       {/* Search */}
       <MotiView
         {...maybeReduce(entrance(0, delays.normal), reduced)}
-        className="flex-row items-center rounded-2xl mx-6 mb-3 px-4"
-        style={ts.searchBar}
+        className="flex-row items-center rounded-2xl"
+        style={[ts.searchBar, { marginHorizontal: layout.screenPaddingH, marginBottom: spacing.md, paddingHorizontal: spacing.lg }]}
       >
         <Ionicons
           name="search-outline"
@@ -735,7 +736,8 @@ export default function AppsScreen() {
           style={ts.searchIcon}
         />
         <TextInput
-          className="flex-1 py-3.5 text-foreground text-[15px]"
+          className="flex-1 text-foreground text-[15px]"
+          style={{ paddingVertical: spacing.md + 2 }}
           placeholder={`Search ${ALL_APPS.length} apps...`}
           placeholderTextColor={t.muted}
           value={search}
@@ -760,12 +762,12 @@ export default function AppsScreen() {
       <FlatList
         data={sections}
         keyExtractor={(s) => s.category}
-        contentContainerClassName="px-6 pb-12"
+        contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing['3xl'] + spacing.lg }}
         initialNumToRender={5}
         maxToRenderPerBatch={5}
         windowSize={5}
         ListEmptyComponent={
-          <View className="items-center mt-10">
+          <View className="items-center" style={{ marginTop: spacing.xl * 2 }}>
             <PipCard
               expression="thinking"
               message={`No apps matching "${search}"`}
