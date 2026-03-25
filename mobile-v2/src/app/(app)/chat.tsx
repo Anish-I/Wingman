@@ -70,6 +70,7 @@ export default function ChatScreen() {
   const addMessage = useChatStore.use.addMessage();
   const updateMessage = useChatStore.use.updateMessage();
   const setLoading = useChatStore.use.setLoading();
+  const dismissFailedMessage = useChatStore.use.dismissFailedMessage();
   const [input, setInput] = useState('');
   const [greeting] = useState(() => PIP_GREETINGS[Math.floor(Math.random() * PIP_GREETINGS.length)]);
   const listRef = useRef<FlatList>(null);
@@ -170,6 +171,8 @@ export default function ChatScreen() {
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
       pendingIdempotencyKey.current = null;
+      // Auto-purge any lingering failed messages + error replies from prior attempts
+      useChatStore.getState().purgeFailedMessages();
     }
     catch (err: unknown) {
       // Mark user message as failed
@@ -327,6 +330,16 @@ export default function ChatScreen() {
                     >
                       <Ionicons name="refresh-outline" size={13} color={purple[400]} />
                       <Text style={styles.retryText}>Retry</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss failed message"
+                      onPress={() => dismissFailedMessage(item.id)}
+                      hitSlop={12}
+                      style={styles.retryButton}
+                    >
+                      <Ionicons name="close-outline" size={13} color={t.muted} />
+                      <Text style={[styles.retryText, { color: t.muted }]}>Dismiss</Text>
                     </Pressable>
                   </View>
                 )}
