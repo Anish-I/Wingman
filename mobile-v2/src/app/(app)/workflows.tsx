@@ -256,7 +256,7 @@ export default function WorkflowsScreen() {
           </View>
         </View>
         {/* Skeleton workflow cards */}
-        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, marginTop: spacing.sm }}>
+        <View style={{ paddingHorizontal: layout.screenPaddingH, gap: spacing.md, marginTop: spacing.sm }}>
           {[0, 1, 2, 3].map((i) => (
             <MotiView key={i} {...pulse} className="rounded-2xl" style={[s.skeletonCardBg, { padding: spacing.lg }]}>
               <View className="flex-row items-center" style={{ gap: spacing.md }}>
@@ -303,7 +303,7 @@ export default function WorkflowsScreen() {
       <FlatList
         data={workflows}
         keyExtractor={(w) => w.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] + layout.scrollPaddingBottom }}
+        contentContainerStyle={{ paddingHorizontal: layout.screenPaddingH, gap: spacing.md, paddingBottom: spacing['3xl'] + layout.scrollPaddingBottom }}
         ListHeaderComponent={
           workflows.length === 0 ? (
             <View style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>

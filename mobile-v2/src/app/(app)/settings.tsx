@@ -221,7 +221,7 @@ export default function SettingsScreen() {
             transition: { ...springs.gentle, delay: staggerDelay(1, delays.normal) },
           }, reducedMotion)}
           className="flex-row"
-          style={{ gap: spacing.md, paddingHorizontal: spacing.lg, marginBottom: layout.sectionGap }}
+          style={{ gap: spacing.md, paddingHorizontal: layout.screenPaddingH, marginBottom: layout.sectionGap }}
         >
           {[
             { num: String(stats.apps), label: 'Apps', color: semantic.info },
@@ -251,7 +251,7 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(3, delays.normal) },
           }, reducedMotion)}
-          style={{ marginTop: spacing.sm, paddingHorizontal: spacing.lg }}
+          style={{ marginTop: spacing.sm, paddingHorizontal: layout.screenPaddingH }}
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Account</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
@@ -268,7 +268,7 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(4, delays.normal) },
           }, reducedMotion)}
-          style={{ marginTop: layout.sectionGap, paddingHorizontal: spacing.lg }}
+          style={{ marginTop: layout.sectionGap, paddingHorizontal: layout.screenPaddingH }}
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Preferences</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
@@ -285,7 +285,7 @@ export default function SettingsScreen() {
             animate: { opacity: 1, translateX: 0 },
             transition: { ...springs.gentle, delay: staggerDelay(5, delays.normal) },
           }, reducedMotion)}
-          style={{ marginTop: layout.sectionGap, paddingHorizontal: spacing.lg }}
+          style={{ marginTop: layout.sectionGap, paddingHorizontal: layout.screenPaddingH }}
         >
           <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>About</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
@@ -309,7 +309,7 @@ export default function SettingsScreen() {
             className="flex-row items-center justify-center bg-[#FF3B30]/10 rounded-2xl"
             onPress={handleLogout}
             style={({ pressed, hovered, focused }: any) => [
-              { gap: spacing.sm, paddingVertical: spacing.lg, marginTop: spacing['3xl'], marginHorizontal: spacing.lg },
+              { gap: spacing.sm, paddingVertical: spacing.lg, marginTop: spacing['3xl'], marginHorizontal: layout.screenPaddingH },
               ...cardPressStyle({ pressed }),
               webInteractive(),
               // Web hover: enhance background
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   settingsRowDivider: {
     height: 1,
-    marginLeft: 56,  // icon (36) + gap (8) + padding (12) alignment
+    marginLeft: spacing.lg + 36 + spacing.md,  // row padding + icon w-9 (36) + row gap
   },
   settingsRowIcon: {},
   rowHovered: {
