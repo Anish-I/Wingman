@@ -7,7 +7,7 @@ import * as z from 'zod';
 import { Button, Input, View } from '@/components/ui';
 import { StyleSheet, Text as RNText } from 'react-native';
 import { getFieldError } from '@/components/ui/form-utils';
-import { spacing } from '@/components/ui/tokens';
+import { layout, spacing } from '@/components/ui/tokens';
 
 const schema = z.object({
   name: z.string().optional(),
@@ -53,7 +53,7 @@ export function LoginForm({ onSubmit = () => {} }: LoginFormProps) {
       behavior="padding"
       keyboardVerticalOffset={10}
     >
-      <View className="flex-1 justify-center bg-background" style={{ padding: spacing.lg }}>
+      <View className="flex-1 justify-center bg-background" style={{ paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.lg }}>
         <View className="items-center justify-center">
           <RNText
             testID="form-title"
