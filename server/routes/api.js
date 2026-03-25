@@ -50,9 +50,9 @@ const MAX_CHAT_MESSAGE_LENGTH = 4000;
 // Key format: wingman:chat-idem:<userId>:<idempotencyKey>
 // Values: JSON { status: 'processing' | 'done', reply?: string, error?: object }
 const IDEM_PREFIX = 'wingman:chat-idem:';
-const IDEM_TTL_SECONDS = 120; // cached result TTL
+const IDEM_TTL_SECONDS = 300; // cached result TTL — 5 min to cover delayed retries
 const IDEM_POLL_INTERVAL_MS = 250;
-const IDEM_POLL_MAX_MS = 130000; // slightly longer than PROCESS_MESSAGE_TIMEOUT
+const IDEM_POLL_MAX_MS = 130000; // slightly longer than PROCESS_MESSAGE_TIMEOUT (120s)
 
 /**
  * Derive an idempotency key. Prefer client-provided X-Idempotency-Key header;

@@ -10,6 +10,7 @@ type ChatState = {
   removeMessage: (id: string) => void;
   dismissFailedMessage: (id: string) => void;
   purgeFailedMessages: () => void;
+  removeTransientMessages: () => void;
   setLoading: (loading: boolean) => void;
   clearMessages: () => void;
 };
@@ -58,9 +59,9 @@ const _useChatStore = create<ChatState>((set) => ({
           if (next.role === 'assistant') errorIds.add(next.id);
         }
       }
-      // Also purge stale error messages older than 5 minutes — catches any
+      // Also purge stale error messages older than 60 seconds — catches any
       // that slipped past earlier cleanup (e.g. race with late-arriving failures).
-      const staleThreshold = Date.now() - 5 * 60 * 1000;
+      const staleThreshold = Date.now() - 60 * 1000;
       for (const m of state.messages) {
         if (m.isError && m.timestamp < staleThreshold) {
           errorIds.add(m.id);
@@ -80,6 +81,15 @@ const _useChatStore = create<ChatState>((set) => ({
           (m) => !failedIds.has(m.id) && !errorIds.has(m.id),
         ),
       };
+    }),
+  removeTransientMessages: () =>
+    set((state) => {
+      const dominated = state.messages.filter(
+        (m) => m.status === 'failed' || m.status === 'sending' || m.isError,
+      );
+      if (dominated.length === 0) return state;
+      const ids = new Set(dominated.map((m) => m.id));
+      return { messages: state.messages.filter((m) => !ids.has(m.id)) };
     }),
   setLoading: (loading) => set({ loading }),
   clearMessages: () => set({ messages: [] }),

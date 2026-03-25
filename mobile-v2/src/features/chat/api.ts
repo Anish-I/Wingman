@@ -10,7 +10,7 @@ function generateIdempotencyKey(): string {
 }
 
 type ChatResponse = { reply: string };
-type ChatVariables = { message: string; idempotencyKey?: string; signal?: AbortSignal };
+type ChatVariables = { message: string; idempotencyKey?: string | null; signal?: AbortSignal };
 
 const DEMO_TOKEN = 'demo-mock-token';
 
@@ -27,11 +27,18 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
     }
 
     try {
-      const key = variables.idempotencyKey ?? generateIdempotencyKey();
+      // When idempotencyKey is explicitly null (retry without stored key), omit
+      // the header so the server falls back to sha256(message) content-hash dedup.
+      // When undefined (new message without caller-provided key), generate one.
+      const key = variables.idempotencyKey === null
+        ? null
+        : (variables.idempotencyKey ?? generateIdempotencyKey());
+      const headers: Record<string, string> = {};
+      if (key) headers['X-Idempotency-Key'] = key;
       const { data } = await client.post<ChatResponse>(
         '/api/chat',
         { message: variables.message },
-        { headers: { 'X-Idempotency-Key': key }, signal: variables.signal },
+        { headers, signal: variables.signal },
       );
       return data;
     } catch (err) {

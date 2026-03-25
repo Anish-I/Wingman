@@ -165,15 +165,18 @@ export default function ChatScreen() {
       pendingAssistantMsgId.current = Crypto.randomUUID();
     }
     // Stable idempotency key per message attempt — retries reuse the same key
-    // to prevent server-side duplicates when API partially succeeds
-    if (!pendingIdempotencyKey.current) {
+    // to prevent server-side duplicates when API partially succeeds.
+    // For retries without a stored key, omit the header so the server falls back
+    // to its sha256(message) content-hash dedup, preventing duplicates even when
+    // the original client key was lost (e.g. after navigation).
+    if (!pendingIdempotencyKey.current && !isRetry) {
       pendingIdempotencyKey.current = `${Date.now()}-${pendingUserMsgId.current}`;
     }
     const userMsgId = pendingUserMsgId.current;
     const assistantMsgId = pendingAssistantMsgId.current;
     const idempotencyKey = pendingIdempotencyKey.current;
     // Persist key per message so retry can look it up even after pending refs reset
-    idempotencyKeys.current.set(userMsgId, idempotencyKey);
+    if (idempotencyKey) idempotencyKeys.current.set(userMsgId, idempotencyKey);
 
     // Deduplicate: skip if user message was already added (e.g. retry path)
     const currentMessages = useChatStore.getState().messages;
@@ -278,10 +281,13 @@ export default function ChatScreen() {
     }
     // Restore per-message idempotency key so retry reuses the original key —
     // prevents server-side duplicates when the first attempt partially succeeded.
-    // Reset assistant ID so a fresh one is generated for the new response.
+    // If the stored key is lost (e.g. cleared by navigation), compute a
+    // deterministic fallback from the message content so the server's
+    // sha256-content-hash dedup catches it even if the client key changed.
+    const storedKey = idempotencyKeys.current.get(messageId);
     pendingUserMsgId.current = messageId;
     pendingAssistantMsgId.current = null;
-    pendingIdempotencyKey.current = idempotencyKeys.current.get(messageId) ?? null;
+    pendingIdempotencyKey.current = storedKey ?? null;
     send(msg.content, true);
   }
 
@@ -309,8 +315,8 @@ export default function ChatScreen() {
         // Cancel all auto-dismiss timers
         for (const t of autoDismissTimers.current.values()) clearTimeout(t);
         autoDismissTimers.current.clear();
-        // Clean up before leaving
-        useChatStore.getState().purgeFailedMessages();
+        // Aggressively remove all failed/error/sending messages on navigation
+        useChatStore.getState().removeTransientMessages();
         setLoading(false);
         isSendingRef.current = false;
         pendingUserMsgId.current = null;
