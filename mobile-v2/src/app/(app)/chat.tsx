@@ -119,6 +119,17 @@ export default function ChatScreen() {
   // Auto-dismiss timers for failed messages — cleaned up on blur/unmount
   const autoDismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  /** Reset pending refs when a failed message is dismissed so the next send
+   *  generates fresh IDs/keys instead of reusing stale ones. */
+  function clearPendingForMessage(messageId: string) {
+    if (pendingUserMsgId.current === messageId) {
+      pendingUserMsgId.current = null;
+      pendingAssistantMsgId.current = null;
+      pendingIdempotencyKey.current = null;
+    }
+    idempotencyKeys.current.delete(messageId);
+  }
+
   async function send(text?: string) {
     if (isSendingRef.current) return; // Hard mutex — no double sends
     const msg = text ?? input.trim();
@@ -223,6 +234,7 @@ export default function ChatScreen() {
         autoDismissTimers.current.delete(userMsgId);
         if (mountedRef.current) {
           useChatStore.getState().dismissFailedMessage(userMsgId);
+          clearPendingForMessage(userMsgId);
         }
       }, 30_000);
       autoDismissTimers.current.set(userMsgId, timerId);
@@ -403,6 +415,7 @@ export default function ChatScreen() {
                         const t2 = autoDismissTimers.current.get(item.id);
                         if (t2) { clearTimeout(t2); autoDismissTimers.current.delete(item.id); }
                         dismissFailedMessage(item.id);
+                        clearPendingForMessage(item.id);
                       }}
                       hitSlop={12}
                       style={styles.retryButton}
