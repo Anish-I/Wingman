@@ -199,6 +199,16 @@ export default function ChatScreen() {
     setLoading(true);
     try {
       const result = await sendMutation.mutateAsync({ message: msg, idempotencyKey, signal });
+      // If user navigated away while the request was in-flight, the blur
+      // handler already ran removeTransientMessages.  Adding messages now
+      // would create orphans that never get cleaned up.
+      if (!mountedRef.current) {
+        pendingUserMsgId.current = null;
+        pendingAssistantMsgId.current = null;
+        pendingIdempotencyKey.current = null;
+        idempotencyKeys.current.delete(userMsgId);
+        return;
+      }
       // Mark user message as sent
       updateMessage(userMsgId, { status: 'sent' });
       // Fresh snapshot from store to avoid stale closure

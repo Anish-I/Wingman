@@ -19,9 +19,12 @@ const _useChatStore = create<ChatState>((set) => ({
   messages: [],
   loading: false,
   addMessage: (msg) =>
-    set((state) => ({
-      messages: [...state.messages, msg],
-    })),
+    set((state) => {
+      // Defensive dedup — prevent duplicate messages from races between
+      // the send success path and retry/navigation cleanup.
+      if (state.messages.some((m) => m.id === msg.id)) return state;
+      return { messages: [...state.messages, msg] };
+    }),
   updateMessage: (id, updates) =>
     set((state) => ({
       messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
@@ -44,43 +47,43 @@ const _useChatStore = create<ChatState>((set) => ({
     }),
   purgeFailedMessages: () =>
     set((state) => {
-      const failedIds = new Set(
-        state.messages.filter((m) => m.status === 'failed').map((m) => m.id),
-      );
-      // Collect IDs of error assistant messages — tagged with isError flag,
-      // plus positional fallback for any that were added before the flag existed.
-      const errorIds = new Set<string>(
-        state.messages.filter((m) => m.isError).map((m) => m.id),
-      );
-      for (let i = 0; i < state.messages.length; i++) {
-        const m = state.messages[i];
-        if (failedIds.has(m.id) && i + 1 < state.messages.length) {
-          const next = state.messages[i + 1];
-          if (next.role === 'assistant') errorIds.add(next.id);
+      const now = Date.now();
+      const toRemove = new Set<string>();
+      // Only remove failed messages older than 30 seconds — fresh ones survive
+      // so the user has time to retry or dismiss before they vanish.
+      const failedThreshold = now - 30_000;
+      for (const m of state.messages) {
+        if (m.status === 'failed' && m.timestamp < failedThreshold) {
+          toRemove.add(m.id);
         }
       }
-      // Also purge stale error messages older than 60 seconds — catches any
-      // that slipped past earlier cleanup (e.g. race with late-arriving failures).
-      const staleThreshold = Date.now() - 60 * 1000;
+      // Remove paired assistant error messages that follow stale failures
+      // (positional fallback for messages added before the isError flag existed).
+      for (let i = 0; i < state.messages.length; i++) {
+        const m = state.messages[i];
+        if (toRemove.has(m.id) && i + 1 < state.messages.length) {
+          const next = state.messages[i + 1];
+          if (next.role === 'assistant') toRemove.add(next.id);
+        }
+      }
+      // Purge stale error messages older than 60 seconds — catches orphans
+      // from race conditions or late-arriving failures.
+      const staleErrorThreshold = now - 60_000;
       for (const m of state.messages) {
-        if (m.isError && m.timestamp < staleThreshold) {
-          errorIds.add(m.id);
+        if (m.isError && m.timestamp < staleErrorThreshold) {
+          toRemove.add(m.id);
         }
       }
       // Purge orphaned "sending" messages older than 2 minutes — handles app
       // crashes or force-kills where the send never resolved.
-      const sendingThreshold = Date.now() - 2 * 60 * 1000;
+      const sendingThreshold = now - 2 * 60_000;
       for (const m of state.messages) {
         if (m.status === 'sending' && m.timestamp < sendingThreshold) {
-          failedIds.add(m.id);
+          toRemove.add(m.id);
         }
       }
-      if (failedIds.size === 0 && errorIds.size === 0) return state;
-      return {
-        messages: state.messages.filter(
-          (m) => !failedIds.has(m.id) && !errorIds.has(m.id),
-        ),
-      };
+      if (toRemove.size === 0) return state;
+      return { messages: state.messages.filter((m) => !toRemove.has(m.id)) };
     }),
   removeTransientMessages: () =>
     set((state) => {
