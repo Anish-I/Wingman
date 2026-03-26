@@ -19,7 +19,7 @@ export default function TabLayout() {
   const hydrated = useAuth.use.hydrated();
   const status = useAuth.use.status();
   const token = useAuth.use.token();
-  const [isFirstTime] = useIsFirstTime();
+  const [isFirstTime, setIsFirstTime] = useIsFirstTime();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const hideSplash = useCallback(async () => {
@@ -57,7 +57,11 @@ export default function TabLayout() {
     return <Redirect href="/login" />;
   }
   if (isFirstTime !== false) {
-    return <Redirect href="/onboarding/welcome" />;
+    // User has a valid token (login/signup guard above already handled the
+    // no-token case) but isFirstTime was never cleared — e.g. the app crashed
+    // after signup but before the done screen.  Clear the stale flag instead
+    // of looping back to onboarding; the token proves signup completed.
+    setIsFirstTime(false);
   }
 
   return (
