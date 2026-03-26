@@ -42,7 +42,7 @@ export default function RootLayout() {
       }
       if (storageReady) {
         try {
-          hydrateAuth();
+          await hydrateAuth();
         } catch (error) {
           console.error('[bootstrap] hydrateAuth failed:', error);
           _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });

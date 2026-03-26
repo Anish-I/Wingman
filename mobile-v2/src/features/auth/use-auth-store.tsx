@@ -94,7 +94,7 @@ type AuthState = {
   hydrated: boolean;
   signIn: (data: TokenType) => void;
   signOut: () => void;
-  hydrate: () => void;
+  hydrate: () => Promise<void>;
 };
 
 const _useAuthStore = create<AuthState>((set, get) => ({
@@ -117,7 +117,7 @@ const _useAuthStore = create<AuthState>((set, get) => ({
       blacklistToken(token);
     }
   },
-  hydrate: () => {
+  hydrate: async () => {
     try {
       const userToken = getToken();
       if (userToken !== null) {
@@ -150,4 +150,4 @@ export const useAuthStore = createSelectors(_useAuthStore);
 
 export const signOut = () => _useAuthStore.getState().signOut();
 export const signIn = (token: TokenType) => _useAuthStore.getState().signIn(token);
-export const hydrateAuth = () => _useAuthStore.getState().hydrate();
+export const hydrateAuth = () => _useAuthStore.getState().hydrate() as Promise<void>;
