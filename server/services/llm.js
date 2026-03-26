@@ -137,6 +137,9 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
   }
 
   return queueLLMCall(async () => {
+    // Collect errors from each provider for diagnostics
+    const providerErrors = [];
+
     // Try each provider in fallback order
     for (let i = 0; i < providers.length; i++) {
       const provider = providers[i];
@@ -225,17 +228,19 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       const isTimeout = lastErr?.name === 'TimeoutError' || lastErr?.name === 'AbortError';
       const isTransient = isTimeout || TRANSIENT_STATUSES.has(lastErr?.status) || !lastErr?.status;
       if (isTransient) {
+        providerErrors.push({ provider: provider.name, status: lastErr?.status || null, message: lastErr?.message || String(lastErr), type: isTimeout ? 'timeout' : 'transient' });
         console.log(`[llm] ${provider.name} failed (${lastErr?.status || 'connection error'}), falling back to ${providers[i + 1]?.name || 'none'}`);
         continue;
       }
 
       // Non-transient error (e.g. 401, 403), don't try other providers
-      logger.error({ err: lastErr?.message || String(lastErr) }, '[llm] Call failed');
+      providerErrors.push({ provider: provider.name, status: lastErr?.status || null, message: lastErr?.message || String(lastErr), type: 'non-transient' });
+      logger.error({ err: lastErr?.message || String(lastErr), providerErrors }, '[llm] Call failed (non-transient)');
       throw new Error('Failed to process your message. Please try again.');
     }
 
-    // All providers exhausted
-    logger.error('[llm] All providers failed');
+    // All providers exhausted — log the full error chain for diagnostics
+    logger.error({ providerErrors }, `[llm] All ${providerErrors.length} providers failed: ${providerErrors.map(e => `${e.provider}(${e.type}: ${e.status || 'no status'} — ${e.message})`).join(', ')}`);
     throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
   }, { signal });
 }
