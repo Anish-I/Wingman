@@ -139,17 +139,20 @@ export default function ChatScreen() {
 
     isSendingRef.current = true;
 
-    // If there's a stale failed message and this is NOT a retry,
-    // dismiss it and clear pending refs so we generate fresh IDs.
+    // If pending refs point to a message that was already purged by background
+    // cleanup or is still in the store as failed, clear them so we generate
+    // fresh IDs/keys.  Without this, a new send could reuse a stale idempotency
+    // key and the server might return a cached response from the prior attempt.
     if (!isRetry && pendingUserMsgId.current) {
       const stale = useChatStore.getState().messages.find(
-        m => m.id === pendingUserMsgId.current && m.status === 'failed'
+        m => m.id === pendingUserMsgId.current
       );
-      if (stale) {
-        const timer = autoDismissTimers.current.get(stale.id);
-        if (timer) { clearTimeout(timer); autoDismissTimers.current.delete(stale.id); }
-        useChatStore.getState().dismissFailedMessage(stale.id);
-        clearPendingForMessage(stale.id);
+      if (!stale || stale.status === 'failed') {
+        const staleId = pendingUserMsgId.current;
+        const timer = autoDismissTimers.current.get(staleId);
+        if (timer) { clearTimeout(timer); autoDismissTimers.current.delete(staleId); }
+        if (stale) useChatStore.getState().dismissFailedMessage(staleId);
+        clearPendingForMessage(staleId);
       }
     }
 
