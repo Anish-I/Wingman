@@ -1476,11 +1476,14 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many PIN verification attempts. Try again later.' } });
     }
 
+    // Always run bcrypt.compare to prevent timing side-channel that reveals
+    // whether an account has a PIN set.
+    const hashToCheck = req.user.pin_hash || DUMMY_HASH;
+    const valid = await bcrypt.compare(pin, hashToCheck);
+
     if (!req.user.pin_hash) {
       return res.status(400).json({ error: { code: 'NO_PIN_SET', message: 'No PIN set for this account.' } });
     }
-
-    const valid = await bcrypt.compare(pin, req.user.pin_hash);
 
     if (!valid) {
       // Per-window counter
@@ -1527,13 +1530,18 @@ router.delete('/account', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Set confirmDeletion: true to confirm account deletion.' } });
     }
 
-    // If user has a PIN set, require it as a second factor
-    if (req.user.pin_hash) {
+    // If user has a PIN set, require it as a second factor.
+    // Always run bcrypt.compare when a PIN is supplied to prevent timing
+    // side-channel that reveals whether the account has a PIN enabled.
+    if (req.user.pin_hash || (pin && typeof pin === 'string')) {
       if (!pin || typeof pin !== 'string') {
         return res.status(400).json({ error: { code: 'PIN_REQUIRED', message: 'PIN confirmation is required to delete your account.' } });
       }
-      const valid = await bcrypt.compare(pin, req.user.pin_hash);
-      if (!valid) {
+      const hashToCheck = req.user.pin_hash || DUMMY_HASH;
+      const valid = await bcrypt.compare(pin, hashToCheck);
+      if (!req.user.pin_hash) {
+        // No PIN set — proceed with deletion (bcrypt ran only for timing parity)
+      } else if (!valid) {
         return res.status(403).json({ error: { code: 'INVALID_PIN', message: 'Incorrect PIN.' } });
       }
     }
