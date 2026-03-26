@@ -142,13 +142,12 @@ const _useChatStore = create<ChatState>((set) => ({
           toRemove.add(m.id);
         }
       }
-      // Remove paired assistant error messages that follow stale failures
-      // (positional fallback for messages added before the isError flag existed).
+      // Remove paired assistant error messages that follow stale failures.
       for (let i = 0; i < state.messages.length; i++) {
         const m = state.messages[i];
         if (toRemove.has(m.id) && i + 1 < state.messages.length) {
           const next = state.messages[i + 1];
-          if (next.role === 'assistant') toRemove.add(next.id);
+          if (next.role === 'assistant' && next.isError) toRemove.add(next.id);
         }
       }
       // Purge stale error messages older than 30 seconds — catches orphans
