@@ -32,7 +32,8 @@ router.get('/sms', (req, res) => res.status(200).send('OK'));
 function computeDedupKey(msgId, phone, messageText) {
   if (msgId) return `sms:dedup:${msgId}`;
   const crypto = require('crypto');
-  const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex').slice(0, 16);
+  const bucket = Math.floor(Date.now() / 5000);
+  const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex').slice(0, 16);
   return `sms:dedup:content:${hash}`;
 }
 
