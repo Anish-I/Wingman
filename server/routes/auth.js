@@ -732,6 +732,14 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many different phone numbers attempted. Try again later.' } });
     }
 
+    // Escalating lockout for OTP verification (prevents brute-forcing across windows)
+    const otpLockoutKey = `otp_lockout:${phone}`;
+    const otpLockoutTTL = await redis.ttl(otpLockoutKey);
+    if (otpLockoutTTL > 0) {
+      const retryMin = Math.ceil(otpLockoutTTL / 60);
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: `Account temporarily locked. Try again in ${retryMin} minute(s).` } });
+    }
+
     // Redis-based per-phone rate limiting (prevents distributed brute-force across IPs)
     // Use atomic INCR to eliminate TOCTOU race where concurrent requests both read
     // the same count and bypass the limit. Increment first, check after.
@@ -740,6 +748,25 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     // Set TTL only when the key is first created (count == 1) so the window is
     // fixed from the first failure, not reset on every attempt.
     if (attempts === 1) await redis.expire(attemptKey, OTP_TTL);
+
+    // Cumulative counter tracks total failures across all windows (24h TTL).
+    // This prevents the sliding-window bypass where an attacker waits for the
+    // per-window counter to expire and gets fresh attempts indefinitely.
+    const otpCumulativeKey = `otp_cumulative:${phone}`;
+    const cumulative = await redis.incr(otpCumulativeKey);
+    if (cumulative === 1) await redis.expire(otpCumulativeKey, 24 * 60 * 60);
+
+    // Escalating lockout thresholds: 10 → 1h, 15 → 4h, 20+ → 24h
+    let lockoutSeconds = 0;
+    if (cumulative >= 20) lockoutSeconds = 24 * 60 * 60;
+    else if (cumulative >= 15) lockoutSeconds = 4 * 60 * 60;
+    else if (cumulative >= 10) lockoutSeconds = 60 * 60;
+
+    if (lockoutSeconds > 0) {
+      await redis.set(otpLockoutKey, '1', 'EX', lockoutSeconds);
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed OTP attempts. Account locked, try again later.' } });
+    }
+
     if (attempts > 5) {
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed OTP attempts for this number. Try again in 10 minutes.' } });
     }
@@ -800,8 +827,10 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     }
 
     try {
-    // OTP already consumed by GETDEL above — clear attempt counter
+    // OTP already consumed by GETDEL above — clear attempt counter and lockout state
     await redis.del(attemptKey);
+    await redis.del(`otp_cumulative:${phone}`);
+    await redis.del(`otp_lockout:${phone}`);
 
     // If the caller is already authenticated (e.g. signed up via email/Google),
     // link the phone to their existing account instead of creating a second one.
