@@ -7,7 +7,7 @@ import { AxiosError } from 'axios';
 import Env from 'env';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
-import { radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { layout, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 
 export default function ConnectAppScreen() {
   const { surface, text: t } = useThemeColors();
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing['2xl'],
+    padding: layout.screenPaddingH,
   },
   errorText: {
     color: '#FF6B6B',
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   goBackButton: {
-    paddingHorizontal: spacing['2xl'],
+    paddingHorizontal: layout.screenPaddingH,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
   },
