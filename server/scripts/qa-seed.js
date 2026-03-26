@@ -8,8 +8,12 @@ const pg = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { createRedisClient } = require('../services/redis');
 
-if (process.env.NODE_ENV === 'production') {
-  console.error('❌ QA seed script must not run in production.');
+const allowedEnvs = ['development', 'test'];
+if (!allowedEnvs.includes(process.env.NODE_ENV)) {
+  console.error(
+    '❌ QA seed script requires NODE_ENV to be "development" or "test" (got: %s).',
+    process.env.NODE_ENV || 'undefined'
+  );
   process.exit(1);
 }
 
@@ -74,30 +78,10 @@ async function seed() {
     await redis.set(otpKey, otpValue, 'EX', 600);
     console.log('✓ Stored HMAC-hashed OTP in Redis for test user (TTL: 600s)');
 
-    // Generate JWT token for testing (using hardcoded secret for QA)
-    const jwt = require('jsonwebtoken');
-    if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET environment variable is required');
-      process.exit(1);
-    }
-    const JWT_SECRET = process.env.JWT_SECRET;
-    const token = jwt.sign(
-      { userId, phone: TEST_PHONE },
-      JWT_SECRET,
-      {
-        algorithm: 'HS256',
-        expiresIn: '24h',
-        issuer: 'wingman',
-        audience: 'wingman-app',
-      }
-    );
-
-    console.log('✓ Generated JWT token for test user');
-
     console.log('\n✅ QA Seed Complete! Test user is ready.');
     console.log('  Phone: %s', TEST_PHONE);
-    console.log('  Token: [redacted — stored in variable]');
-    console.log('  OTP: [redacted — stored in Redis key %s]', otpKey);
+    console.log('  OTP: stored in Redis key %s', otpKey);
+    console.log('  To obtain a JWT, log in via POST /auth/verify-otp.');
 
     process.exit(0);
   } catch (err) {
