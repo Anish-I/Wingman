@@ -41,11 +41,22 @@ export default function RootLayout() {
         storageReady = false;
       }
       if (storageReady) {
-        hydrateAuth();
+        try {
+          hydrateAuth();
+        } catch (error) {
+          console.error('[bootstrap] hydrateAuth failed:', error);
+          _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+        }
       } else {
         // Storage is unavailable — skip hydration (which would throw accessing
         // null storage) and force signOut directly so the app never stays in
         // the 'idle' state rendering nothing.
+        _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+      }
+      // Ensure auth state settled before revealing the app.  If hydration
+      // failed silently (e.g. future async change), force a safe fallback so
+      // the splash screen never hangs and no flicker occurs.
+      if (!_useAuthStore.getState().hydrated) {
         _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
       }
       loadSelectedTheme();
