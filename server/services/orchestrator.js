@@ -355,14 +355,16 @@ async function processMessage(user, messageText) {
     console.warn(`[user:${userId}] Orphan limit reached (${userOrphanCount}/${MAX_ORPHANED_PROMISES}) — proceeding without tools`);
   }
 
-  const abortController = { aborted: false };
+  const abortController = { aborted: false, _listeners: [] };
+  abortController.onAbort = (fn) => { abortController._listeners.push(fn); };
+  abortController.fireAbort = () => { abortController.aborted = true; for (const fn of abortController._listeners) fn(); };
   // Shared state so the inner function can guard writes and drain in-flight
   // appends before releasing the lock in its own finally block.
   const lockHolder = { releaseLock: null, released: false, inflightAppend: null, lockExpiry: null };
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
-      abortController.aborted = true;
+      abortController.fireAbort();
       reject(new Error('Request timed out'));
     }, PROCESS_MESSAGE_TIMEOUT);
   });
@@ -576,6 +578,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // Shared AbortController for this iteration — aborted on iteration timeout
     // so in-flight tool HTTP requests are cancelled, not just ignored.
     const iterationAC = new AbortController();
+    // Propagate outer abort to this iteration's controller so that in-flight
+    // tool HTTP requests (e.g. Composio side-effecting calls) are cancelled
+    // immediately when the request-level timeout fires, not just ignored.
+    const onOuterAbort = () => { if (!iterationAC.signal.aborted) iterationAC.abort(); };
+    abortController.onAbort(onOuterAbort);
 
     const iterationWork = async () => {
     for (const block of response.toolUseBlocks) {
@@ -698,6 +705,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
           }
         }
 
+        // Re-check abort immediately before creating the tool execution
+        // promise — closes the window where the outer timeout fires between
+        // the loop-top check and the actual executeTool/planAndCreateWorkflows
+        // call, preventing side-effecting promises from launching post-abort.
+        throwIfAborted(abortController, `tool-exec:${block.name}`);
+
         if (block.name === 'CREATE_WORKFLOW') {
           const workflows = await withTimeout(
             planAndCreateWorkflows(user, block.input.description),
@@ -791,9 +804,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
     }
     };
 
+    const removeOuterListener = () => {
+      const idx = abortController._listeners.indexOf(onOuterAbort);
+      if (idx !== -1) abortController._listeners.splice(idx, 1);
+    };
     try {
       await withTimeout(iterationWork(), ITERATION_TIMEOUT, `iteration ${iterations + 1}`);
+      removeOuterListener();
     } catch (iterErr) {
+      removeOuterListener();
       // AbortError must propagate — the request is cancelled, don't continue the loop
       if (iterErr.name === 'AbortError' && abortController.aborted) throw iterErr;
       // Iteration timed out — abort in-flight tool calls and generate error
