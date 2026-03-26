@@ -27,7 +27,7 @@ export function SettingsScreen() {
       <FocusAwareStatusBar />
 
       <ScrollView>
-        <View className="flex-1" style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.scrollPaddingBottom }}>
+        <View className="flex-1" style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop }}>
           <Text className="text-xl font-bold">
             {translate('settings.title')}
           </Text>
