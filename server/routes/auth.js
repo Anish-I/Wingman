@@ -103,7 +103,7 @@ function setAuthCookie(res, token) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 86400 * 1000, // 24 hours — matches JWT expiry
+    maxAge: (86400 + REFRESH_GRACE_SECONDS) * 1000, // JWT expiry + refresh grace window
     path: '/',
   });
 }
@@ -1557,6 +1557,73 @@ router.delete('/account', requireAuth, async (req, res) => {
   }
 });
 
+// POST /auth/refresh — issue a new JWT and revoke the old one.
+// Accepts tokens that expired within the last 7 days so clients can
+// silently extend sessions without forcing re-authentication.
+const REFRESH_GRACE_SECONDS = 7 * 24 * 60 * 60; // 7 days
+
+router.post('/refresh', async (req, res) => {
+  try {
+    // Extract token
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
+      token = req.cookies[AUTH_COOKIE_NAME];
+    }
+    if (!token) {
+      return res.status(401).json({ error: { code: 'TOKEN_REQUIRED', message: 'Authorization token required.' } });
+    }
+
+    // Verify token — allow recently expired tokens within the grace window
+    let oldPayload = verifyToken(token);
+    if (!oldPayload) {
+      try {
+        oldPayload = jwt.verify(token, JWT_SECRET, {
+          algorithms: ['HS256'],
+          issuer: JWT_ISSUER,
+          audience: JWT_AUDIENCE,
+          clockTolerance: REFRESH_GRACE_SECONDS,
+        });
+      } catch {
+        return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Token cannot be refreshed.' } });
+      }
+    }
+
+    // Reject revoked tokens — stolen tokens should not be refreshable
+    if (await isTokenRevoked(oldPayload.jti, oldPayload.userId, oldPayload.iat)) {
+      return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
+    }
+
+    // Verify user still exists
+    const user = await getUserById(oldPayload.userId).catch(() => null);
+    if (!user) {
+      return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
+    }
+
+    const newToken = signToken({ userId: oldPayload.userId, phone: oldPayload.phone });
+
+    // Blacklist the old token for its remaining lifetime (if not already expired)
+    if (oldPayload.jti) {
+      const ttl = oldPayload.exp - Math.floor(Date.now() / 1000);
+      if (ttl > 0) {
+        const key = `blacklist:${oldPayload.jti}`;
+        await Promise.all([
+          redis.set(key, '1', 'EX', ttl),
+          persistBlacklistEntry(key, '1', ttl),
+        ]);
+      }
+    }
+
+    setAuthCookie(res, newToken);
+    res.json(authResponse(req, newToken, { id: user.id, name: user.name }));
+  } catch (err) {
+    logger.error({ err: err.message }, 'Token refresh error');
+    res.status(500).json({ error: { code: 'REFRESH_ERROR', message: 'Token refresh failed.' } });
+  }
+});
+
 // POST /auth/logout — revoke JWT and clear the httpOnly auth cookie
 router.post('/logout', async (req, res) => {
   try {
@@ -1614,13 +1681,14 @@ router.post('/logout-all', requireAuth, async (req, res) => {
  */
 async function invalidateUserSessions(userId) {
   // Store as Unix timestamp; tokens with iat <= this value are rejected.
-  // TTL matches max JWT lifetime (24h) so the key auto-expires once all
-  // affected tokens have naturally expired.
+  // TTL covers JWT lifetime (24h) + refresh grace window (7d) so the key
+  // persists until all affected tokens can no longer be refreshed.
+  const ttl = 86400 + REFRESH_GRACE_SECONDS;
   const key = `user_sessions_invalidated:${userId}`;
   const value = Math.floor(Date.now() / 1000).toString();
   await Promise.all([
-    redis.set(key, value, 'EX', 86400),
-    persistBlacklistEntry(key, value, 86400),
+    redis.set(key, value, 'EX', ttl),
+    persistBlacklistEntry(key, value, ttl),
   ]);
 }
 
