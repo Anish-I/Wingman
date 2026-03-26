@@ -281,11 +281,25 @@ async function acquireConversationLock(userId, ttlSeconds = 120) {
   const acquired = await redis.set(key, token, 'NX', 'EX', ttlSeconds);
   if (acquired !== 'OK') return null;
   return async function release() {
-    // Atomic compare-and-delete via Lua to prevent lock theft
-    await redis.eval(
-      "if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('del', KEYS[1]) end",
-      1, key, token
-    );
+    const RELEASE_LUA = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await redis.eval(RELEASE_LUA, 1, key, token);
+        return; // success
+      } catch (err) {
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+          continue;
+        }
+        // All retries failed — try to shorten the TTL so the lock doesn't
+        // block the user for the full 120s.
+        try {
+          await redis.expire(key, 5);
+        } catch (_) { /* Redis still unreachable; TTL will expire naturally */ }
+        throw err; // let caller's .catch() log it
+      }
+    }
   };
 }
 
