@@ -767,7 +767,12 @@ export default function AppsScreen() {
         maxToRenderPerBatch={5}
         windowSize={5}
         ListEmptyComponent={
-          <View className="items-center" style={{ marginTop: spacing['4xl'] }}>
+          <View
+            className="items-center"
+            style={{ marginTop: spacing['4xl'] }}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`No apps matching "${search}"`}
+          >
             <PipCard
               expression="thinking"
               message={`No apps matching "${search}"`}

@@ -386,16 +386,19 @@ export default function WorkflowsScreen() {
                     >
                       {item.active ? 'ON' : 'OFF'}
                     </Text>
-                    <Switch
-                      value={item.active}
-                      onValueChange={(v) => toggleWorkflow(item.id, v)}
-                      disabled={togglingIds.has(item.id)}
-                      trackColor={s.switchTrackColor}
-                      thumbColor="#fff"
-                      accessibilityLabel={`${item.name} is ${item.active ? 'on' : 'off'}`}
-                      accessibilityRole="switch"
-                      style={togglingIds.has(item.id) ? s.togglingSwitch : undefined}
-                    />
+                    <View accessibilityLiveRegion="polite">
+                      <Switch
+                        value={item.active}
+                        onValueChange={(v) => toggleWorkflow(item.id, v)}
+                        disabled={togglingIds.has(item.id)}
+                        trackColor={s.switchTrackColor}
+                        thumbColor="#fff"
+                        accessibilityLabel={`${item.name} is ${item.active ? 'on' : 'off'}`}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: item.active }}
+                        style={togglingIds.has(item.id) ? s.togglingSwitch : undefined}
+                      />
+                    </View>
                   </View>
                 </View>
                 {/* Trigger badge */}

@@ -26,7 +26,12 @@ const PIP_GREETINGS = [
 function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
   const { surface } = useThemeColors();
   return (
-    <View className="flex-row items-center" style={{ gap: spacing.xsPlus, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+    <View
+      className="flex-row items-center"
+      style={{ gap: spacing.xsPlus, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}
+      accessibilityLiveRegion="polite"
+      accessibilityLabel="Pip is thinking"
+    >
       <MotiView
         {...maybeReduce({
           from: { scale: 0.8, opacity: 0 },
@@ -443,18 +448,18 @@ export default function ChatScreen() {
               </Text>
             </View>
             {isUser && status && (
-              <View style={styles.statusRow}>
+              <View style={styles.statusRow} accessibilityLiveRegion="assertive">
                 {status === 'sending' && (
-                  <Text style={s.statusSending}>Sending…</Text>
+                  <Text style={s.statusSending} accessibilityLabel="Sending message">Sending…</Text>
                 )}
                 {status === 'sent' && (
-                  <View style={styles.statusSentRow}>
+                  <View style={styles.statusSentRow} accessibilityLabel="Message sent">
                     <Ionicons name="checkmark-done-outline" size={13} color={teal[200]} />
                     <Text style={styles.statusSentText}>Sent</Text>
                   </View>
                 )}
                 {isFailed && (
-                  <View style={styles.statusFailedRow}>
+                  <View style={styles.statusFailedRow} accessibilityLabel="Message failed to send">
                     <Ionicons name="alert-circle-outline" size={13} color={semantic.error} />
                     <Text style={styles.statusFailedText}>Failed</Text>
                     <Pressable
