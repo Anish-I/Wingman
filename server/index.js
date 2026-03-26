@@ -13,7 +13,7 @@ process.on('uncaughtException', (err) => {
     message: msg,
     code: err.code,
     errno: err.errno,
-    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+    // stack trace omitted — avoids leaking internal paths via log aggregation
     expected: isExpected,
   }, `Uncaught exception: ${msg}`);
   
