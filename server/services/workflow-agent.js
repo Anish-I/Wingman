@@ -219,6 +219,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
     ]);
     if (!workflow) throw new Error('Workflow not found');
     if (!user) throw new Error('User not found');
+    if (String(workflow.user_id) !== String(userId)) throw new Error('Workflow not found');
 
     const run = preCreatedRunId
       ? { id: preCreatedRunId }
