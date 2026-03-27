@@ -450,7 +450,7 @@ export default function AppsScreen() {
       setLoadingSlow(false);
       return;
     }
-    // Show actionable "slow" hint at 2s so users aren't staring at a blind spinner
+    // Show actionable "slow" hint at 2s so users know the fetch is still in progress
     const slowTimer = setTimeout(() => setLoadingSlow(true), 2000);
     // Treat as failed after 5s — users abandon well before 8s
     const failTimer = setTimeout(() => setLoadingTimedOut(true), 5000);
@@ -630,29 +630,22 @@ export default function AppsScreen() {
     };
     return (
       <SafeAreaView className="flex-1 bg-background">
-        {/* Immediate loading indicator — visible from second 0 */}
-        <View className="rounded-xl flex-row items-center" style={[loadingSlow ? styles.slowHintBg : styles.loadingHintBg, { marginHorizontal: layout.screenPaddingH, marginTop: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
-          {loadingSlow ? (
-            <>
-              <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
-              <Text style={ts.slowHintText}>Taking longer than usual</Text>
-              <Button
-                variant="outline"
-                size="sm"
-                label="Retry"
-                accessibilityLabel="Retry loading apps"
-                fullWidth={false}
-                onPress={() => { setLoadingSlow(false); refetch(); }}
-                style={{ marginLeft: spacing.sm }}
-              />
-            </>
-          ) : (
-            <>
-              <ActivityIndicator size="small" color={t.muted} style={styles.slowHintIcon} />
-              <Text style={[ts.slowHintText, { color: t.muted }]}>Loading your apps…</Text>
-            </>
-          )}
-        </View>
+        {/* Slow-loading hint — only appears after 2s */}
+        {loadingSlow && (
+          <View className="rounded-xl flex-row items-center" style={[styles.slowHintBg, { marginHorizontal: layout.screenPaddingH, marginTop: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
+            <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
+            <Text style={ts.slowHintText}>Taking longer than usual</Text>
+            <Button
+              variant="outline"
+              size="sm"
+              label="Retry"
+              accessibilityLabel="Retry loading apps"
+              fullWidth={false}
+              onPress={() => { setLoadingSlow(false); refetch(); }}
+              style={{ marginLeft: spacing.sm }}
+            />
+          </View>
+        )}
         {/* Skeleton header */}
         <View style={{ paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, paddingBottom: spacing.lg }}>
           <View className="flex-row items-center justify-between">
@@ -866,9 +859,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
-  },
-  loadingHintBg: {
-    backgroundColor: 'rgba(150, 150, 150, 0.08)',
   },
   slowHintBg: {
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
