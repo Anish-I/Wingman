@@ -53,9 +53,12 @@ function validateEnv() {
   }
 
   // Require Redis password in all non-local environments (production, staging, etc.)
+  // This is a hard exit — not deferred to the general missing-vars check — because
+  // an unauthenticated Redis exposes cached OTPs, sessions, and rate-limit data.
   const isLocal = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
   if (!isLocal && !process.env.REDIS_PASSWORD) {
-    missing.push('REDIS_PASSWORD');
+    console.error('[env-validate] FATAL: REDIS_PASSWORD is required in non-development environments to prevent unauthenticated access to OTPs, sessions, and rate-limit data. Exiting.');
+    process.exit(1);
   }
 
   // Enforce minimum length for JWT_SECRET to prevent brute-force token forgery
