@@ -10,23 +10,33 @@ export const client = axios.create({
   timeout: 10_000,
 });
 
-client.interceptors.request.use((config) => {
+// --- JWT expiry helpers ---
+
+/** Decode the payload of a JWT without verifying the signature. */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const token = getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    // Stamp request with the token it was sent with so the 401 handler
-    // can tell whether the request belongs to the current session.
-    (config as any).__requestToken = token;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    // base64url → base64 → decode
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
   } catch {
-    // Storage not yet initialized
+    return null;
   }
-  return config;
-});
+}
+
+/** Buffer (in seconds) before actual expiry to treat the token as expired. */
+const EXPIRY_BUFFER_SECONDS = 30;
+
+/** Returns true if the token's `exp` claim is within the expiry buffer. */
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return false;
+  return Date.now() >= (payload.exp - EXPIRY_BUFFER_SECONDS) * 1000;
+}
 
 // --- Token refresh logic ---
-// Serialises concurrent 401s so only one refresh request is in-flight at a time.
+// Serialises concurrent refresh attempts so only one is in-flight at a time.
 let refreshPromise: Promise<string | null> | null = null;
 
 async function tryRefreshToken(failedToken: string): Promise<string | null> {
@@ -49,6 +59,50 @@ async function tryRefreshToken(failedToken: string): Promise<string | null> {
     return null;
   }
 }
+
+client.interceptors.request.use(async (config) => {
+  try {
+    let token = getToken();
+
+    // Proactively refresh or sign out if the token is expired / about to expire
+    if (token && isTokenExpired(token)) {
+      // Coalesce with any in-flight refresh
+      if (!refreshPromise) {
+        refreshPromise = tryRefreshToken(token).finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newToken = await refreshPromise;
+
+      if (newToken) {
+        token = newToken;
+      } else {
+        // Refresh failed — sign out and abort this request
+        signOut();
+        showMessage({
+          message: 'Session expired',
+          description: 'Please sign in again to continue.',
+          type: 'warning',
+          duration: 4000,
+        });
+        const controller = new AbortController();
+        controller.abort();
+        config.signal = controller.signal;
+        return config;
+      }
+    }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Stamp request with the token it was sent with so the 401 handler
+    // can tell whether the request belongs to the current session.
+    (config as any).__requestToken = token;
+  } catch {
+    // Storage not yet initialized
+  }
+  return config;
+});
 
 // Auto-logout on 401 — uses token identity to prevent double sign-out.
 //
