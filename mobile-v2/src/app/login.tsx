@@ -268,6 +268,8 @@ export default function LoginScreen() {
                   autoFocus={i === 0}
                   textContentType="oneTimeCode"
                   autoComplete="sms-otp"
+                  accessibilityLabel={`Digit ${i + 1} of 6`}
+                  accessibilityHint="Enter a single digit of your verification code"
                 />
               ))}
             </View>

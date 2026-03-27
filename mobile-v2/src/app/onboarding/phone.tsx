@@ -298,6 +298,8 @@ export default function PhoneScreen() {
                     selectTextOnFocus
                     textContentType="oneTimeCode"
                     autoComplete="sms-otp"
+                    accessibilityLabel={`Digit ${i + 1} of 6`}
+                    accessibilityHint="Enter a single digit of your verification code"
                   />
                 ))}
               </View>
