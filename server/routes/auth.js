@@ -995,8 +995,9 @@ function generatePkce() {
 router.post('/google/init-state', async (req, res) => {
   try {
     const nonce = crypto.randomBytes(32).toString('hex');
+    const jti = crypto.randomBytes(16).toString('hex');
     await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
-    const state = jwt.sign({ nonce, flow: 'spa' }, JWT_SECRET, { expiresIn: '5m' });
+    const state = jwt.sign({ nonce, flow: 'spa', jti }, JWT_SECRET, { expiresIn: '5m' });
     res.json({ state });
   } catch (err) {
     logger.error({ err: err.message }, 'Google init-state error');
@@ -1022,10 +1023,22 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
     } catch {
       return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
     }
+    // Reject already-used state JWTs (blacklisted after first use)
+    if (statePayload.jti) {
+      const alreadyUsed = await redis.get(`oauth_state_used:${statePayload.jti}`);
+      if (alreadyUsed) {
+        return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state already used. Please restart the login flow.' } });
+      }
+    }
     // Verify and consume the nonce (single-use)
     const nonce = statePayload.nonce;
     if (!nonce) {
       return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state missing nonce.' } });
+    }
+    // Blacklist the state JWT itself so it cannot be replayed even while structurally valid
+    if (statePayload.jti) {
+      const ttl = statePayload.exp ? Math.max(statePayload.exp - Math.floor(Date.now() / 1000), 1) : 300;
+      await redis.set(`oauth_state_used:${statePayload.jti}`, '1', 'EX', ttl);
     }
     const nonceKey = `oauth_nonce:${nonce}`;
     const nonceExists = await redis.call('GETDEL', nonceKey);
@@ -1147,13 +1160,14 @@ router.get('/google', async (req, res, next) => {
     // Client-generated CSRF token — echoed back in the redirect so the client can verify
     const clientState = typeof req.query.clientState === 'string' ? req.query.clientState : '';
     const nonce = crypto.randomBytes(32).toString('hex');
+    const jti = crypto.randomBytes(16).toString('hex');
     await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
 
     // PKCE: generate code_verifier (stored server-side), send code_challenge to Google
     const pkce = generatePkce();
     await redis.set(`oauth_pkce:${nonce}`, pkce.verifier, 'EX', 300); // same TTL as nonce
 
-    const state = jwt.sign({ platform, webOrigin, nonce, clientState }, JWT_SECRET, { expiresIn: '5m' });
+    const state = jwt.sign({ platform, webOrigin, nonce, clientState, jti }, JWT_SECRET, { expiresIn: '5m' });
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}&code_challenge=${pkce.challenge}&code_challenge_method=S256`;
     res.redirect(url);
   } catch (err) {
@@ -1216,10 +1230,23 @@ router.get('/google/callback', async (req, res) => {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
   }
 
+  // Reject already-used state JWTs (blacklisted after first use)
+  if (statePayload.jti) {
+    const alreadyUsed = await redis.get(`oauth_state_used:${statePayload.jti}`);
+    if (alreadyUsed) {
+      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state already used. Please restart the login flow.' } });
+    }
+  }
+
   // Verify the nonce exists in Redis (ties state to a server-side session) and consume it
   const nonce = statePayload.nonce;
   if (!nonce) {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state missing nonce. Please restart the login flow.' } });
+  }
+  // Blacklist the state JWT so it cannot be replayed even while structurally valid
+  if (statePayload.jti) {
+    const ttl = statePayload.exp ? Math.max(statePayload.exp - Math.floor(Date.now() / 1000), 1) : 300;
+    await redis.set(`oauth_state_used:${statePayload.jti}`, '1', 'EX', ttl);
   }
   const nonceKey = `oauth_nonce:${nonce}`;
   const nonceExists = await redis.call('GETDEL', nonceKey);
