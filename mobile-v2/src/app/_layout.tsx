@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import FlashMessage from 'react-native-flash-message';
+import FlashMessage, { showMessage } from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useThemeConfig } from '@/components/ui/use-theme-config';
@@ -45,19 +45,36 @@ export default function RootLayout() {
           await hydrateAuth();
         } catch (error) {
           console.error('[bootstrap] hydrateAuth failed:', error);
-          _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+          const message =
+            error instanceof Error ? error.message : 'Failed to restore session';
+          _useAuthStore.setState({
+            status: 'signOut',
+            token: null,
+            hydrated: true,
+            hydrationError: message,
+          });
         }
       } else {
         // Storage is unavailable — skip hydration (which would throw accessing
         // null storage) and force signOut directly so the app never stays in
         // the 'idle' state rendering nothing.
-        _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+        _useAuthStore.setState({
+          status: 'signOut',
+          token: null,
+          hydrated: true,
+          hydrationError: 'Storage initialization failed. Please restart the app.',
+        });
       }
       // Ensure auth state settled before revealing the app.  If hydration
       // failed silently (e.g. future async change), force a safe fallback so
       // the splash screen never hangs and no flicker occurs.
       if (!_useAuthStore.getState().hydrated) {
-        _useAuthStore.setState({ status: 'signOut', token: null, hydrated: true });
+        _useAuthStore.setState({
+          status: 'signOut',
+          token: null,
+          hydrated: true,
+          hydrationError: 'Session could not be restored. Please sign in again.',
+        });
       }
       loadSelectedTheme();
       setReady(true);
@@ -72,6 +89,20 @@ export default function RootLayout() {
   }, []);
 
   const hydrated = _useAuthStore((s) => s.hydrated);
+  const hydrationError = _useAuthStore((s) => s.hydrationError);
+
+  React.useEffect(() => {
+    if (hydrationError) {
+      showMessage({
+        message: 'Session error',
+        description: hydrationError,
+        type: 'danger',
+        duration: 5000,
+      });
+      // Clear the error so it doesn't re-show on re-render
+      _useAuthStore.setState({ hydrationError: null });
+    }
+  }, [hydrationError]);
 
   // Keep splash screen visible until bootstrap completes AND auth state is
   // fully hydrated.  This prevents the (app) layout from mounting in the

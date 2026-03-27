@@ -92,6 +92,7 @@ type AuthState = {
   token: TokenType | null;
   status: 'idle' | 'signOut' | 'signIn';
   hydrated: boolean;
+  hydrationError: string | null;
   signIn: (data: TokenType) => void;
   signOut: () => void;
   hydrate: () => Promise<void>;
@@ -101,6 +102,7 @@ const _useAuthStore = create<AuthState>((set, get) => ({
   status: 'idle',
   token: null,
   hydrated: false,
+  hydrationError: null,
   signIn: (token) => {
     setToken(token);
     set({ status: 'signIn', token });
@@ -128,8 +130,10 @@ const _useAuthStore = create<AuthState>((set, get) => ({
       }
     }
     catch (e) {
-      console.error(e);
-      set({ status: 'signOut', token: null });
+      console.error('[hydrateAuth] Failed to read auth token:', e);
+      const message =
+        e instanceof Error ? e.message : 'Unable to read stored credentials';
+      set({ status: 'signOut', token: null, hydrationError: message });
     }
     // Signal that hydration is complete so consumers can distinguish
     // "not yet hydrated" from a settled auth state.
