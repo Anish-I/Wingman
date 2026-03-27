@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform, Text, Pressable, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, StyleSheet } from 'react-native';
+import { Button } from '@/components/ui/button';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
 import * as WebBrowser from 'expo-web-browser';
@@ -30,12 +31,12 @@ export default function ConnectAppScreen() {
 
     (async () => {
       try {
-        const { data } = await client.post<{ connectToken: string; sig: string }>('/connect/create-connect-token', { app });
+        const { data } = await client.post<{ connectToken: string; sig: string; sessionBind: string }>('/connect/create-connect-token', { app });
         const redirectUrl = Platform.OS === 'web'
           ? `${window.location.origin}/connect/callback`
           : 'wingman://connect/callback';
         const result = await WebBrowser.openAuthSessionAsync(
-          `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}&sig=${data.sig}`,
+          `${Env.EXPO_PUBLIC_API_URL}/connect/initiate?connectToken=${data.connectToken}&sig=${data.sig}&sessionBind=${data.sessionBind}`,
           redirectUrl
         );
         if (result.type === 'success') {
@@ -67,16 +68,13 @@ export default function ConnectAppScreen() {
         <Text style={styles.errorText}>
           {error}
         </Text>
-        <Pressable
+        <Button
+          variant="link"
+          size="sm"
+          label="Go Back"
+          fullWidth={false}
           onPress={() => router.back()}
-          style={[
-            styles.goBackButton,
-            themed.goBackButton,
-            Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined,
-          ]}
-        >
-          <Text style={[styles.goBackLabel, themed.goBackLabel]}>Go Back</Text>
-        </Pressable>
+        />
       </View>
     );
   }

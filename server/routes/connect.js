@@ -105,6 +105,14 @@ function signConnectToken(connectToken, userId) {
     .digest('hex');
 }
 
+// Derive a session fingerprint from the user's JWT so connect tokens are bound
+// to the specific session that created them. An intercepted token is useless
+// without the matching sessionBind value (which requires the original JWT).
+function deriveSessionBind(authHeader) {
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  return crypto.createHash('sha256').update(token).digest('hex').substring(0, 32);
+}
+
 // POST /connect/create-connect-token — generate a short-lived, single-use token for OAuth initiation
 // This avoids exposing session JWTs in URL query parameters (fixes M1 in security audit)
 router.post('/create-connect-token', requireAuth, async (req, res) => {
@@ -115,11 +123,13 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
     }
     const connectToken = crypto.randomBytes(32).toString('hex');
     const key = `connect_token:${connectToken}`;
-    await redis.set(key, JSON.stringify({ userId: req.user.id, app: app.toLowerCase() }), 'EX', CONNECT_TOKEN_TTL);
+    // Bind token to the requesting session via SHA-256 fingerprint of the JWT
+    const sessionBind = deriveSessionBind(req.headers.authorization);
+    await redis.set(key, JSON.stringify({ userId: req.user.id, app: app.toLowerCase(), sessionBind }), 'EX', CONNECT_TOKEN_TTL);
     // Return HMAC sig so the browser-based /initiate route can verify userId binding
     // without Bearer auth (WebBrowser.openAuthSessionAsync can't send headers)
     const sig = signConnectToken(connectToken, req.user.id);
-    res.json({ connectToken, sig });
+    res.json({ connectToken, sig, sessionBind });
   } catch (err) {
     logger.error({ err: err.message }, '[connect] create-connect-token error');
     res.status(500).json({ error: { code: 'CONNECT_TOKEN_ERROR', message: 'Failed to create connect token.' } });
@@ -135,12 +145,15 @@ router.post('/create-connect-token', requireAuth, async (req, res) => {
 //   4. HMAC sig binding token to userId (prevents IDOR — only the server can produce a valid sig)
 router.get('/initiate', async (req, res) => {
   try {
-    const { connectToken, sig } = req.query;
+    const { connectToken, sig, sessionBind } = req.query;
     if (!connectToken) {
       return res.status(400).json({ error: { code: 'MISSING_CONNECT_TOKEN', message: 'Missing connectToken parameter.' } });
     }
     if (!sig) {
       return res.status(400).json({ error: { code: 'MISSING_SIGNATURE', message: 'Missing sig parameter.' } });
+    }
+    if (!sessionBind) {
+      return res.status(400).json({ error: { code: 'MISSING_SESSION_BIND', message: 'Missing sessionBind parameter.' } });
     }
     // Atomically fetch and delete — prevents concurrent requests from reusing the same token
     const key = `connect_token:${connectToken}`;
@@ -155,7 +168,14 @@ router.get('/initiate', async (req, res) => {
       logger.error('Corrupt connect_token payload in Redis');
       return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
     }
-    const { userId, app } = parsed;
+    const { userId, app, sessionBind: storedSessionBind } = parsed;
+    // Verify the token is consumed by the same session that created it
+    const bindBuf = Buffer.from(String(sessionBind), 'utf8');
+    const storedBuf = Buffer.from(String(storedSessionBind), 'utf8');
+    if (bindBuf.length !== storedBuf.length || !crypto.timingSafeEqual(bindBuf, storedBuf)) {
+      logger.warn({ userId }, '[connect] initiate sessionBind mismatch — token not bound to this session');
+      return res.status(403).json({ error: { code: 'SESSION_BIND_MISMATCH', message: 'Connect token is not bound to this session.' } });
+    }
     // Verify HMAC sig binds this token to the correct userId (IDOR prevention).
     // Only the server can produce a valid sig via signConnectToken(), so an attacker
     // who intercepts or guesses a connectToken cannot forge a sig for a different user.
