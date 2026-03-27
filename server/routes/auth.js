@@ -204,7 +204,15 @@ function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
 
-function signToken(payload, expiresInSeconds = 86400) {
+async function signToken(payload, expiresInSeconds = 86400) {
+  if (payload.userId) {
+    const deleted = await redis.get(`user_deleted:${payload.userId}`);
+    if (deleted === '1') {
+      const err = new Error('Account has been deleted.');
+      err.code = 'USER_DELETED';
+      throw err;
+    }
+  }
   const jti = crypto.randomUUID();
   return jwt.sign({ ...payload, jti }, JWT_SECRET, {
     algorithm: 'HS256',
@@ -375,10 +383,11 @@ router.post('/signup', signupLimiter, async (req, res) => {
       }
     }
 
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     logger.error({ err: err.message }, 'Signup error');
     res.status(500).json({ error: { code: 'SIGNUP_ERROR', message: 'Sign-up failed. Please try again.' } });
   }
@@ -454,10 +463,11 @@ router.post('/login', loginLimiter, async (req, res) => {
         throw linkErr;
       }
     }
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     logger.error({ err: err.message }, 'Login error');
     res.status(500).json({ error: { code: 'LOGIN_ERROR', message: 'Login failed. Please try again.' } });
   }
@@ -915,7 +925,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       user = result.user;
     }
 
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
 
     res.json(authResponse(req, token, { id: user.id, phone: user.phone, name: user.name }));
@@ -929,6 +939,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
   } catch (err) {
     // Unique-constraint on phone (code 23505) means another request linked
     // this number first. Return a clear 409 instead of a generic 500.
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     if (err.code === '23505' && err.constraint && /phone/i.test(err.constraint)) {
       return res.status(409).json({ error: { code: 'PHONE_ALREADY_LINKED', message: 'This phone number was just linked to another account. Please try again.' } });
     }
@@ -1104,10 +1115,11 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
       }
     }
 
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
     res.json(authResponse(req, token, { id: user.id, name: user.name }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     logger.error({ err: err.message }, 'Google auth error');
     res.status(500).json({ error: { code: 'GOOGLE_AUTH_ERROR', message: 'Google sign-in failed.' } });
   }
@@ -1307,7 +1319,7 @@ router.get('/google/callback', async (req, res) => {
     // Generate a short-lived, single-use auth code instead of putting the JWT in the URL.
     // The client exchanges this code via POST /auth/exchange-code (see security audit M1).
     const authCode = crypto.randomBytes(32).toString('hex');
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = await signToken({ userId: user.id, phone: user.phone });
     await redis.set(`auth_code:${authCode}`, JSON.stringify({
       token,
       userId: user.id,
@@ -1315,6 +1327,7 @@ router.get('/google/callback', async (req, res) => {
     }), 'EX', AUTH_CODE_TTL);
     res.redirect(buildRedirectUrl(state, { code: authCode }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.redirect(buildRedirectUrl(state, { error: 'account_deleted' }));
     logger.error({ err: err.message }, 'Google OAuth callback error');
     res.redirect(buildRedirectUrl(state, { error: 'server_error' }));
   }
@@ -1425,10 +1438,11 @@ router.post('/social', socialAuthLimiter, async (req, res) => {
       }
     }
 
-    const jwtToken = signToken({ userId: user.id, phone: user.phone });
+    const jwtToken = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, jwtToken);
     res.json(authResponse(req, jwtToken, { id: user.id, name: user.name }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     logger.error({ err: err.message }, 'Social auth error');
     res.status(500).json({ error: { code: 'SOCIAL_AUTH_ERROR', message: 'Social sign-in failed.' } });
   }
@@ -1639,7 +1653,7 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
     }
 
-    const newToken = signToken({ userId: oldPayload.userId, phone: oldPayload.phone });
+    const newToken = await signToken({ userId: oldPayload.userId, phone: oldPayload.phone });
 
     // Blacklist the old token for its remaining lifetime (if not already expired)
     if (oldPayload.jti) {
@@ -1656,6 +1670,7 @@ router.post('/refresh', async (req, res) => {
     setAuthCookie(res, newToken);
     res.json(authResponse(req, newToken, { id: user.id, name: user.name }));
   } catch (err) {
+    if (err.code === 'USER_DELETED') return res.status(403).json({ error: { code: 'USER_DELETED', message: 'Account has been deleted.' } });
     logger.error({ err: err.message }, 'Token refresh error');
     res.status(500).json({ error: { code: 'REFRESH_ERROR', message: 'Token refresh failed.' } });
   }
