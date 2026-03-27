@@ -716,7 +716,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
             planAndCreateWorkflows(user, block.input.description),
             TOOL_EXEC_TIMEOUT, `CREATE_WORKFLOW`
           );
+          const workflowWarnings = workflows.flatMap(w => w.warnings || []);
           result = { success: true, workflows: workflows.map(w => ({ id: w.id, name: w.name })) };
+          if (workflowWarnings.length > 0) {
+            result.warnings = workflowWarnings;
+          }
         } else {
           console.log(`[user:${userId}] Tool: ${block.name}`);
           // Each tool gets its own AbortController for its per-tool timeout,

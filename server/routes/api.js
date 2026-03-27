@@ -399,7 +399,12 @@ router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) =>
     }
     const { planAndCreateWorkflows } = require('../services/workflow-planner');
     const workflows = await planAndCreateWorkflows(req.user, description.trim());
-    res.status(201).json({ workflows });
+    const warnings = workflows.flatMap(w => w.warnings || []);
+    const response = { workflows };
+    if (warnings.length > 0) {
+      response.warnings = warnings;
+    }
+    res.status(201).json(response);
   } catch (err) {
     logger.error({ err: err.message }, '[api] workflow plan error');
     res.status(500).json({ error: { code: 'WORKFLOW_PLAN_ERROR', message: 'Failed to plan workflow.' } });

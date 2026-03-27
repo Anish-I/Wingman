@@ -425,7 +425,11 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
           // Create a new workflow via the planner (lazy require to avoid circular)
           const { planAndCreateWorkflows } = require('./workflow-planner');
           const spawned = await planAndCreateWorkflows(user, block.input.description);
+          const spawnWarnings = spawned.flatMap(w => w.warnings || []);
           result = { success: true, spawned: spawned.map(w => w.name) };
+          if (spawnWarnings.length > 0) {
+            result.warnings = spawnWarnings;
+          }
         } else {
           // Composio tool
           console.log(`[workflow-agent] Tool: ${block.name}`);
@@ -704,7 +708,11 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
         } else if (block.name === 'SPAWN_WORKFLOW') {
           const { planAndCreateWorkflows } = require('./workflow-planner');
           const spawned = await planAndCreateWorkflows(user, block.input.description);
+          const spawnWarnings = spawned.flatMap(w => w.warnings || []);
           result = { success: true, spawned: spawned.map(w => w.name) };
+          if (spawnWarnings.length > 0) {
+            result.warnings = spawnWarnings;
+          }
         } else {
           result = await executeTool(entityId, block);
           if (result && result.successful === false) {

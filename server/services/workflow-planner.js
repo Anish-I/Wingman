@@ -58,12 +58,17 @@ function validatePlan(raw) {
 
   // Validate steps: must be array of { instruction: string }
   let steps = [];
+  let warnings = [];
   if (Array.isArray(raw.steps)) {
+    const totalSteps = raw.steps.length;
     for (const step of raw.steps.slice(0, MAX_STEPS)) {
       if (typeof step === 'object' && step !== null && typeof step.instruction === 'string') {
         steps.push({ instruction: step.instruction.slice(0, MAX_INSTRUCTION_LENGTH) });
       }
       // silently drop malformed steps
+    }
+    if (totalSteps > MAX_STEPS) {
+      warnings.push(`Workflow was truncated from ${totalSteps} to ${MAX_STEPS} steps. Please simplify your workflow or split it into multiple workflows.`);
     }
   }
 
@@ -86,7 +91,11 @@ function validatePlan(raw) {
 
   // system_prompt is NOT accepted from LLM output — it must come from
   // trusted templates only, never from dynamically generated plans
-  return { name, description, trigger_type: triggerType, cron_expression: cronExpression, steps, variables };
+  const result = { name, description, trigger_type: triggerType, cron_expression: cronExpression, steps, variables };
+  if (warnings.length > 0) {
+    result.warnings = warnings;
+  }
+  return result;
 }
 
 async function planWorkflows(userMessage, userId) {
@@ -144,7 +153,11 @@ async function planAndCreateWorkflows(user, description) {
       [JSON.stringify(plan.steps || []), JSON.stringify(plan.variables || {}), workflow.id]
     );
 
-    created.push({ ...workflow, steps: plan.steps, variables: plan.variables });
+    const entry = { ...workflow, steps: plan.steps, variables: plan.variables };
+    if (plan.warnings && plan.warnings.length > 0) {
+      entry.warnings = plan.warnings;
+    }
+    created.push(entry);
   }
 
   return created;
