@@ -58,10 +58,12 @@ export default function OAuthCallbackScreen() {
     // Validate CSRF state — the clientState in the URL must match what we stored
     // before initiating OAuth. This prevents login CSRF attacks where an attacker
     // crafts a callback URL with their own auth code.
-    const pending = getItem<{ clientState: string }>('oauth_pending');
+    const OAUTH_STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+    const pending = getItem<{ clientState: string; createdAt: number }>('oauth_pending');
     removeItem('oauth_pending'); // Always clear to prevent reuse
 
-    if (!pending || !clientState || pending.clientState !== clientState) {
+    if (!pending || !clientState || pending.clientState !== clientState
+        || !pending.createdAt || Date.now() - pending.createdAt > OAUTH_STATE_TTL_MS) {
       showMessage({
         message: 'Sign-In Failed',
         description: 'OAuth session mismatch. Please try signing in again.',

@@ -150,7 +150,7 @@ export default function SignupScreen() {
       // The server echoes this back in the redirect so both the inline (WebBrowser)
       // and fallback (callback.tsx) flows can verify the OAuth session is genuine.
       const clientState = generateOAuthState();
-      setItem('oauth_pending', { clientState });
+      setItem('oauth_pending', { clientState, createdAt: Date.now() });
 
       if (Platform.OS === 'web') {
         // On web, use popup-based flow with web-safe redirect
@@ -162,9 +162,10 @@ export default function SignupScreen() {
         if (result.type === 'success' && result.url) {
           const url = new URL(result.url);
           const returnedState = url.searchParams.get('clientState');
-          const pending = getItem<{ clientState: string }>('oauth_pending');
+          const pending = getItem<{ clientState: string; createdAt: number }>('oauth_pending');
           removeItem('oauth_pending');
-          if (!pending || !returnedState || pending.clientState !== returnedState) {
+          if (!pending || !returnedState || pending.clientState !== returnedState
+              || !pending.createdAt || Date.now() - pending.createdAt > 10 * 60 * 1000) {
             showAlert('Sign-In Failed', 'OAuth session mismatch. Please try again.');
             return;
           }
@@ -184,9 +185,10 @@ export default function SignupScreen() {
       if (result.type === 'success' && result.url) {
         const url = new URL(result.url);
         const returnedState = url.searchParams.get('clientState');
-        const pending = getItem<{ clientState: string }>('oauth_pending');
+        const pending = getItem<{ clientState: string; createdAt: number }>('oauth_pending');
         removeItem('oauth_pending');
-        if (!pending || !returnedState || pending.clientState !== returnedState) {
+        if (!pending || !returnedState || pending.clientState !== returnedState
+            || !pending.createdAt || Date.now() - pending.createdAt > 10 * 60 * 1000) {
           showAlert('Sign-In Failed', 'OAuth session mismatch. Please try again.');
           return;
         }
