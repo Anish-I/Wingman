@@ -103,24 +103,15 @@ app.use(helmet({
   },
 }));
 
-// CORS — in production only allow CORS_ORIGIN; in dev also allow localhost
-const allowedOrigins = [
-  process.env.CORS_ORIGIN,
-  ...(process.env.NODE_ENV !== 'production' ? [
-    'http://localhost:3000',
-    'http://localhost:8081',
-    'http://localhost:8082',
-    'http://localhost:8098',
-    'http://127.0.0.1:8098',
-    'http://localhost:19006',
-    'http://127.0.0.1:19006',
-  ] : []),
-].filter(Boolean);
-
-if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
-  console.error('FATAL: CORS_ORIGIN must be set in production');
+// CORS — only allow explicitly configured CORS_ORIGIN in all environments.
+// Previously, non-production added a broad localhost allowlist which could be
+// exploited when the server was exposed via tunnels (ngrok, Cloudflare Tunnel).
+// Developers must set CORS_ORIGIN in their .env (e.g. http://localhost:8081).
+if (!process.env.CORS_ORIGIN) {
+  console.error('FATAL: CORS_ORIGIN must be set');
   process.exit(1);
 }
+const allowedOrigins = [process.env.CORS_ORIGIN];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
