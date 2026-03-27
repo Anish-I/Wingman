@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable, StyleSheet } from 'react-native';
+import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -215,15 +216,15 @@ export default function WorkflowsScreen() {
             ? 'Could not load workflows. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
         </Text>
-        <Pressable
-          accessibilityRole="button"
+        <Button
+          variant="primary"
+          size="sm"
+          label="Retry"
           accessibilityLabel="Retry loading workflows"
-          className="bg-pip-purple rounded-xl"
-          style={{ marginTop: spacing.xl, paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.md }}
+          fullWidth={false}
+          style={{ marginTop: spacing.xl }}
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
-        >
-          <Text className="text-white text-sm font-bold">Retry</Text>
-        </Pressable>
+        />
       </SafeAreaView>
     );
   }
@@ -481,42 +482,23 @@ export default function WorkflowsScreen() {
               multiline
               autoFocus
             />
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              variant="gradient"
+              size="lg"
+              label={isPending ? 'Creating magic...' : 'Create Automation'}
               accessibilityLabel={isPending ? 'Creating automation' : 'Create automation'}
-              className="rounded-2xl items-center overflow-hidden"
-              onPress={() => createWorkflow()}
+              loading={isPending}
               disabled={isPending || !nlInput.trim()}
-              style={({ pressed }) => [
-                { paddingVertical: spacing.lg, marginBottom: spacing.sm },
-                isPending || !nlInput.trim() ? styles.disabledOpacity : undefined,
-                ...pressStyle({ pressed }),
-                webInteractive(isPending || !nlInput.trim()),
-              ]}
-            >
-              <LinearGradient
-                colors={[purple[500], purple[600]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createButtonGradient}
-              />
-              <Text className="text-white text-base font-bold">
-                {isPending ? 'Creating magic...' : 'Create Automation'}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
+              onPress={() => createWorkflow()}
+              style={{ marginBottom: spacing.sm }}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Cancel"
               accessibilityLabel="Cancel"
-              className="items-center"
               onPress={() => setModalVisible(false)}
-              style={({ pressed }) => [
-                { paddingVertical: spacing.md },
-                ...chipPressStyle({ pressed }),
-                webInteractive(),
-              ]}
-            >
-              <Text style={s.mutedText} className="text-[15px] font-medium">Cancel</Text>
-            </Pressable>
+            />
           </View>
         </View>
       </Modal>
