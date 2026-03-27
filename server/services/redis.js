@@ -126,9 +126,27 @@ async function appendMessage(userId, role, content) {
   pipeline.ltrim(key, 0, MAX_MESSAGES - 1);
   pipeline.expire(key, CONVERSATION_TTL);
   const results = await pipeline.exec();
-  // pipeline.exec() returns [[err, result], ...] — throw the first error found
-  for (const [err] of results) {
-    if (err) throw err;
+  // pipeline.exec() returns [[err, result], ...] for [lpush, ltrim, expire]
+  const [lpushResult, ltrimResult, expireResult] = results;
+  if (lpushResult[0]) throw lpushResult[0]; // message not stored — propagate
+
+  // If ltrim or expire failed, the message was stored but the list may grow
+  // unbounded. Retry the failing commands once before logging a warning.
+  const housekeepingFailures = [];
+  if (ltrimResult[0]) housekeepingFailures.push(['ltrim', ltrimResult[0]]);
+  if (expireResult[0]) housekeepingFailures.push(['expire', expireResult[0]]);
+
+  if (housekeepingFailures.length > 0) {
+    try {
+      const retry = redis.pipeline();
+      if (ltrimResult[0]) retry.ltrim(key, 0, MAX_MESSAGES - 1);
+      if (expireResult[0]) retry.expire(key, CONVERSATION_TTL);
+      await retry.exec();
+    } catch (retryErr) {
+      for (const [cmd, err] of housekeepingFailures) {
+        logger.error({ userId, cmd, err: err.message }, '[redis] appendMessage housekeeping failed after retry — conversation may grow unbounded');
+      }
+    }
   }
 }
 
@@ -162,26 +180,35 @@ async function cleanupStaleConversations() {
   const STALE_TTL = 48 * 60 * 60; // 48 hours in seconds
   let cursor = '0';
   let cleaned = 0;
+  let errors = 0;
   try {
     do {
       const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', 'conv:*', 'COUNT', 100);
       cursor = nextCursor;
       for (const key of keys) {
-        const ttl = await redis.ttl(key);
-        if (ttl === -2) {
-          // Key expired or gone between SCAN and TTL check — skip
-          continue;
-        }
-        if (ttl === -1) {
-          // No TTL set — apply a 48-hour expiry
-          await redis.expire(key, STALE_TTL);
-          cleaned++;
+        try {
+          const ttl = await redis.ttl(key);
+          if (ttl === -2) {
+            // Key expired or gone between SCAN and TTL check — skip
+            continue;
+          }
+          if (ttl === -1) {
+            // No TTL set — apply a 48-hour expiry
+            await redis.expire(key, STALE_TTL);
+            cleaned++;
+          }
+        } catch (keyErr) {
+          errors++;
+          logger.warn({ key, err: keyErr.message }, '[redis] Cleanup: failed to set TTL on key, continuing scan');
         }
       }
     } while (cursor !== '0');
-    if (cleaned > 0) console.log(`[redis] Cleanup: set 48h TTL on ${cleaned} stale conversation keys`);
-  } catch (err) {
-    logger.error({ err: err.message }, '[redis] Cleanup error');
+  } catch (scanErr) {
+    // SCAN itself failed — log with cursor so next invocation context is clear
+    logger.error({ err: scanErr.message, cursor, cleaned, errors }, '[redis] Cleanup: scan interrupted, completed keys so far still have TTLs set');
+  }
+  if (cleaned > 0 || errors > 0) {
+    logger.info({ cleaned, errors }, '[redis] Cleanup: stale conversation sweep finished');
   }
 }
 
