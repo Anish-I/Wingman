@@ -1143,6 +1143,21 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
   }
 });
 
+// Allowed web origins for OAuth callback redirects (prevents open redirect)
+const ALLOWED_WEB_ORIGINS = [
+  'http://localhost:8098',
+  'http://localhost:3000',
+  'http://localhost:8081',
+  'http://127.0.0.1:8098',
+  // Include the configured CORS origin (typically the production HTTPS URL)
+  ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : []),
+];
+
+function isAllowedWebOrigin(origin) {
+  return ALLOWED_WEB_ORIGINS.includes(origin) ||
+    (process.env.CORS_ORIGIN && origin === process.env.CORS_ORIGIN);
+}
+
 // GET /auth/google — redirect to Google OAuth consent screen
 router.get('/google', async (req, res, next) => {
   try {
@@ -1156,7 +1171,9 @@ router.get('/google', async (req, res, next) => {
     // CSRF protection: generate a random nonce, store in Redis, and embed in JWT state.
     // On callback, the nonce is verified against Redis and deleted (single-use).
     const platform = req.query.platform === 'web' ? 'web' : 'native';
-    const webOrigin = req.query.webOrigin || '';
+    const rawWebOrigin = req.query.webOrigin || '';
+    // Validate webOrigin against allowlist at state-creation time (not just at redirect)
+    const webOrigin = (rawWebOrigin && isAllowedWebOrigin(rawWebOrigin)) ? rawWebOrigin : '';
     // Client-generated CSRF token — echoed back in the redirect so the client can verify
     const clientState = typeof req.query.clientState === 'string' ? req.query.clientState : '';
     const nonce = crypto.randomBytes(32).toString('hex');
@@ -1192,25 +1209,14 @@ function parseOAuthState(stateParam) {
   }
 }
 
-// Allowed web origins for OAuth callback redirects (prevents open redirect)
-const ALLOWED_WEB_ORIGINS = [
-  'http://localhost:8098',
-  'http://localhost:3000',
-  'http://localhost:8081',
-  'http://127.0.0.1:8098',
-  // Include the configured CORS origin (typically the production HTTPS URL)
-  ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : []),
-];
-
 function buildRedirectUrl(state, params) {
   const allParams = { ...params };
   // Echo the client-generated CSRF token so the mobile app can verify it
   if (state.clientState) allParams.clientState = state.clientState;
   const qs = new URLSearchParams(allParams).toString();
   if (state.platform === 'web' && state.webOrigin) {
-    // Validate webOrigin against allowlist
-    if (ALLOWED_WEB_ORIGINS.includes(state.webOrigin) ||
-        (process.env.CORS_ORIGIN && state.webOrigin === process.env.CORS_ORIGIN)) {
+    // webOrigin was already validated at state-creation time, but double-check
+    if (isAllowedWebOrigin(state.webOrigin)) {
       return `${state.webOrigin}/connect/callback?${qs}`;
     }
   }
