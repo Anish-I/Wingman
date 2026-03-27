@@ -30,7 +30,7 @@ function buildRedisOptions(overrides = {}) {
  * OTP hashes, session data, and rate-limit counters.
  */
 function createRedisClient(overrides = {}) {
-  const env = process.env.NODE_ENV || 'development';
+  const env = (process.env.NODE_ENV || 'development').toLowerCase().trim();
   if (env !== 'development' && env !== 'test' && !process.env.REDIS_PASSWORD) {
     console.error('[redis] FATAL: REDIS_PASSWORD is required in non-development environments to prevent unauthenticated access. Exiting.');
     process.exit(1);

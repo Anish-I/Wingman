@@ -5,7 +5,8 @@
  */
 
 function validateEnv() {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const nodeEnv = (process.env.NODE_ENV || '').toLowerCase().trim();
+  const isProduction = nodeEnv === 'production' || nodeEnv === 'prod';
   const missing = [];
 
   // Always required
@@ -55,7 +56,7 @@ function validateEnv() {
   // Require Redis password in all non-local environments (production, staging, etc.)
   // This is a hard exit — not deferred to the general missing-vars check — because
   // an unauthenticated Redis exposes cached OTPs, sessions, and rate-limit data.
-  const isLocal = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  const isLocal = !process.env.NODE_ENV || nodeEnv === 'development' || nodeEnv === 'test';
   if (!isLocal && !process.env.REDIS_PASSWORD) {
     console.error('[env-validate] FATAL: REDIS_PASSWORD is required in non-development environments to prevent unauthenticated access to OTPs, sessions, and rate-limit data. Exiting.');
     process.exit(1);
