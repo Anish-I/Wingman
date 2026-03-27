@@ -172,6 +172,15 @@ export default function ChatScreen() {
     }
     if (!pendingAssistantMsgId.current) {
       pendingAssistantMsgId.current = Crypto.randomUUID();
+    } else if (isRetry) {
+      // On retry, the old assistant ID may already be in the store as an error
+      // message. Remove it and generate a fresh ID so the success response
+      // isn't skipped by the duplicate-ID check.
+      const existing = useChatStore.getState().messages.find(m => m.id === pendingAssistantMsgId.current);
+      if (existing) {
+        useChatStore.getState().removeMessage(pendingAssistantMsgId.current!);
+        pendingAssistantMsgId.current = Crypto.randomUUID();
+      }
     }
     // Stable idempotency key per message attempt — retries reuse the same key
     // to prevent server-side duplicates when API partially succeeds.
