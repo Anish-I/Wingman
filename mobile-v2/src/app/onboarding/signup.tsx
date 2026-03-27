@@ -9,7 +9,8 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { base, layout, purple, radii, spacing, surfaceLight, typography, useThemeColors } from '@/components/ui/tokens';
+import { Button } from '@/components/ui/button';
+import { base, layout, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -17,7 +18,7 @@ import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { setItem, removeItem, getItem } from '@/lib/storage';
-import { entrance, delays, pressStyle, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 /** Generate a cryptographically random hex string for OAuth CSRF protection. */
 function generateOAuthState(): string {
@@ -75,9 +76,6 @@ export default function SignupScreen() {
     dividerLine: [styles.dividerLine, { backgroundColor: surface.border }],
     dividerText: { color: t.muted },
     socialContainer: styles.socialContainer,
-    googleButton: [styles.googleButton, { borderColor: surface.borderStrong, backgroundColor: surface.card }],
-    googleButtonHovered: { backgroundColor: surface.cardAlt, borderColor: surface.border },
-    socialButtonText: { color: t.primary },
     trustBadge: [styles.trustBadge, { backgroundColor: surface.section, borderColor: surface.border }],
     trustText: { color: t.secondary },
     footerText: { color: t.secondary },
@@ -294,41 +292,29 @@ export default function SignupScreen() {
 
           {/* Social buttons */}
           <MotiView {...maybeReduce(entrance(0, delays.sequence), reduced)} style={themed.socialContainer}>
-            <Pressable
-              style={({ pressed, hovered }) => [
-                themed.googleButton,
-                ...pressStyle({ pressed }),
-                webInteractive(),
-                Platform.OS === 'web' && hovered && !pressed
-                  ? themed.googleButtonHovered
-                  : undefined,
-              ]}
+            <Button
+              variant="social"
+              className="gap-2"
               onPress={handleGoogleSignIn}
               disabled={loading}
             >
               <GoogleIcon />
-              <Text style={[styles.socialButtonText, themed.socialButtonText]}>
+              <Text className="text-neutral-900 dark:text-[#F0F0F5] text-[15px] font-medium font-inter">
                 Google
               </Text>
-            </Pressable>
+            </Button>
 
-            <Pressable
-              style={({ pressed, hovered }) => [
-                styles.appleButton,
-                ...pressStyle({ pressed }),
-                webInteractive(),
-                Platform.OS === 'web' && hovered && !pressed
-                  ? styles.appleButtonHovered
-                  : undefined,
-              ]}
+            <Button
+              variant="social"
+              className="gap-2"
               onPress={handleAppleSignIn}
               disabled={loading}
             >
               <AppleIcon />
-              <Text style={styles.appleButtonText}>
+              <Text className="text-neutral-900 dark:text-[#F0F0F5] text-[15px] font-medium font-inter">
                 Apple
               </Text>
-            </Pressable>
+            </Button>
           </MotiView>
 
           {/* Trust / security note — elevated badge style */}
@@ -345,18 +331,14 @@ export default function SignupScreen() {
               Already have an account?
               {' '}
             </Text>
-            <Pressable
+            <Button
+              variant="link"
+              size="sm"
+              label="Sign In"
+              fullWidth={false}
               onPress={() => router.push('/login')}
-              style={({ pressed, hovered }) => [
-                ...pressStyle({ pressed }),
-                webInteractive(),
-                Platform.OS === 'web' && hovered && !pressed ? { opacity: 0.8 } : undefined,
-              ]}
-            >
-              <Text style={styles.signInLink}>
-                Sign In
-              </Text>
-            </Pressable>
+              textClassName="text-pip-purple-400 underline"
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -390,15 +372,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     width: '100%',
   },
-  googleButton: {
-    height: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,27 +395,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     marginHorizontal: spacing.lg,
   },
-  socialButtonText: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
-  appleButton: {
-    height: 52,
-    borderRadius: radii.md,
-    backgroundColor: surfaceLight.bg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  appleButtonHovered: {
-    backgroundColor: '#F5F5F5',
-  },
-  appleButtonText: {
-    color: base.black,
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
   trustText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
@@ -452,11 +404,5 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-  },
-  signInLink: {
-    color: purple[400],
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    textDecorationLine: 'underline',
   },
 });
