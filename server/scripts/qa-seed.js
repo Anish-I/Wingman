@@ -23,6 +23,18 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
+// Guard: only allow connections to localhost databases to prevent accidental production seeding
+const dbUrl = new URL(DATABASE_URL);
+const localHosts = ['localhost', '127.0.0.1', '::1'];
+if (!localHosts.includes(dbUrl.hostname)) {
+  console.error(
+    '❌ QA seed script only allows localhost database connections (got host: %s).\n' +
+    '   This prevents accidental seeding of production databases.',
+    dbUrl.hostname
+  );
+  process.exit(1);
+}
+
 const TEST_PHONE = '+15005550006';
 const TEST_OTP = '1234';
 
