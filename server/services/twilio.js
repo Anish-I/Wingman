@@ -1,18 +1,21 @@
 'use strict';
 
+const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
+
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
 async function sendSMS(to, body) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
     },
     body: new URLSearchParams({ From: fromNumber, To: to, Body: body }),
+    timeoutMs: 10_000,
   });
 
   if (!response.ok) {

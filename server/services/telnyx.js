@@ -1,8 +1,10 @@
+const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
+
 const fromNumber = process.env.TELNYX_PHONE_NUMBER;
 const messagingProfileId = process.env.TELNYX_MESSAGING_PROFILE_ID;
 
 async function sendSMS(to, body) {
-  const response = await fetch('https://api.telnyx.com/v2/messages', {
+  const response = await fetchWithTimeout('https://api.telnyx.com/v2/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -14,6 +16,7 @@ async function sendSMS(to, body) {
       text: body,
       messaging_profile_id: messagingProfileId,
     }),
+    timeoutMs: 10_000,
   });
 
   if (!response.ok) {

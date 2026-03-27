@@ -65,10 +65,14 @@ async function blacklistToken(token: string): Promise<void> {
   addPendingBlacklist(token);
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
       const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (res.ok) {
         removePendingBlacklist(token);
         return;
