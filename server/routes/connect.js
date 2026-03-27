@@ -243,21 +243,23 @@ router.post('/disconnect', requireAuth, async (req, res) => {
     const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const listRes = await fetchWithTimeout(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
-    if (listRes.ok) {
-      const data = await listRes.json();
-      const account = (data.items || []).find(
-        c => c.appName.toLowerCase() === app.toLowerCase() && c.status === 'ACTIVE'
-      );
-      if (account) {
-        const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
-          method: 'DELETE',
-          headers: { 'x-api-key': COMPOSIO_API_KEY },
-          timeoutMs: 10_000,
-        });
-        if (!delRes.ok) {
-          logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
-          return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
-        }
+    if (!listRes.ok) {
+      logger.error({ status: listRes.status }, '[connect] Composio list connectedAccounts failed');
+      return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
+    }
+    const data = await listRes.json();
+    const account = (data.items || []).find(
+      c => c.appName.toLowerCase() === app.toLowerCase() && c.status === 'ACTIVE'
+    );
+    if (account) {
+      const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        method: 'DELETE',
+        headers: { 'x-api-key': COMPOSIO_API_KEY },
+        timeoutMs: 10_000,
+      });
+      if (!delRes.ok) {
+        logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
+        return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
       }
     }
     // Best-effort cache invalidation — Composio DELETE already succeeded,
@@ -301,21 +303,23 @@ router.delete('/:app', requireAuth, async (req, res) => {
     const entityId = String(req.user.id);
     const listUrl = `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${entityId}&pageSize=200`;
     const listRes = await fetchWithTimeout(listUrl, { headers: { 'x-api-key': COMPOSIO_API_KEY }, timeoutMs: 10_000 });
-    if (listRes.ok) {
-      const data = await listRes.json();
-      const account = (data.items || []).find(
-        c => c.appName.toLowerCase() === app && c.status === 'ACTIVE'
-      );
-      if (account) {
-        const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
-          method: 'DELETE',
-          headers: { 'x-api-key': COMPOSIO_API_KEY },
-          timeoutMs: 10_000,
-        });
-        if (!delRes.ok) {
-          logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
-          return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
-        }
+    if (!listRes.ok) {
+      logger.error({ status: listRes.status }, '[connect] Composio list connectedAccounts failed');
+      return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
+    }
+    const data = await listRes.json();
+    const account = (data.items || []).find(
+      c => c.appName.toLowerCase() === app && c.status === 'ACTIVE'
+    );
+    if (account) {
+      const delRes = await fetchWithTimeout(`https://backend.composio.dev/api/v1/connectedAccounts/${account.id}`, {
+        method: 'DELETE',
+        headers: { 'x-api-key': COMPOSIO_API_KEY },
+        timeoutMs: 10_000,
+      });
+      if (!delRes.ok) {
+        logger.error({ status: delRes.status }, `Composio DELETE failed for account ${account.id}`);
+        return res.status(502).json({ error: { code: 'DISCONNECT_UPSTREAM_ERROR', message: 'Failed to disconnect app on Composio.' } });
       }
     }
     // Best-effort cache invalidation — Composio DELETE already succeeded
