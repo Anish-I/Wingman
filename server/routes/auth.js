@@ -1680,7 +1680,13 @@ router.post('/refresh', async (req, res) => {
     }
 
     // Verify user still exists
-    const user = await getUserById(oldPayload.userId).catch(() => null);
+    let user;
+    try {
+      user = await getUserById(oldPayload.userId);
+    } catch (err) {
+      logger.error({ err: err.message }, '[auth] DB error during token refresh user lookup');
+      return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Unable to verify user. Please try again.' } });
+    }
     if (!user) {
       return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
     }

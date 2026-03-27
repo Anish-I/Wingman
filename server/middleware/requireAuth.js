@@ -31,7 +31,13 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: { code: 'TOKEN_REVOKED', message: 'Token has been revoked.' } });
   }
 
-  const user = await getUserById(payload.userId).catch(err => { logger.error({ err: err.message }, '[auth] Failed to fetch user by ID'); return null; });
+  let user;
+  try {
+    user = await getUserById(payload.userId);
+  } catch (err) {
+    logger.error({ err: err.message }, '[auth] Failed to fetch user by ID');
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Unable to verify user. Please try again.' } });
+  }
   if (!user) {
     return res.status(401).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });
   }
