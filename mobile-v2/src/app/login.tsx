@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
-import { layout, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { layout, presets, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -44,7 +44,7 @@ export default function LoginScreen() {
     safeArea: { backgroundColor: surface.bg },
     headerTitle: [styles.headerTitle, { color: t.primary }],
     headerSubtitle: [styles.headerSubtitle, { color: t.secondary }],
-    phoneInputContainer: [styles.phoneInputContainer, { backgroundColor: surface.card, borderColor: surface.borderStrong }],
+    phoneInputContainer: [presets.inputField, { paddingHorizontal: spacing.lg }],
     phoneCountryCode: [styles.phoneCountryCode, { color: t.primary }],
     phoneDivider: [styles.phoneDivider, { backgroundColor: surface.border }],
     phoneInput: [styles.phoneInput, { color: t.primary }],
@@ -196,8 +196,8 @@ export default function LoginScreen() {
           <>
             {/* Phone input */}
             <View
-              className="flex-row items-center rounded-lg"
-              style={[themed.phoneInputContainer, { paddingHorizontal: spacing.lg }]}
+              className="flex-row items-center"
+              style={themed.phoneInputContainer}
             >
               <Text style={themed.phoneCountryCode}>+1</Text>
               <View style={themed.phoneDivider} />
@@ -322,10 +322,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
   },
-  phoneInputContainer: {
-    height: 56,
-    borderWidth: 1,
-  },
+  // phoneInputContainer style removed — now uses presets.inputField from tokens
   phoneCountryCode: {
     fontFamily: 'Sora_700Bold',
     fontSize: 16,

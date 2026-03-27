@@ -9,7 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
-import { base, layout, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, presets, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -46,7 +46,7 @@ export default function PhoneScreen() {
     safeArea: { backgroundColor: surface.bg },
     headerTitle: { color: t.primary },
     headerSubtitle: { color: t.muted },
-    phoneRow: [styles.phoneRow, { backgroundColor: surface.section, borderColor: surface.borderStrong }],
+    phoneRow: [presets.inputField, { paddingHorizontal: spacing.lg }],
     countryLabel: [styles.countryLabel, { color: t.muted }],
     divider: [styles.divider, { backgroundColor: surface.border }],
     phoneInput: { color: t.primary },
@@ -199,8 +199,8 @@ export default function PhoneScreen() {
 
         {/* Phone input row */}
         <View
-          className="w-full flex-row items-center rounded-lg"
-          style={[themed.phoneRow, { paddingHorizontal: spacing.lg }]}
+          className="w-full"
+          style={themed.phoneRow}
         >
           {/* US-only country indicator (static) */}
           <Text style={themed.countryLabel}>
@@ -334,10 +334,7 @@ export default function PhoneScreen() {
 
 const styles = StyleSheet.create({
   // --- Extracted from themed object ---
-  phoneRow: {
-    height: 56,
-    borderWidth: 1,
-  },
+  // phoneRow style removed — now uses presets.inputField from tokens
   countryLabel: {
     fontFamily: 'Inter_400Regular',
     fontSize: 14,

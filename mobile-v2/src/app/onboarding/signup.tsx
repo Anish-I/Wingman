@@ -10,7 +10,7 @@ import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { Button } from '@/components/ui/button';
-import { base, layout, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { base, layout, presets, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -71,7 +71,7 @@ export default function SignupScreen() {
     safeArea: [styles.safeArea, { backgroundColor: surface.bg }],
     title: { color: t.primary },
     formContainer: styles.formContainer,
-    inputRow: [styles.inputRow, { backgroundColor: surface.elevated, borderColor: surface.border }],
+    inputRow: [presets.inputField, { gap: spacing.md }],
     inputText: { color: t.primary },
     dividerLine: [styles.dividerLine, { backgroundColor: surface.border }],
     dividerText: { color: t.muted },
@@ -355,15 +355,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     width: '100%',
   },
-  inputRow: {
-    height: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
+  // inputRow style removed — now uses presets.inputField from tokens
   dividerLine: {
     flex: 1,
     height: 1,
