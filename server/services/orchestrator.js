@@ -854,6 +854,46 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // tool results are in `messages` but the LLM never processed them.  Make
   // one final LLM call *without tools* so it can summarise the results for
   // the user instead of returning a truncated fragment or fallback.
+  //
+  // Before the final LLM call, build a condensed summary of all tool
+  // interactions so we can persist it to conversation history.  Without
+  // this, the next user message would lack the context of what tools were
+  // called and what they returned, causing the LLM to repeat tool calls
+  // or give incorrect answers.
+  let toolContextSummary = '';
+  if (!completed && iterations > 0) {
+    const summaryParts = [];
+    // Walk the in-memory messages array (after the original history + user
+    // message) to extract assistant tool calls and their results.
+    const loopMessages = messages.slice(safeHistory.length + 1);
+    for (const msg of loopMessages) {
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'text' && part.text) {
+            summaryParts.push(`[Assistant]: ${part.text}`);
+          } else if (part.name) {
+            // tool_use block
+            const argSnippet = JSON.stringify(part.input || {}).slice(0, 200);
+            summaryParts.push(`[Tool Call]: ${part.name}(${argSnippet})`);
+          }
+        }
+      } else if (msg.role === 'user' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'tool_result') {
+            const resultSnippet = typeof part.content === 'string'
+              ? part.content.slice(0, 300)
+              : JSON.stringify(part.content).slice(0, 300);
+            summaryParts.push(`[Tool Result ${part.tool_use_id}]: ${resultSnippet}`);
+          }
+        }
+      }
+    }
+    if (summaryParts.length > 0) {
+      toolContextSummary = '\n\n[Prior tool context from this request — iteration limit reached]\n' +
+        summaryParts.join('\n');
+    }
+  }
+
   if (!completed && !abortController.aborted) {
     console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), making final summarisation LLM call`);
     try {
@@ -872,16 +912,22 @@ async function _processMessageInner(user, messageText, abortController = { abort
     ? 'Done! Let me know if you need anything else.'
     : "Sorry, I couldn't finish processing that. Please try again.");
 
+  // Append tool context summary to the persisted assistant message so the
+  // next conversation turn retains awareness of what tools were called.
+  const persistedText = toolContextSummary
+    ? finalText + toolContextSummary
+    : finalText;
+
   // User message was already appended before the LLM call — only persist
   // the assistant reply.  The lock is still held (released in the finally
   // block), so safeAppend is safe here even after abort.
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
-    await safeAppend('assistant', finalText);
+    await safeAppend('assistant', persistedText);
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     return finalText;
   }
-  await safeAppend('assistant', finalText);
+  await safeAppend('assistant', persistedText);
 
   // Cache the response if eligible
   if (shouldCache(messageText) && finalText) {
