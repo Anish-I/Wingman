@@ -101,7 +101,7 @@ const DUMMY_HASH = bcrypt.hashSync('wingman-dummy-sentinel', 10);
 function setAuthCookie(res, token) {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV !== 'development',
     sameSite: 'lax',
     maxAge: (86400 + REFRESH_GRACE_SECONDS) * 1000, // JWT expiry + refresh grace window
     path: '/',
@@ -125,7 +125,7 @@ function authResponse(req, token, user) {
 function clearAuthCookie(res) {
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV !== 'development',
     sameSite: 'lax',
     path: '/',
   });
