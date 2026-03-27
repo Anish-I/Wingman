@@ -22,6 +22,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useApps } from '@/features/apps/api';
 import { client } from '@/lib/api/client';
 import allAppsRaw from '@/data/composio-apps.json';
+import { Button } from '@/components/ui/button';
 import { base, layout, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { headerEntrance, entrance, popIn, delays, chipPressStyle, pressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -608,15 +609,15 @@ export default function AppsScreen() {
             ? 'Could not load your apps. Check your connection and try again.'
             : 'This is taking longer than expected. Check your connection and try again.'}
         </Text>
-        <Pressable
-          accessibilityRole="button"
+        <Button
+          variant="primary"
+          size="sm"
+          label="Retry"
           accessibilityLabel="Retry loading apps"
-          className="bg-pip-purple rounded-xl"
-          style={{ marginTop: spacing.xl, paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.md }}
+          fullWidth={false}
+          style={{ marginTop: spacing.xl }}
           onPress={() => { setLoadingTimedOut(false); refetch(); }}
-        >
-          <Text className="text-white text-sm font-bold">Retry</Text>
-        </Pressable>
+        />
       </SafeAreaView>
     );
   }
@@ -635,15 +636,15 @@ export default function AppsScreen() {
             <>
               <Ionicons name="time-outline" size={18} color="#F5A623" style={styles.slowHintIcon} />
               <Text style={ts.slowHintText}>Taking longer than usual</Text>
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                variant="outline"
+                size="sm"
+                label="Retry"
                 accessibilityLabel="Retry loading apps"
+                fullWidth={false}
                 onPress={() => { setLoadingSlow(false); refetch(); }}
-                className="rounded-lg"
-                style={[styles.slowHintRetry, { marginLeft: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }]}
-              >
-                <Text style={styles.slowHintRetryText}>Retry</Text>
-              </Pressable>
+                style={{ marginLeft: spacing.sm }}
+              />
             </>
           ) : (
             <>
@@ -874,14 +875,6 @@ const styles = StyleSheet.create({
   },
   slowHintIcon: {
     marginRight: spacing.sm,
-  },
-  slowHintRetry: {
-    backgroundColor: 'rgba(245, 166, 35, 0.2)',
-  },
-  slowHintRetryText: {
-    color: '#F5A623',
-    fontSize: 12,
-    fontWeight: '700',
   },
   mutedText: {},
 });

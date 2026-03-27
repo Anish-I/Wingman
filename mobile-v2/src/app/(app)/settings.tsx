@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { useRouter } from 'expo-router';
+import { Button } from '@/components/ui/button';
 import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
@@ -190,7 +191,6 @@ export default function SettingsScreen() {
   const sectionLabel = { color: t.muted };
   const sectionBorder = [styles.sectionBorder, { borderColor: surface.border }];
   const statCardBase = [styles.statCardBase, { backgroundColor: surface.section, borderColor: surface.border }];
-  const logoutHovered = styles.logoutHovered;
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -303,27 +303,14 @@ export default function SettingsScreen() {
             transition: { ...springs.gentle, delay: staggerDelay(6, delays.normal) },
           }, reducedMotion)}
         >
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            variant="destructive"
+            label="Log Out"
+            icon="log-out-outline"
             accessibilityLabel="Log out"
-            className="flex-row items-center justify-center bg-[#FF3B30]/10 rounded-2xl"
             onPress={handleLogout}
-            style={({ pressed, hovered, focused }: any) => [
-              { gap: spacing.sm, paddingVertical: spacing.lg, marginTop: spacing['3xl'], marginHorizontal: layout.screenPaddingH },
-              ...cardPressStyle({ pressed }),
-              webInteractive(),
-              // Web hover: enhance background
-              Platform.OS === 'web' && hovered && !pressed
-                ? logoutHovered
-                : undefined,
-              focused
-                ? focusRing(true, '#FF3B30') as any
-                : undefined,
-            ]}
-          >
-            <Ionicons name="log-out-outline" size={18} color="#FF3B30" />
-            <Text className="text-[#FF3B30] text-base font-bold">Log Out</Text>
-          </Pressable>
+            style={{ marginTop: spacing['3xl'], marginHorizontal: layout.screenPaddingH }}
+          />
         </MotiView>
       </ScrollView>
     </SafeAreaView>
@@ -356,10 +343,6 @@ const styles = StyleSheet.create({
   statCardBase: {
     borderWidth: 1,
   },
-  logoutHovered: {
-    backgroundColor: '#FF3B30/20',
-    boxShadow: '0 2px 8px rgba(255, 59, 48, 0.2)',
-  } as any,
   // --- Original static styles ---
   settingsRowFirstRadius: {
     borderTopLeftRadius: radii.lg,
