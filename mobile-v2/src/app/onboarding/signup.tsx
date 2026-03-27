@@ -149,7 +149,7 @@ export default function SignupScreen() {
       // The server echoes this back in the redirect so both the inline (WebBrowser)
       // and fallback (callback.tsx) flows can verify the OAuth session is genuine.
       const clientState = generateOAuthState();
-      setItem('oauth_pending', { clientState, returnTo: '/onboarding/permissions' });
+      setItem('oauth_pending', { clientState });
 
       if (Platform.OS === 'web') {
         // On web, use popup-based flow with web-safe redirect

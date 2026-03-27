@@ -18,8 +18,6 @@ import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
  *    Already-authenticated users connecting a new app — routes to apps tab.
  */
 
-const ALLOWED_RETURN_PATHS = ['/onboarding/permissions', '/(app)', '/(app)/apps', '/(app)/settings'];
-
 export default function OAuthCallbackScreen() {
   const { surface, text: t } = useThemeColors();
   const router = useRouter();
@@ -59,7 +57,7 @@ export default function OAuthCallbackScreen() {
     // Validate CSRF state — the clientState in the URL must match what we stored
     // before initiating OAuth. This prevents login CSRF attacks where an attacker
     // crafts a callback URL with their own auth code.
-    const pending = getItem<{ clientState: string; returnTo: string }>('oauth_pending');
+    const pending = getItem<{ clientState: string }>('oauth_pending');
     removeItem('oauth_pending'); // Always clear to prevent reuse
 
     if (!pending || !clientState || pending.clientState !== clientState) {
@@ -73,10 +71,10 @@ export default function OAuthCallbackScreen() {
       return;
     }
 
-    // Use stored returnTo for context-aware redirect (not from URL to prevent open redirect)
-    const returnTo = (pending.returnTo && ALLOWED_RETURN_PATHS.includes(pending.returnTo))
-      ? pending.returnTo
-      : defaultReturnTo;
+    // Derive return path from auth state — never trust client-writable storage
+    // for redirect targets, as oauth_pending is not cryptographically signed and
+    // could be forged via XSS to redirect to arbitrary paths.
+    const returnTo = defaultReturnTo;
 
     if (error) {
       showMessage({
