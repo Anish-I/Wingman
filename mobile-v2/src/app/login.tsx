@@ -37,7 +37,15 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [otpRequestId, setOtpRequestId] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputs = useRef<TextInput[]>([]);
+
+  // Resend cooldown countdown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
 
   // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
@@ -76,6 +84,7 @@ export default function LoginScreen() {
     try {
       const { data } = await client.post('/auth/request-otp', { phone: formatted });
       setOtpRequestId(data.otp_request_id);
+      setResendCooldown(30);
     }
     catch {
       showAlert('Error', 'Could not send verification code. Please try again.');
@@ -272,10 +281,11 @@ export default function LoginScreen() {
                 }}
               />
               <Button
-                accessibilityLabel="Resend verification code"
+                accessibilityLabel={resendCooldown > 0 ? `Resend available in ${resendCooldown} seconds` : 'Resend verification code'}
                 variant="link"
                 size="sm"
-                label="Resend Code"
+                label={resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                disabled={resendCooldown > 0}
                 onPress={() => {
                   setCode(['', '', '', '', '', '']);
                   setActiveIdx(0);

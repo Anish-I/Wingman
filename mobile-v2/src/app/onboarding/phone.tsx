@@ -34,12 +34,20 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [otpRequestId, setOtpRequestId] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputs = useRef<TextInput[]>([]);
   const verifyingRef = useRef(false);
 
   // Stable ref so the auto-submit effect always calls the latest closure
   // without needing handleVerify in its dependency array.
   const handleVerifyRef = useRef<(otpOverride?: string) => Promise<void>>(null!);
+
+  // Resend cooldown countdown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
 
   // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
@@ -69,6 +77,7 @@ export default function PhoneScreen() {
     try {
       const { data } = await client.post('/auth/request-otp', { phone: formatted });
       setOtpRequestId(data.otp_request_id);
+      setResendCooldown(30);
       setE164Phone(formatted);
       setStep('verify');
     } catch (err: any) {
@@ -284,15 +293,16 @@ export default function PhoneScreen() {
                   Didn't get it?
                 </Text>
                 <Pressable
+                  disabled={resendCooldown > 0}
                   onPress={() => {
                     setCode(['', '', '', '', '', '']);
                     setActiveIdx(0);
                     handleSendCode();
                   }}
-                  style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
+                  style={Platform.OS === 'web' && resendCooldown <= 0 ? { cursor: 'pointer' } as any : undefined}
                 >
-                  <Text style={styles.resendLink}>
-                    Resend
+                  <Text style={[styles.resendLink, resendCooldown > 0 && { opacity: 0.5 }]}>
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
                   </Text>
                 </Pressable>
               </View>
