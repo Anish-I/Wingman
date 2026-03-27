@@ -7,6 +7,7 @@ const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
 const { redis } = require('./redis');
 const { validateToolArgs } = require('../lib/validate-tool-args');
+const { sanitizeUserMessage } = require('../lib/sanitize-message');
 const logger = require('./logger');
 const crypto = require('crypto');
 
@@ -542,11 +543,16 @@ async function _processMessageInner(user, messageText, abortController = { abort
   const memoryContext = getMemoryContext(user);
   const { systemPrompt } = buildContext(user, tools, memoryContext);
   // Defense-in-depth: strip any history messages with disallowed roles
-  // even though redis.js already sanitizes on load
-  const safeHistory = history.filter(
-    (m) => m.role === 'user' || m.role === 'assistant'
-  );
-  const messages = [...safeHistory, { role: 'user', content: messageText }];
+  // even though redis.js already sanitizes on load, and sanitize user
+  // messages in history (stored raw before this fix was deployed).
+  const safeHistory = history
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => m.role === 'user' ? { ...m, content: sanitizeUserMessage(m.content) } : m);
+  // Sanitize user message to neutralize prompt injection patterns (role
+  // switching, fake tool responses, system-prompt overrides) before the
+  // LLM sees it.  The raw text is already persisted via safeAppend above.
+  const sanitizedMessage = sanitizeUserMessage(messageText);
+  const messages = [...safeHistory, { role: 'user', content: sanitizedMessage }];
 
   let response;
   let iterations = 0;
