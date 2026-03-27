@@ -17,9 +17,11 @@ export const useApps = createQuery<AppsResponse>({
           timeout: 5000,
         });
         return data;
-      } catch (err) {
+      } catch (err: any) {
         // If the overall timeout already fired, don't bother with fallback.
         if (controller.signal.aborted) throw err;
+        // Let 401s propagate so the Axios interceptor triggers auto-logout.
+        if (err?.response?.status === 401) throw err;
         // Fallback endpoint — let it throw so the UI can detect errors.
         const { data } = await client.get<AppsResponse>('/connect/status', {
           signal: controller.signal,
