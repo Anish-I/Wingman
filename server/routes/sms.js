@@ -229,9 +229,32 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
  */
 async function processSingleSMS(phone, messageText, user, isNewUser) {
   // Check for pending workflow replies (atomic claim prevents duplicate processing on concurrent webhooks)
-  const { claimPendingReplyForUser, unclaimPendingReply } = require('../db/queries');
+  const { claimPendingReplyForUser, unclaimPendingReply, getWorkflowRun, getWorkflowById } = require('../db/queries');
   const pendingReply = await claimPendingReplyForUser(user.id, messageText);
   if (pendingReply) {
+    // Validate the run still exists and is in a resumable state before attempting resume
+    const run = await getWorkflowRun(pendingReply.run_id);
+    if (!run || !['waiting', 'delayed'].includes(run.status)) {
+      const reason = !run ? 'run no longer exists' : `run is in '${run.status}' state`;
+      logger.warn({ run_id: pendingReply.run_id, reason }, '[sms] Pending reply references stale workflow run');
+      const staleMsg = 'That workflow is no longer active, so your reply couldn\'t be processed. You can start a new workflow if needed.';
+      await provider.sendMessage(phone, staleMsg);
+      await appendMessage(user.id, 'user', messageText);
+      await appendMessage(user.id, 'assistant', staleMsg);
+      return;
+    }
+
+    // Validate the parent workflow still exists (may have been deleted via CASCADE)
+    const workflow = await getWorkflowById(run.workflow_id);
+    if (!workflow) {
+      logger.warn({ run_id: pendingReply.run_id, workflow_id: run.workflow_id }, '[sms] Workflow deleted while reply was pending');
+      const deletedMsg = 'The workflow this reply was for has been deleted. Your reply couldn\'t be processed.';
+      await provider.sendMessage(phone, deletedMsg);
+      await appendMessage(user.id, 'user', messageText);
+      await appendMessage(user.id, 'assistant', deletedMsg);
+      return;
+    }
+
     const { resumeWorkflowRun } = require('../services/workflow-agent');
     try {
       await resumeWorkflowRun(pendingReply.run_id, messageText);
