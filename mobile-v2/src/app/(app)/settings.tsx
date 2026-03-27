@@ -9,6 +9,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { signOut } from '@/features/auth/use-auth-store';
 import { useProfile, usePersistPreferences } from '@/features/settings/api';
 import { layout, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import { useSelectedTheme, type ColorSchemeType } from '@/lib/hooks/use-selected-theme';
 import { cardPressStyle, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce, springs, delays, staggerDelay } from '@/lib/motion';
 
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   valueBadgeText: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontWeight: '600',
   },
   settingsRowDivider: {
@@ -353,11 +354,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radii.lg,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: fontScale(22),
     fontWeight: '800',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontWeight: '800',
     textTransform: 'uppercase',
     marginTop: spacing.xxs,

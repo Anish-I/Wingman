@@ -10,6 +10,7 @@ import PipCard from '@/components/wingman/pip-card';
 import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } from '@/features/workflows/api';
 import type { Workflow } from '@/types';
 import { base, layout, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
@@ -516,7 +517,7 @@ const styles = StyleSheet.create({
   },
   slowHintText: {
     color: '#F5A623',
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontWeight: '600',
     flex: 1,
   },
@@ -549,7 +550,7 @@ const styles = StyleSheet.create({
   triggerIcon: {},
   triggerBadge: {},
   triggerBadgeText: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     fontWeight: '600',
   },
   // --- Original static styles ---

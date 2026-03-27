@@ -5,6 +5,7 @@ import * as React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, blue, layout, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -118,13 +119,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPaddingH,
   },
   mainTitle: {
-    fontSize: 30,
+    fontSize: fontScale(30),
     fontFamily: 'Sora_700Bold',
     letterSpacing: -1.5,
     marginTop: spacing.md,
   },
   subTitle: {
-    fontSize: 18,
+    fontSize: fontScale(18),
     fontFamily: 'Sora_700Bold',
     marginBottom: spacing.xl,
   },
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: fontScale(15),
     fontFamily: 'Inter_600SemiBold',
     flex: 1,
   },

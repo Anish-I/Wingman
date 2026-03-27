@@ -11,7 +11,7 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import { useResponsive } from '@/lib/responsive';
+import { fontScale, useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   } as any,
   // --- CategorySection ---
   categoryBadgeText: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     fontWeight: '700',
   },
   categorySectionListContent: {
@@ -828,11 +828,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontWeight: '600',
   },
   tabCount: {
-    fontSize: 10,
+    fontSize: fontScale(10),
     fontWeight: '700',
     marginLeft: spacing.xs,
   },
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
   },
   slowHintText: {
     color: '#F5A623',
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontWeight: '600',
     flex: 1,
   },

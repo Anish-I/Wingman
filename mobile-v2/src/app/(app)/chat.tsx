@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useResponsive } from '@/lib/responsive';
+import { fontScale, useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage } from '@/features/chat/api';
@@ -703,11 +703,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   headerName: {
-    fontSize: 18,
+    fontSize: fontScale(18),
     fontFamily: 'Sora_700Bold',
   },
   headerOnline: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontFamily: 'Inter_500Medium',
   },
   messageBubbleAssistant: {
@@ -715,27 +715,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: fontScale(15),
+    lineHeight: fontScale(22),
   },
   statusSending: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     fontFamily: 'Inter_500Medium',
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: fontScale(24),
     fontFamily: 'Sora_700Bold',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: fontScale(15),
     textAlign: 'center',
     marginBottom: spacing.sm,
     lineHeight: 22,
   },
   tryAskingLabel: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 1.5,
     textAlign: 'center',
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   promptChipText: {
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_600SemiBold',
   },
   emptyAvatarBorder: {
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
   },
   typingLabel: {
     color: teal[200],
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_600SemiBold',
     marginLeft: spacing.xs,
   },
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   statusSentText: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     color: teal[200],
     fontFamily: 'Inter_500Medium',
   },
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statusFailedText: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     color: semantic.error,
     fontFamily: 'Inter_500Medium',
   },
@@ -847,7 +847,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: {
-    fontSize: 11,
+    fontSize: fontScale(11),
     color: purple[400],
     fontFamily: 'Inter_600SemiBold',
   },
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
   },
   demoBadgeText: {
     color: '#F5A623',
-    fontSize: 10,
+    fontSize: fontScale(10),
     fontFamily: 'Inter_700Bold',
   },
   emptyContentContainer: {

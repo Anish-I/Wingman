@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { Button } from '@/components/ui/button';
 import { base, layout, presets, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -383,18 +384,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   dividerText: {
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_500Medium',
     marginHorizontal: spacing.lg,
   },
   trustText: {
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_500Medium',
     flex: 1,
     textAlign: 'center',
   },
   footerText: {
-    fontSize: 14,
+    fontSize: fontScale(14),
     fontFamily: 'Inter_400Regular',
   },
 });

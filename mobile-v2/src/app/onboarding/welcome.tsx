@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors, layout, purple, radii, spacing } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -110,36 +111,36 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   meetPipTitle: {
-    fontSize: 24,
+    fontSize: fontScale(24),
     textAlign: 'center',
     fontFamily: 'Sora_700Bold',
     letterSpacing: -0.6,
     marginBottom: spacing.md,
   },
   assistantSubtitle: {
-    fontSize: 18,
+    fontSize: fontScale(18),
     textAlign: 'center',
     fontFamily: 'Inter_600SemiBold',
     marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 14,
+    fontSize: fontScale(14),
     textAlign: 'center',
     marginTop: spacing.xs,
     fontFamily: 'Inter_400Regular',
-    lineHeight: 21,
+    lineHeight: fontScale(21),
   },
   trustTextContainer: {
     flex: 1,
   },
   trustTitle: {
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_600SemiBold',
     marginBottom: spacing.xxs,
   },
   trustDescription: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontFamily: 'Inter_400Regular',
-    lineHeight: 18,
+    lineHeight: fontScale(18),
   },
 });

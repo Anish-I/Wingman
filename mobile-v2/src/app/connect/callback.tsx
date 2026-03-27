@@ -7,6 +7,7 @@ import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
 import { getItem, removeItem } from '@/lib/storage';
 import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 
 /**
  * OAuth callback route for web.
@@ -142,6 +143,6 @@ const styles = StyleSheet.create({
   statusText: {
     marginTop: spacing.lg,
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
+    fontSize: fontScale(14),
   },
 });

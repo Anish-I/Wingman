@@ -130,39 +130,56 @@ export const blue = {
   muted: 'rgba(107, 155, 239, 0.22)',
 } as const;
 
-// ── Typography ────────────────────────────────────────────────
+// ── Typography (responsive — all sizes scale with screen width) ──
+import { fontScale } from '@/lib/responsive';
+
 export const typography = {
   hero: {
     fontFamily: 'Sora_700Bold',
-    fontSize: 30,
+    fontSize: fontScale(30),
     letterSpacing: -1.2,
-    lineHeight: 36,
+    lineHeight: fontScale(36),
   },
   title: {
     fontFamily: 'Sora_700Bold',
-    fontSize: 22,
+    fontSize: fontScale(22),
     letterSpacing: -0.5,
-    lineHeight: 28,
+    lineHeight: fontScale(28),
   },
   subtitle: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
+    fontSize: fontScale(16),
     letterSpacing: -0.2,
-    lineHeight: 22,
+    lineHeight: fontScale(22),
   },
   body: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: fontScale(15),
+    lineHeight: fontScale(22),
+  },
+  bodySmall: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: fontScale(14),
+    lineHeight: fontScale(20),
   },
   caption: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: fontScale(13),
+    lineHeight: fontScale(18),
+  },
+  footnote: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: fontScale(12),
+    lineHeight: fontScale(16),
+  },
+  tiny: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: fontScale(10),
+    lineHeight: fontScale(14),
   },
   label: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: fontScale(13),
     letterSpacing: 1.5,
     textTransform: 'uppercase' as const,
   },

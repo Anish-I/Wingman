@@ -8,6 +8,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
 import { base, layout, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 
 interface OnboardingApp {
   slug: string;
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 12,
+    fontSize: fontScale(12),
   },
   searchBar: {
     height: 44,
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
+    fontSize: fontScale(14),
   },
   appCard: {
     height: 80,
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 10,
+    fontSize: fontScale(10),
   },
   // --- Original static styles ---
   mainContainer: {

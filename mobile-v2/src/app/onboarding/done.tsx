@@ -9,6 +9,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { blue, layout, semantic, spacing, teal, typography, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 12,
+    fontSize: fontScale(12),
   },
   confettiPiece: {
     position: 'absolute',
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   },
   completeLabel: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 11,
+    fontSize: fontScale(11),
     letterSpacing: 2,
     color: semantic.success,
   },
@@ -201,8 +202,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: fontScale(15),
+    lineHeight: fontScale(21),
     textAlign: 'center',
   },
 });

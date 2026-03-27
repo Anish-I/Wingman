@@ -7,6 +7,7 @@ import { Redirect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Button, FocusAwareStatusBar } from '@/components/ui';
 import { layout, presets, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
@@ -347,12 +348,12 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
+    fontSize: fontScale(15),
   },
   // phoneInputContainer style removed — now uses presets.inputField from tokens
   phoneCountryCode: {
     fontFamily: 'Sora_700Bold',
-    fontSize: 16,
+    fontSize: fontScale(16),
   },
   phoneDivider: {
     width: 1,
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 16,
+    fontSize: fontScale(16),
   },
   otpBox: {
     borderRadius: radii.md,
@@ -370,6 +371,6 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: fontScale(13),
   },
 });

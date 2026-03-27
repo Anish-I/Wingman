@@ -10,6 +10,7 @@ import ProgressBar from '@/components/wingman/progress-bar';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { base, layout, presets, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -364,7 +365,7 @@ const styles = StyleSheet.create({
   // phoneRow style removed — now uses presets.inputField from tokens
   countryLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
+    fontSize: fontScale(14),
   },
   divider: {
     width: 1,
@@ -377,15 +378,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     textAlign: 'center',
     fontFamily: 'Sora_700Bold',
-    fontSize: 24,
+    fontSize: fontScale(24),
   },
   resendLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: fontScale(13),
   },
   successSubtitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
+    fontSize: fontScale(14),
   },
   // --- Original static styles ---
   scrollContent: {
@@ -400,12 +401,12 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
+    fontSize: fontScale(14),
     textAlign: 'center',
   },
   phoneInput: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 16,
+    fontSize: fontScale(16),
     marginLeft: spacing.sm,
   },
   otpSection: {
@@ -413,12 +414,12 @@ const styles = StyleSheet.create({
   },
   otpLabel: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 11,
+    fontSize: fontScale(11),
     letterSpacing: 2,
   },
   otpHint: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: fontScale(13),
     textAlign: 'center',
     marginTop: -spacing.sm,
   },
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
   },
   resendLink: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: fontScale(13),
     color: semantic.info,
   },
   successSection: {
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontFamily: 'Sora_700Bold',
-    fontSize: 22,
+    fontSize: fontScale(22),
     letterSpacing: -0.5,
   },
 });

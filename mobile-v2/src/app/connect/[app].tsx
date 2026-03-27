@@ -9,6 +9,7 @@ import Env from 'env';
 import { client } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/utils';
 import { layout, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 
 export default function ConnectAppScreen() {
   const { surface, text: t } = useThemeColors();
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#FF6B6B',
-    fontSize: 16,
+    fontSize: fontScale(16),
     fontFamily: 'Inter_600SemiBold',
     textAlign: 'center',
     marginBottom: spacing.lg,
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   goBackLabel: {
-    fontSize: 14,
+    fontSize: fontScale(14),
     fontFamily: 'Inter_500Medium',
   },
   loadingContainer: {

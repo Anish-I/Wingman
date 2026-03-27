@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 
 type SectionLabelProps = {
   text: string;
@@ -44,7 +45,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: fontScale(13),
     letterSpacing: 1.6,
     textTransform: 'uppercase',
   },

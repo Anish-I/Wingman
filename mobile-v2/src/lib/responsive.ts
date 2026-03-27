@@ -1,5 +1,26 @@
 import type { DimensionValue } from 'react-native';
-import { useWindowDimensions } from 'react-native';
+import { Dimensions, PixelRatio, useWindowDimensions } from 'react-native';
+
+// ── Responsive font scaling ──────────────────────────────────
+const BASE_WIDTH = 375; // iPhone SE / 8 — the reference design width
+
+/**
+ * Scale a font size relative to screen width.
+ *
+ * Uses *moderate* scaling (40 % of the raw ratio difference) so text
+ * shrinks gently on narrow phones (< 375 px) and grows gently on
+ * tablets, instead of linearly tracking screen width.
+ *
+ * Clamped to 85 %–120 % of the base size to prevent extremes.
+ */
+export function fontScale(size: number): number {
+  const { width } = Dimensions.get('window');
+  const scale = width / BASE_WIDTH;
+  // Apply only 40% of the scaling difference for a moderate effect
+  const factor = 1 + (scale - 1) * 0.4;
+  const clamped = Math.max(0.85, Math.min(1.2, factor));
+  return PixelRatio.roundToNearestPixel(size * clamped);
+}
 
 /**
  * Responsive sizing that adapts to screen width and orientation.

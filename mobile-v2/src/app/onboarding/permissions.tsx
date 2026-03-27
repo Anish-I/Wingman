@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, useThemeColors, layout, purple, radii, semantic, spacing, teal } from '@/components/ui/tokens';
+import { fontScale } from '@/lib/responsive';
 import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
   },
   // --- Original static styles ---
   speechText: {
-    fontSize: 13,
+    fontSize: fontScale(13),
     fontFamily: 'Inter_500Medium',
   },
   cardList: {
@@ -251,15 +252,15 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   permTitle: {
-    fontSize: 14,
+    fontSize: fontScale(14),
     fontFamily: 'Inter_600SemiBold',
   },
   permSubtitle: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontFamily: 'Inter_400Regular',
   },
   comingSoonText: {
-    fontSize: 10,
+    fontSize: fontScale(10),
     fontFamily: 'Inter_500Medium',
   },
   permActionButton: {
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: base.white,
-    fontSize: 11,
+    fontSize: fontScale(11),
     fontFamily: 'Inter_600SemiBold',
   },
 });

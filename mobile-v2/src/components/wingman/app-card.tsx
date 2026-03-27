@@ -3,7 +3,7 @@ import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { base, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { chipPressStyle, webInteractive } from '@/lib/motion';
-import { useResponsive } from '@/lib/responsive';
+import { fontScale, useResponsive } from '@/lib/responsive';
 
 type AppCardProps = {
   emoji: string;
@@ -117,10 +117,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   emoji: {
-    fontSize: 28,
+    fontSize: fontScale(28),
   },
   name: {
-    fontSize: 12,
+    fontSize: fontScale(12),
     fontFamily: 'Inter_500Medium',
   },
 });
