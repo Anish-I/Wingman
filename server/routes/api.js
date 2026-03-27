@@ -274,8 +274,8 @@ router.post('/workflows', requireAuth, async (req, res) => {
         return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `trigger_config rejected: ${tc.reason}` } });
       }
     }
-    if (!Array.isArray(actions)) {
-      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be an array' } });
+    if (!Array.isArray(actions) || actions.length === 0) {
+      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be a non-empty array' } });
     }
     for (let i = 0; i < actions.length; i++) {
       const a = actions[i];
