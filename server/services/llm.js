@@ -200,15 +200,25 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
         } catch (err) {
           lastErr = err;
+          // Malformed tool args: don't retry same LLM, fall back to next provider
+          if (err.malformedToolArgs) {
+            console.warn(`[llm] ${provider.name} returned malformed tool args, skipping retries`);
+            break;
+          }
           // Timeout errors: don't retry, fall back to next provider immediately
           const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
           if (isTimeout) {
             console.warn(`[llm] ${provider.name} timed out after ${Math.round(LLM_CALL_TIMEOUT * FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)])}ms, skipping retries`);
             break;
           }
-          const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status || err.malformedToolArgs;
+          // Auth errors (401/403) and bad input (400/422): don't retry same provider, fall back
+          if ([400, 401, 403, 422].includes(err.status)) {
+            console.warn(`[llm] ${provider.name} returned ${err.status}, skipping retries`);
+            break;
+          }
+          const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status;
           if (isRetryable && attempt < MAX_RETRIES) {
-            const reason = err.malformedToolArgs ? 'malformed tool args' : (err.status || 'connection error');
+            const reason = err.status || 'connection error';
             const delay = Math.pow(2, attempt - 1) * 1000;
             console.warn(`[llm] ${provider.name} ${reason} on attempt ${attempt}, retrying in ${delay}ms`);
             await new Promise(r => setTimeout(r, delay));
@@ -218,25 +228,70 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         }
       }
 
-      // Malformed tool args after retries: not a provider infrastructure issue, don't fall back
-      if (lastErr?.malformedToolArgs) {
-        logger.error({ err: lastErr.message }, '[llm] Malformed tool call JSON after retries');
+      // Classify the error to decide whether to fall back
+      const isTimeout = lastErr?.name === 'TimeoutError' || lastErr?.name === 'AbortError';
+      const status = lastErr?.status;
+      const AUTH_STATUSES = new Set([401, 403]);
+      const BAD_INPUT_STATUSES = new Set([400, 422]);
+
+      let errorType;
+      if (isTimeout) {
+        errorType = 'timeout';
+      } else if (lastErr?.malformedToolArgs) {
+        // LLM generated invalid JSON for tool args — different LLM may succeed
+        errorType = 'malformed-tool-args';
+      } else if (AUTH_STATUSES.has(status)) {
+        // Wrong API key / forbidden — other providers have different keys
+        errorType = 'auth';
+      } else if (BAD_INPUT_STATUSES.has(status)) {
+        // Bad request payload (e.g. LLM-specific formatting) — other providers may accept it
+        errorType = 'bad-input';
+      } else if (TRANSIENT_STATUSES.has(status) || !status) {
+        errorType = 'transient';
+      } else {
+        // Truly non-recoverable (e.g. 404 endpoint not found, 409, etc.)
+        errorType = 'non-recoverable';
+        providerErrors.push({ provider: provider.name, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
+        logger.error({ err: lastErr?.message || String(lastErr), providerErrors }, '[llm] Call failed (non-recoverable)');
         throw new Error('Failed to process your message. Please try again.');
       }
 
-      // If transient error (including connection/timeout errors) after retries, try next provider
-      const isTimeout = lastErr?.name === 'TimeoutError' || lastErr?.name === 'AbortError';
-      const isTransient = isTimeout || TRANSIENT_STATUSES.has(lastErr?.status) || !lastErr?.status;
-      if (isTransient) {
-        providerErrors.push({ provider: provider.name, status: lastErr?.status || null, message: lastErr?.message || String(lastErr), type: isTimeout ? 'timeout' : 'transient' });
-        console.log(`[llm] ${provider.name} failed (${lastErr?.status || 'connection error'}), falling back to ${providers[i + 1]?.name || 'none'}`);
-        continue;
-      }
+      providerErrors.push({ provider: provider.name, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
+      console.log(`[llm] ${provider.name} failed (${errorType}: ${status || 'no status'}), falling back to ${providers[i + 1]?.name || 'none'}`);
+    }
 
-      // Non-transient error (e.g. 401, 403), don't try other providers
-      providerErrors.push({ provider: provider.name, status: lastErr?.status || null, message: lastErr?.message || String(lastErr), type: 'non-transient' });
-      logger.error({ err: lastErr?.message || String(lastErr), providerErrors }, '[llm] Call failed (non-transient)');
-      throw new Error('Failed to process your message. Please try again.');
+    // All providers exhausted — retry primary once if failures were transient
+    const RETRYABLE_TYPES = new Set(['transient', 'timeout']);
+    const allTransient = providerErrors.length > 0 && providerErrors.every(e => RETRYABLE_TYPES.has(e.type));
+    if (allTransient && providers.length > 1) {
+      const primary = providers[0];
+      const model = complex ? primary.modelComplex : primary.model;
+      const retryParams = { model, max_tokens: MAX_TOKENS, messages: openAIMessages };
+      if (openAITools) { retryParams.tools = openAITools; retryParams.tool_choice = 'auto'; }
+      try {
+        console.log(`[llm] All providers failed transiently, retrying primary (${primary.name})`);
+        const response = await primary.client.chat.completions.create(retryParams, {
+          signal: AbortSignal.timeout(LLM_CALL_TIMEOUT),
+        });
+        const choice = response.choices[0];
+        const message = choice.message;
+        const text = message.content || '';
+        const toolUseBlocks = [];
+        if (message.tool_calls) {
+          for (const tc of message.tool_calls) {
+            toolUseBlocks.push({
+              type: 'tool_use',
+              id: tc.id,
+              name: tc.function.name,
+              input: JSON.parse(tc.function.arguments),
+            });
+          }
+        }
+        console.log(`[llm] Primary retry (${primary.name}) succeeded`);
+        return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
+      } catch (retryErr) {
+        providerErrors.push({ provider: primary.name, status: retryErr?.status || null, message: retryErr?.message || String(retryErr), type: 'primary-retry' });
+      }
     }
 
     // All providers exhausted — log the full error chain for diagnostics
