@@ -97,10 +97,23 @@ export default function LoginScreen() {
   }
 
   function handleCodeChange(text: string, idx: number) {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length > 1) {
+      // Paste: distribute digits across boxes starting at idx
+      const newCode = [...code];
+      for (let i = 0; i < digits.length && idx + i < 6; i++) {
+        newCode[idx + i] = digits[i];
+      }
+      setCode(newCode);
+      const nextIdx = Math.min(idx + digits.length, 5);
+      inputs.current[nextIdx]?.focus();
+      setActiveIdx(nextIdx);
+      return;
+    }
     const newCode = [...code];
-    newCode[idx] = text.slice(-1);
+    newCode[idx] = digits;
     setCode(newCode);
-    if (text && idx < 5) {
+    if (digits && idx < 5) {
       inputs.current[idx + 1]?.focus();
       setActiveIdx(idx + 1);
     }
@@ -250,9 +263,11 @@ export default function LoginScreen() {
                   onFocus={() => setActiveIdx(i)}
                   onKeyPress={e => handleKeyPress(e, i)}
                   keyboardType="number-pad"
-                  maxLength={1}
+                  maxLength={6}
                   selectTextOnFocus
                   autoFocus={i === 0}
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
                 />
               ))}
             </View>
