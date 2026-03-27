@@ -172,15 +172,6 @@ export default function ChatScreen() {
     }
     if (!pendingAssistantMsgId.current) {
       pendingAssistantMsgId.current = Crypto.randomUUID();
-    } else if (isRetry) {
-      // On retry, the old assistant ID may already be in the store as an error
-      // message. Remove it and generate a fresh ID so the success response
-      // isn't skipped by the duplicate-ID check.
-      const existing = useChatStore.getState().messages.find(m => m.id === pendingAssistantMsgId.current);
-      if (existing) {
-        useChatStore.getState().removeMessage(pendingAssistantMsgId.current!);
-        pendingAssistantMsgId.current = Crypto.randomUUID();
-      }
     }
     // Stable idempotency key per message attempt — retries reuse the same key
     // to prevent server-side duplicates when API partially succeeds.
@@ -238,13 +229,18 @@ export default function ChatScreen() {
       updateMessage(userMsgId, { status: 'sent' });
       // Fresh snapshot from store to avoid stale closure
       const freshMessages = useChatStore.getState().messages;
-      if (!freshMessages.some(m => m.id === assistantMsgId)) {
+      const existingAssistant = freshMessages.find(m => m.id === assistantMsgId);
+      if (!existingAssistant) {
         addMessage({
           id: assistantMsgId,
           role: 'assistant',
           content: result.reply,
           timestamp: Date.now(),
         });
+      } else if (existingAssistant.isError) {
+        // Stale error message from a prior failed attempt — replace with the
+        // real response instead of silently skipping it.
+        updateMessage(assistantMsgId, { content: result.reply, isError: false, timestamp: Date.now() });
       }
       // Success — clear pending IDs so next send generates fresh ones
       pendingUserMsgId.current = null;
@@ -308,15 +304,19 @@ export default function ChatScreen() {
     // Cancel auto-dismiss timer since user chose to retry
     const timer = autoDismissTimers.current.get(messageId);
     if (timer) { clearTimeout(timer); autoDismissTimers.current.delete(messageId); }
-    // Remove the error assistant message that followed the failed user message
-    const msgs = useChatStore.getState().messages;
-    const failedIdx = msgs.findIndex(m => m.id === messageId);
-    if (failedIdx >= 0 && failedIdx + 1 < msgs.length) {
-      const next = msgs[failedIdx + 1];
-      if (next.role === 'assistant' && next.isError) {
-        useChatStore.setState((state) => ({
-          messages: state.messages.filter(m => m.id !== next.id),
-        }));
+    // Remove the error assistant message using the tracked ID (more reliable
+    // than position-based lookup which can miss if messages shifted).
+    if (pendingAssistantMsgId.current) {
+      useChatStore.getState().removeMessage(pendingAssistantMsgId.current);
+    } else {
+      // Fallback: position-based removal when the tracked ID was already cleared
+      const msgs = useChatStore.getState().messages;
+      const failedIdx = msgs.findIndex(m => m.id === messageId);
+      if (failedIdx >= 0 && failedIdx + 1 < msgs.length) {
+        const next = msgs[failedIdx + 1];
+        if (next.role === 'assistant' && next.isError) {
+          useChatStore.getState().removeMessage(next.id);
+        }
       }
     }
     // Restore per-message idempotency key so retry reuses the original key —
