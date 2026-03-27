@@ -846,13 +846,27 @@ async function _processMessageInner(user, messageText, abortController = { abort
     iterations++;
   }
 
+  // If the loop exited because MAX_TOOL_ITERATIONS was reached, the last
+  // tool results are in `messages` but the LLM never processed them.  Make
+  // one final LLM call *without tools* so it can summarise the results for
+  // the user instead of returning a truncated fragment or fallback.
+  if (!completed && !abortController.aborted) {
+    console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), making final summarisation LLM call`);
+    try {
+      throwIfAborted(abortController, 'final LLM call');
+      const finalResponse = await withTimeout(
+        callLLM(systemPrompt, messages, [], { alreadyOpenAIFormat: true }),
+        LLM_ITERATION_TIMEOUT, 'final LLM call (post-iteration-limit)'
+      );
+      if (finalResponse?.text) response = finalResponse;
+    } catch (err) {
+      console.warn(`[user:${userId}] Final summarisation LLM call failed: ${err.message}`);
+    }
+  }
+
   const finalText = response?.text || (completed
     ? 'Done! Let me know if you need anything else.'
     : "Sorry, I couldn't finish processing that. Please try again.");
-
-  if (!completed) {
-    console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), persisting history anyway`);
-  }
 
   // User message was already appended before the LLM call — only persist
   // the assistant reply.  The lock is still held (released in the finally
