@@ -184,13 +184,14 @@ async function createUser(phone, name) {
  * Uses INSERT ... ON CONFLICT DO NOTHING to avoid TOCTOU races.
  * Returns { user, created } so callers know whether this is a new user.
  */
-async function getOrCreateUserByPhone(phone) {
+async function getOrCreateUserByPhone(phone, queryFn) {
+  const q = queryFn || query;
   // Only accept real E.164 phone numbers — synthetic keys must use dedicated functions
   if (!isRealPhone(phone)) {
     throw new Error(`getOrCreateUserByPhone: refusing non-E.164 value "${phone.slice(0, 30)}"`);
   }
   // Attempt insert; DO NOTHING if phone already exists
-  const ins = await query(
+  const ins = await q(
     'INSERT INTO users (phone) VALUES ($1) ON CONFLICT (phone) DO NOTHING RETURNING *',
     [phone]
   );
@@ -198,7 +199,7 @@ async function getOrCreateUserByPhone(phone) {
     return { user: ins.rows[0], created: true };
   }
   // Row already existed — fetch it
-  const existing = await query('SELECT * FROM users WHERE phone = $1', [phone]);
+  const existing = await q('SELECT * FROM users WHERE phone = $1', [phone]);
   return { user: existing.rows[0], created: false };
 }
 

@@ -913,16 +913,21 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
         } else {
           // Auth token references a deleted user — fall through to normal flow
           if (phoneUser) return phoneUser;
-          const { user: newUser } = await getOrCreateUserByPhone(phone);
+          const { user: newUser } = await getOrCreateUserByPhone(phone, txQuery);
           return newUser;
         }
       });
     } else {
       // No existing session — normal phone-based login/signup.
-      // Use atomic getOrCreateUserByPhone to prevent race where concurrent
-      // OTP verifications for the same phone both create separate accounts.
-      const result = await getOrCreateUserByPhone(phone);
-      user = result.user;
+      // Wrap in a transaction with the same advisory lock used by the authenticated
+      // path so that user creation is serialized with account merges. Without this,
+      // a concurrent authenticated request could check for phoneUser between our
+      // INSERT and its merge decision, leaving an orphaned duplicate account.
+      user = await withTransaction(async (txQuery) => {
+        await txQuery('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+        const result = await getOrCreateUserByPhone(phone, txQuery);
+        return result.user;
+      });
     }
 
     const token = await signToken({ userId: user.id, phone: user.phone });
