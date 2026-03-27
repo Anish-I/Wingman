@@ -6,6 +6,18 @@ class ParamCollector {
   add(value) { this.values.push(value); return `$${this.values.length}`; }
 }
 
+/**
+ * Validates and double-quote-escapes a SQL identifier (column/table name).
+ * Rejects anything that isn't a simple lowercase identifier to prevent
+ * SQL injection even if an upstream allowlist is bypassed.
+ */
+function safeId(name) {
+  if (typeof name !== 'string' || !/^[a-z][a-z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid SQL identifier: ${name}`);
+  }
+  return `"${name}"`;
+}
+
 // Recognized synthetic phone prefixes used as identity keys for non-phone signups.
 // Real E.164 phones always start with '+', so they can never collide with these.
 const SYNTHETIC_PREFIXES = ['email:', 'google:', 'apple:'];
@@ -64,10 +76,11 @@ async function linkUserIdentity(userId, fields) {
       const ref = p.add(value);
       // Only update if the column is NULL or already matches — never overwrite
       // a different existing value (prevents identity hijacking).
-      setClauses.push(`${key} = ${ref}`);
-      whereClauses.push(`(${key} IS NULL OR ${key} = ${ref})`);
+      const col = safeId(key);
+      setClauses.push(`${col} = ${ref}`);
+      whereClauses.push(`(${col} IS NULL OR ${col} = ${ref})`);
       // Atomic conflict check: ensure no *other* user already claims this identity.
-      conflictClauses.push(`NOT EXISTS (SELECT 1 FROM users WHERE ${key} = ${ref} AND id != ${userRef})`);
+      conflictClauses.push(`NOT EXISTS (SELECT 1 FROM users WHERE ${col} = ${ref} AND id != ${userRef})`);
     }
   }
   if (setClauses.length === 0) return null;
@@ -153,9 +166,9 @@ async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
     for (const [key, value] of Object.entries(updates)) {
       const ref = p.add(value);
       if (key === 'preferences') {
-        setClauses.push(`preferences = ${ref}::jsonb`);
+        setClauses.push(`${safeId('preferences')} = ${ref}::jsonb`);
       } else {
-        setClauses.push(`${key} = ${ref}`);
+        setClauses.push(`${safeId(key)} = ${ref}`);
       }
     }
     setClauses.push('updated_at = NOW()');
