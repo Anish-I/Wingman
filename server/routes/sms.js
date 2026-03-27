@@ -49,7 +49,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // switch (e.g. twilio→telnyx) from routing Twilio webhooks through the
       // wrong signature validator, which would silently drop every message.
       const twilioProvider = new TwilioProvider();
-      if (PROVIDER !== 'stub') {
+      if (PROVIDER !== 'stub' || process.env.NODE_ENV === 'production') {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
@@ -97,7 +97,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // Use a Telnyx-specific provider for validation regardless of startup
       // PROVIDER value — mirrors the Twilio fix above.
       const telnyxProvider = new TelnyxProvider();
-      if (PROVIDER !== 'stub') {
+      if (PROVIDER !== 'stub' || process.env.NODE_ENV === 'production') {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
