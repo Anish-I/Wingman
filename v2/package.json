@@ -1,0 +1,34 @@
+{
+  "name": "wingman-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Clean restart for Wingman: Telnyx SMS ingress, OpenAI Responses planner, Composio executor, Postgres state.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.8.4",
+    "fastify-raw-body": "^5.0.0",
+    "openai": "^6.33.0",
+    "pg": "^8.20.0",
+    "pg-boss": "^12.14.0",
+    "pino": "^10.3.1",
+    "telnyx": "^6.29.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "pino-pretty": "^13.1.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
