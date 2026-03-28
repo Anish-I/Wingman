@@ -1638,10 +1638,11 @@ router.delete('/account', requireAuth, async (req, res) => {
 
     await deleteUser(req.user.id);
 
-    // Blacklist ALL tokens for this user (not just the current session).
-    // TTL covers JWT lifetime (24h) + refresh grace window (7d) so the key
-    // persists until all affected tokens can no longer be refreshed.
-    const delTtl = 86400 + REFRESH_GRACE_SECONDS;
+    // Blacklist ALL tokens for this user permanently.  The user row is
+    // hard-deleted, so there is no reason for this revocation to ever
+    // expire.  We use a 10-year TTL (Redis doesn't support "no expiry"
+    // via the SET EX variant) which far outlasts any JWT or refresh window.
+    const delTtl = 10 * 365 * 86400; // ~10 years
     const delKey = `user_deleted:${req.user.id}`;
     await Promise.all([
       redis.set(delKey, '1', 'EX', delTtl),
@@ -1863,6 +1864,19 @@ async function isTokenRevoked(jti, userId, iat) {
     return true;
   }
 
+  // Safety net: if the user was hard-deleted from the DB (and the
+  // revocation entries in Redis/PG have expired or been evicted),
+  // reject the token by confirming the user no longer exists.
+  if (userId) {
+    try {
+      const user = await getUserById(userId);
+      if (!user) return true;
+    } catch {
+      // Fail closed: if we can't verify user existence, reject
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -1874,7 +1888,11 @@ async function isTokenRevoked(jti, userId, iat) {
  */
 async function _restoreToRedis(key, value) {
   try {
-    const ttl = 86400 + REFRESH_GRACE_SECONDS;
+    // user_deleted entries are permanent; other revocations use the
+    // standard JWT-lifetime + refresh-grace window.
+    const ttl = key.startsWith('user_deleted:')
+      ? 10 * 365 * 86400
+      : 86400 + REFRESH_GRACE_SECONDS;
     await redis.set(key, value, 'EX', ttl);
   } catch {
     // Ignore — Redis may still be recovering
