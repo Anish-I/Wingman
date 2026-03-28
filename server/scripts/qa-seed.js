@@ -4,6 +4,7 @@
  * Pre-populates database and Redis with test data for QA testing
  */
 
+const crypto = require('crypto');
 const pg = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { createRedisClient } = require('../services/redis');
@@ -35,8 +36,26 @@ if (!localHosts.includes(dbUrl.hostname)) {
   process.exit(1);
 }
 
+// Guard: only allow connections to localhost Redis to prevent accidental production seeding
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+try {
+  const parsedRedis = new URL(redisUrl);
+  if (!localHosts.includes(parsedRedis.hostname)) {
+    console.error(
+      '❌ QA seed script only allows localhost Redis connections (got host: %s).\n' +
+      '   This prevents accidental seeding of production Redis.',
+      parsedRedis.hostname
+    );
+    process.exit(1);
+  }
+} catch (e) {
+  console.error('❌ Failed to parse REDIS_URL: %s', e.message);
+  process.exit(1);
+}
+
 const TEST_PHONE = '+15005550006';
-const TEST_OTP = '1234';
+// Generate a cryptographically random 6-digit OTP matching production format
+const TEST_OTP = crypto.randomInt(100000, 1000000).toString();
 
 async function seed() {
   const client = new pg.Client(DATABASE_URL);
@@ -78,7 +97,6 @@ async function seed() {
     }
 
     // Store HMAC-hashed OTP in Redis (matches auth.js verify-otp format)
-    const crypto = require('crypto');
     if (!process.env.OTP_SECRET) {
       console.error('❌ OTP_SECRET environment variable is required');
       process.exit(1);
@@ -92,8 +110,9 @@ async function seed() {
 
     console.log('\n✅ QA Seed Complete! Test user is ready.');
     console.log('  Phone: %s', TEST_PHONE);
-    console.log('  OTP: stored in Redis key %s', otpKey);
-    console.log('  To obtain a JWT, log in via POST /auth/verify-otp.');
+    console.log('  OTP: %s (stored HMAC-hashed in Redis key %s)', TEST_OTP, otpKey);
+    console.log('  Request ID: %s', otpRequestId);
+    console.log('  To obtain a JWT, POST /auth/verify-otp with phone, code, and otp_request_id.');
 
     process.exit(0);
   } catch (err) {
