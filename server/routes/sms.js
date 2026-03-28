@@ -52,7 +52,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // Always verify webhook signatures in production, even if PROVIDER=stub
       // (misconfigured prod must not silently skip verification).
       // In non-production, skip verification only when explicitly using stub provider.
-      const skipTwilioVerify = PROVIDER === 'stub' && process.env.NODE_ENV !== 'production';
+      const skipTwilioVerify = PROVIDER === 'stub' && ['development', 'test'].includes(process.env.NODE_ENV);
       if (!skipTwilioVerify) {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
@@ -101,7 +101,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // Use a Telnyx-specific provider for validation regardless of startup
       // PROVIDER value — mirrors the Twilio fix above.
       const telnyxProvider = new TelnyxProvider();
-      const skipTelnyxVerify = PROVIDER === 'stub' && process.env.NODE_ENV !== 'production';
+      const skipTelnyxVerify = PROVIDER === 'stub' && ['development', 'test'].includes(process.env.NODE_ENV);
       if (!skipTelnyxVerify) {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
