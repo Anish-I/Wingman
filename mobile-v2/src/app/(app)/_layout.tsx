@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, SplashScreen, Tabs } from 'expo-router';
+import { Redirect, SplashScreen, Tabs, useRouter } from 'expo-router';
 import * as React from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
@@ -32,6 +32,12 @@ export default function TabLayout() {
   const needsOnboarding = !needsLogin && isFirstTime !== false;
   const showTabs = !needsLogin && !needsOnboarding;
 
+  const router = useRouter();
+  // Track whether the component has mounted past the initial render so we
+  // can distinguish "already showing tabs, then signed out" from the first
+  // render where <Redirect> is sufficient.
+  const mountedRef = useRef(false);
+
   // Clear chat messages on sign-out so a subsequent sign-in (potentially a
   // different user) doesn't see stale messages from the previous session.
   useEffect(() => {
@@ -39,6 +45,19 @@ export default function TabLayout() {
       useChatStore.getState().clearMessages();
     }
   }, [status]);
+
+  // Imperatively redirect to /login when auth state changes after mount.
+  // The declarative <Redirect> only fires reliably on the initial render;
+  // once <Tabs> is mounted, swapping it out for <Redirect> may not navigate.
+  useEffect(() => {
+    if (mountedRef.current && hydrated && (status === 'signOut' || !token)) {
+      router.replace('/login');
+    }
+  }, [hydrated, status, token, router]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
 
   useEffect(() => {
     if (showTabs) {
