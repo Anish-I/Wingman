@@ -66,20 +66,69 @@ function TypingDots({ reducedMotion }: { reducedMotion?: boolean }) {
   );
 }
 
+function ChatSkeleton({ surface: sf, reducedMotion: rm }: { surface: ReturnType<typeof useThemeColors>['surface']; reducedMotion: boolean }) {
+  const pulse = rm
+    ? {}
+    : {
+        from: { opacity: 0.35 },
+        animate: { opacity: 0.75 },
+        transition: { type: 'timing' as const, duration: 900, loop: true },
+      };
+  const skBg = { backgroundColor: sf.section };
+  const innerBg = { backgroundColor: sf.card };
+  // Alternating left/right message skeletons to mimic a conversation
+  const rows: { align: 'flex-start' | 'flex-end'; widthPct: `${number}%` }[] = [
+    { align: 'flex-start', widthPct: '70%' },
+    { align: 'flex-end', widthPct: '55%' },
+    { align: 'flex-start', widthPct: '80%' },
+    { align: 'flex-end', widthPct: '45%' },
+    { align: 'flex-start', widthPct: '65%' },
+  ];
+  return (
+    <View style={{ flex: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: layout.screenPaddingTop, gap: spacing.md }}>
+      {rows.map((row, i) => (
+        <View key={i} style={{ alignItems: row.align, flexDirection: 'row', gap: spacing.sm }}>
+          {row.align === 'flex-start' && (
+            <MotiView {...pulse} style={[skBg, { width: 28, height: 28, borderRadius: 14 }]} />
+          )}
+          <MotiView
+            {...pulse}
+            style={[skBg, { width: row.widthPct, borderRadius: radii.xl, padding: spacing.md }]}
+          >
+            <View style={[innerBg, { height: 12, borderRadius: 6, width: '90%', marginBottom: spacing.xs }]} />
+            <View style={[innerBg, { height: 12, borderRadius: 6, width: '60%' }]} />
+          </MotiView>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const { surface, text: t } = useThemeColors();
   const { chatMaxWidth } = useResponsive();
   const reducedMotion = useReducedMotion();
   const messages = useChatStore.use.messages();
   const loading = useChatStore.use.loading();
+  const historyLoading = useChatStore.use.historyLoading();
   const addMessage = useChatStore.use.addMessage();
   const updateMessage = useChatStore.use.updateMessage();
   const setLoading = useChatStore.use.setLoading();
+  const setHistoryLoading = useChatStore.use.setHistoryLoading();
   const dismissFailedMessage = useChatStore.use.dismissFailedMessage();
   const [input, setInput] = useState('');
   const [greeting] = useState(() => PIP_GREETINGS[Math.floor(Math.random() * PIP_GREETINGS.length)]);
   const listRef = useRef<FlatList>(null);
   const sendMutation = useSendMessage();
+
+  // Mark history as loaded on mount (no server-side history API yet — the
+  // skeleton shows briefly to maintain layout continuity during hydration).
+  useEffect(() => {
+    if (historyLoading) {
+      const timer = setTimeout(() => setHistoryLoading(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [historyLoading, setHistoryLoading]);
 
   // Theme-dependent overrides (static layout lives in StyleSheet below)
   const s = React.useMemo(() => ({
@@ -544,6 +593,9 @@ export default function ChatScreen() {
       </MotiView>
 
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {historyLoading ? (
+          <ChatSkeleton surface={surface} reducedMotion={reducedMotion} />
+        ) : (
         <FlatList
           ref={listRef}
           data={messages}
@@ -624,6 +676,7 @@ export default function ChatScreen() {
             </View>
           )}
         />
+        )}
 
         {loading && <TypingDots reducedMotion={reducedMotion} />}
 

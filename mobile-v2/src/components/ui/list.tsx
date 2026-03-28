@@ -1,10 +1,12 @@
 import { FlashList as NFlashList } from '@shopify/flash-list';
+import { MotiView } from 'moti';
 import * as React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Text } from './text';
-import { spacing } from './tokens';
+import { spacing, surface } from './tokens';
+import { useReducedMotion } from '@/lib/motion';
 
 type Props = {
   isLoading: boolean;
@@ -12,7 +14,39 @@ type Props = {
 
 export const List = NFlashList;
 
+const skeletonBg = { backgroundColor: surface.section };
+
+function SkeletonRows({ reduced }: { reduced: boolean }) {
+  const pulse = reduced
+    ? {}
+    : {
+        from: { opacity: 0.35 },
+        animate: { opacity: 0.75 },
+        transition: { type: 'timing' as const, duration: 900, loop: true },
+      };
+  return (
+    <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+      {[0, 1, 2, 3].map((i) => (
+        <MotiView
+          key={i}
+          {...pulse}
+          style={[skeletonBg, { borderRadius: 16, padding: spacing.lg }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={[skeletonBg, { width: 40, height: 40, borderRadius: 12, backgroundColor: surface.card }]} />
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <View style={{ width: '60%', height: 14, borderRadius: 8, backgroundColor: surface.card }} />
+              <View style={{ width: '85%', height: 10, borderRadius: 6, backgroundColor: surface.card }} />
+            </View>
+          </View>
+        </MotiView>
+      ))}
+    </View>
+  );
+}
+
 export const EmptyList = React.memo(({ isLoading }: Props) => {
+  const reduced = useReducedMotion();
   return (
     <View className="min-h-[200px] flex-1 items-center justify-center">
       {!isLoading
@@ -23,7 +57,7 @@ export const EmptyList = React.memo(({ isLoading }: Props) => {
             </View>
           )
         : (
-            <ActivityIndicator />
+            <SkeletonRows reduced={reduced} />
           )}
     </View>
   );

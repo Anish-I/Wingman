@@ -84,6 +84,7 @@ const MAX_ERROR_LIFETIME = 5 * 60_000; // 5 min
 type ChatState = {
   messages: Message[];
   loading: boolean;
+  historyLoading: boolean;
   addMessage: (msg: Message) => void;
   updateMessage: (id: string, updates: Partial<Message>) => void;
   removeMessage: (id: string) => void;
@@ -91,12 +92,14 @@ type ChatState = {
   purgeFailedMessages: () => void;
   removeTransientMessages: () => void;
   setLoading: (loading: boolean) => void;
+  setHistoryLoading: (loading: boolean) => void;
   clearMessages: () => void;
 };
 
 const _useChatStore = create<ChatState>((set) => ({
   messages: [],
   loading: false,
+  historyLoading: true,
   addMessage: (msg) =>
     set((state) => {
       // Defensive dedup — prevent duplicate messages from races between
@@ -179,6 +182,7 @@ const _useChatStore = create<ChatState>((set) => ({
       return { messages: state.messages.filter((m) => !ids.has(m.id)) };
     }),
   setLoading: (loading) => set({ loading }),
+  setHistoryLoading: (historyLoading) => set({ historyLoading }),
   clearMessages: () => set({ messages: [] }),
 }));
 
