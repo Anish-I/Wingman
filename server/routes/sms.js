@@ -10,6 +10,15 @@ const router = express.Router();
 // Replay protection: reject webhooks older than this window (seconds)
 const WEBHOOK_TIMESTAMP_TOLERANCE = 300; // 5 minutes
 
+/**
+ * Returns true if the request originates from a loopback address.
+ * Used to restrict stub-mode webhooks to local traffic only.
+ */
+function isLoopbackRequest(req) {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
 // SMS webhook rate limit: 20 requests per minute per phone number
 const smsLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -53,7 +62,13 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // (misconfigured prod must not silently skip verification).
       // In non-production, skip verification only when explicitly using stub provider.
       const skipTwilioVerify = PROVIDER === 'stub' && ['development', 'test'].includes(process.env.NODE_ENV);
-      if (!skipTwilioVerify) {
+      if (skipTwilioVerify) {
+        // Stub mode: only accept webhooks from localhost to prevent forgery
+        if (!isLoopbackRequest(req)) {
+          console.warn('[security] Stub-mode webhook rejected: non-loopback source IP', req.ip);
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
+      } else {
         if (!req.headers['x-twilio-signature']) {
           console.warn('[security] Missing x-twilio-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
@@ -102,7 +117,13 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       // PROVIDER value — mirrors the Twilio fix above.
       const telnyxProvider = new TelnyxProvider();
       const skipTelnyxVerify = PROVIDER === 'stub' && ['development', 'test'].includes(process.env.NODE_ENV);
-      if (!skipTelnyxVerify) {
+      if (skipTelnyxVerify) {
+        // Stub mode: only accept webhooks from localhost to prevent forgery
+        if (!isLoopbackRequest(req)) {
+          console.warn('[security] Stub-mode webhook rejected: non-loopback source IP', req.ip);
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+        }
+      } else {
         if (!req.headers['telnyx-signature-ed25519-signature']) {
           console.warn('[security] Missing telnyx-signature-ed25519-signature header');
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
