@@ -5,6 +5,7 @@ const { redis } = require('./redis');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
 const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
+const COMPOSIO_SDK_TIMEOUT_MS = 15_000; // timeout for Composio SDK calls (getTools, getEntity, initiateConnection)
 const TOOLS_CACHE_TTL = 30 * 60; // 30 minutes
 const TOOLS_CACHE_COOLDOWN_TTL = 15; // seconds — after cache invalidation, don't re-cache to prevent stale re-population
 const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retried tool calls
@@ -227,7 +228,10 @@ async function getTools(userId) {
   if (cached) return JSON.parse(cached);
 
   const toolset = new OpenAIToolSet({ apiKey: COMPOSIO_API_KEY, entityId: String(userId) });
-  const tools = await toolset.getTools({});
+  const tools = await Promise.race([
+    toolset.getTools({}),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Composio getTools timed out after ${COMPOSIO_SDK_TIMEOUT_MS}ms`)), COMPOSIO_SDK_TIMEOUT_MS)),
+  ]);
   // Skip caching if a cooldown is active (recently invalidated by OAuth callback or disconnect).
   // This prevents re-populating stale data before Composio fully propagates connection changes.
   const inCooldown = await redis.exists(cooldownKey).catch(() => 0);
@@ -465,7 +469,10 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
  */
 async function getConnectionLink(userId, appName, oauthState = null) {
   const client = new Composio({ apiKey: COMPOSIO_API_KEY });
-  const entity = await client.getEntity(String(userId));
+  const entity = await Promise.race([
+    client.getEntity(String(userId)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Composio getEntity timed out after ${COMPOSIO_SDK_TIMEOUT_MS}ms`)), COMPOSIO_SDK_TIMEOUT_MS)),
+  ]);
   const params = { appName };
   if (oauthState) {
     // SSRF prevention: never accept an external URL — build the redirect
@@ -473,7 +480,10 @@ async function getConnectionLink(userId, appName, oauthState = null) {
     const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
     params.redirectUrl = `${baseUrl}/connect/callback?state=${encodeURIComponent(oauthState)}`;
   }
-  const conn = await entity.initiateConnection(params);
+  const conn = await Promise.race([
+    entity.initiateConnection(params),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Composio initiateConnection timed out after ${COMPOSIO_SDK_TIMEOUT_MS}ms`)), COMPOSIO_SDK_TIMEOUT_MS)),
+  ]);
   return conn.redirectUrl;
 }
 
