@@ -271,14 +271,10 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
   // entry is cleaned up even if the promise hangs.
   if (completionPromise) {
     const orphanToken = await _addOrphan(userId);
-    // Guard flag: ensures only one path (reap timer OR promise settlement)
-    // performs the orphan removal.  Without this, the reap timer could remove
-    // the orphan and then the later .finally() would attempt a second removal
-    // on an already-cleaned-up entry, leading to incorrect orphan tracking state.
-    let orphanCleaned = false;
+    // Reap timer is a backup: if .finally() removal fails (e.g. transient
+    // Redis error), the timer still fires and retries.  _removeOrphan uses
+    // zrem which is idempotent, so double-removal is harmless.
     const reapTimer = setTimeout(() => {
-      if (orphanCleaned) return;
-      orphanCleaned = true;
       _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove reaped inflight orphan from Redis`); });
     }, ORPHAN_REAP_TIMEOUT);
     if (reapTimer.unref) reapTimer.unref();
@@ -304,10 +300,11 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL).catch(() => {});
       })
       .finally(() => {
-        if (orphanCleaned) return;
-        orphanCleaned = true;
-        clearTimeout(reapTimer);
-        _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled inflight orphan from Redis`); });
+        // Eagerly remove the orphan on completion.  Only cancel the reap
+        // timer after successful removal so it stays as a backup on failure.
+        _removeOrphan(userId, orphanToken)
+          .then(() => { clearTimeout(reapTimer); })
+          .catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled inflight orphan from Redis`); });
       });
   }
 }
