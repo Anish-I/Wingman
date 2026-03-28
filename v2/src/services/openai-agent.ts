@@ -35,66 +35,42 @@ const decisionSchema = z.discriminatedUnion('kind', [
 
 export type AgentDecision = z.infer<typeof decisionSchema>;
 
-/** JSON Schema for OpenAI structured outputs — mirrors the Zod discriminated union above. */
+/**
+ * JSON Schema for OpenAI structured outputs.
+ * OpenAI strict mode requires all properties in `required` and `additionalProperties: false`.
+ * Optional fields use `anyOf` with null type to satisfy strict mode constraints.
+ */
+/**
+ * Non-strict JSON schema — strict mode can't represent freeform `input` objects.
+ * The Zod schema validates after parsing for full type safety.
+ */
 const DECISION_JSON_SCHEMA = {
   name: 'agent_decision',
-  strict: true,
+  strict: false,
   schema: {
-    oneOf: [
-      {
+    type: 'object' as const,
+    properties: {
+      kind: { type: 'string', enum: ['reply', 'clarify', 'execute', 'schedule'] },
+      reply: { type: 'string' },
+      question: { type: 'string' },
+      appSlug: { type: 'string' },
+      toolSlug: { type: 'string' },
+      input: { type: 'object' },
+      automation: {
         type: 'object',
         properties: {
-          kind: { type: 'string', const: 'reply' },
-          reply: { type: 'string', minLength: 1, maxLength: 480 }
-        },
-        required: ['kind', 'reply'],
-        additionalProperties: false
-      },
-      {
-        type: 'object',
-        properties: {
-          kind: { type: 'string', const: 'clarify' },
-          question: { type: 'string', minLength: 1, maxLength: 480 }
-        },
-        required: ['kind', 'question'],
-        additionalProperties: false
-      },
-      {
-        type: 'object',
-        properties: {
-          kind: { type: 'string', const: 'execute' },
-          reply: { type: 'string', minLength: 1, maxLength: 480 },
-          appSlug: { type: 'string', minLength: 1 },
-          toolSlug: { type: 'string', minLength: 1 },
+          name: { type: 'string' },
+          cron: { type: 'string' },
+          appSlug: { type: 'string' },
+          toolSlug: { type: 'string' },
           input: { type: 'object' }
         },
-        required: ['kind', 'reply', 'appSlug', 'toolSlug', 'input'],
-        additionalProperties: false
-      },
-      {
-        type: 'object',
-        properties: {
-          kind: { type: 'string', const: 'schedule' },
-          reply: { type: 'string', minLength: 1, maxLength: 480 },
-          automation: {
-            type: 'object',
-            properties: {
-              name: { type: 'string', minLength: 1, maxLength: 80 },
-              cron: { type: 'string', minLength: 1, maxLength: 120 },
-              appSlug: { type: 'string', minLength: 1 },
-              toolSlug: { type: 'string', minLength: 1 },
-              input: { type: 'object' }
-            },
-            required: ['name', 'cron', 'appSlug', 'toolSlug', 'input'],
-            additionalProperties: false
-          }
-        },
-        required: ['kind', 'reply', 'automation'],
-        additionalProperties: false
+        required: ['name', 'cron', 'appSlug', 'toolSlug', 'input']
       }
-    ]
+    },
+    required: ['kind']
   }
-} as const;
+};
 
 export type ConversationTurn = { role: 'user' | 'assistant'; text: string };
 
