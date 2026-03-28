@@ -319,10 +319,12 @@ async function processSingleSMS(phone, messageText, user, isNewUser) {
       appendMessage(user.id, 'assistant', fallbackMsg),
       provider.sendMessage(phone, fallbackMsg),
     ]);
-    if (results[0].status === 'rejected') {
+    const userAppendFailed = results[0].status === 'rejected';
+    const assistantAppendFailed = results[1].status === 'rejected';
+    if (userAppendFailed) {
       logger.error({ err: results[0].reason?.message, userId: user.id }, '[sms] Failed to append user message to conversation history');
     }
-    if (results[1].status === 'rejected') {
+    if (assistantAppendFailed) {
       logger.error({ err: results[1].reason?.message, userId: user.id }, '[sms] Failed to append assistant fallback message to conversation history');
     }
     const sendResult = results[2];
@@ -330,6 +332,13 @@ async function processSingleSMS(phone, messageText, user, isNewUser) {
       logger.error({ err: sendResult.reason?.message, phone }, '[sms] Failed to send error-notification SMS — user was not notified');
       // Throw so the caller returns 500/503, prompting the provider to retry the webhook
       throw sendResult.reason;
+    }
+    // If Redis appends failed, the user got the fallback SMS but the exchange
+    // was not persisted — throw so the webhook returns 503 and the provider
+    // retries, giving us a chance to persist when Redis recovers.
+    if (userAppendFailed || assistantAppendFailed) {
+      const reason = (results[0].reason || results[1].reason);
+      throw Object.assign(new Error('Redis conversation history persistence failed'), { cause: reason });
     }
     return;
   }
