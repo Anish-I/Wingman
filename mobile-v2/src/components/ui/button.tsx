@@ -194,11 +194,22 @@ export function Button({ ref, label: text, loading = false, variant = 'primary',
             <>
               {loading
                 ? (
-                    <ActivityIndicator
-                      size="small"
-                      className={styles.indicator()}
-                      testID={testID ? `${testID}-activity-indicator` : undefined}
-                    />
+                    <>
+                      <ActivityIndicator
+                        size="small"
+                        className={styles.indicator()}
+                        testID={testID ? `${testID}-activity-indicator` : undefined}
+                      />
+                      {text ? (
+                        <Text
+                          testID={testID ? `${testID}-label` : undefined}
+                          className={styles.label({ className: textClassName })}
+                          style={buttonStyles.loadingLabel}
+                        >
+                          {text}
+                        </Text>
+                      ) : null}
+                    </>
                   )
                 : (
                     <>
@@ -228,5 +239,8 @@ const buttonStyles = StyleSheet.create({
   },
   arrowMargin: {
     marginLeft: spacing.xs,
+  },
+  loadingLabel: {
+    marginLeft: spacing.sm,
   },
 });
