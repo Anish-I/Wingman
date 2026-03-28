@@ -186,7 +186,8 @@ const LOCK_TTL_SECONDS = 120;
 // Must exceed LOCK_TTL_SECONDS so a stale lock from a crashed process
 // can be waited out rather than causing persistent failures.
 const LOCK_WAIT_MS = (LOCK_TTL_SECONDS + 10) * 1000; // TTL + 10s buffer
-const LOCK_POLL_MS = 500;
+const LOCK_POLL_BASE_MS = 500;
+const LOCK_POLL_MAX_MS = 4000;
 
 async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   const respond = (status) => {
@@ -199,12 +200,18 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   // Message was already atomically enqueued by deduplicateAndEnqueue() —
   // no separate enqueueSMS call needed, eliminating the TOCTOU gap.
 
-  // --- Acquire the per-user conversation lock (wait with back-off) ---
+  // --- Acquire the per-user conversation lock (wait with exponential back-off + jitter) ---
   let release;
+  let attempt = 0;
   const deadline = Date.now() + LOCK_WAIT_MS;
   while (!release && Date.now() < deadline) {
     release = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
-    if (!release) await new Promise((r) => setTimeout(r, LOCK_POLL_MS));
+    if (!release) {
+      const baseDelay = Math.min(LOCK_POLL_BASE_MS * Math.pow(2, attempt), LOCK_POLL_MAX_MS);
+      const delay = Math.round(baseDelay * (0.5 + Math.random()));  // ±50% jitter to prevent thundering herd
+      await new Promise((r) => setTimeout(r, delay));
+      attempt++;
+    }
   }
   if (!release) {
     // Another handler has the lock and will drain our queued message

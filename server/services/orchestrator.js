@@ -466,7 +466,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
   for (let attempt = 0; !releaseLock && lockWaitElapsed < LOCK_RETRY_CEILING_MS; attempt++) {
     releaseLock = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
     if (releaseLock) break;
-    const delay = Math.min(LOCK_RETRY_BASE_MS * Math.pow(2, attempt), LOCK_RETRY_MAX_INTERVAL_MS);
+    const baseDelay = Math.min(LOCK_RETRY_BASE_MS * Math.pow(2, attempt), LOCK_RETRY_MAX_INTERVAL_MS);
+    const delay = Math.round(baseDelay * (0.5 + Math.random()));  // ±50% jitter to prevent thundering herd
     await new Promise(r => setTimeout(r, delay));
     lockWaitElapsed += delay;
   }
