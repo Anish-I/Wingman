@@ -332,6 +332,12 @@ router.post('/notify/register', requireAuth, async (req, res) => {
     if (!token || typeof token !== 'string') {
       return res.status(400).json({ error: { code: 'TOKEN_REQUIRED', message: 'token is required' } });
     }
+    // Validate push token format: Expo, FCM, or APNs tokens only
+    const EXPO_TOKEN_RE = /^ExponentPushToken\[[A-Za-z0-9_\-]{20,80}\]$/;
+    const FCM_APNS_TOKEN_RE = /^[A-Za-z0-9_\-:.]{20,256}$/;
+    if (!EXPO_TOKEN_RE.test(token) && !FCM_APNS_TOKEN_RE.test(token)) {
+      return res.status(400).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid push token format.' } });
+    }
     await updatePushToken(req.user.id, token);
     res.json({ ok: true });
   } catch (err) {
