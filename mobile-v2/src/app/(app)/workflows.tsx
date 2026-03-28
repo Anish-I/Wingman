@@ -11,7 +11,7 @@ import { useWorkflows, useCreateWorkflow, usePlanWorkflow, useUpdateWorkflow } f
 import type { Workflow } from '@/types';
 import { base, layout, purple, radii, semantic, spacing, useThemeColors } from '@/components/ui/tokens';
 import { fontScale } from '@/lib/responsive';
-import { headerEntrance, entrance, slideIn, popIn, pressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { headerEntrance, entrance, slideIn, popIn, pressStyle, actionPressStyle, chipPressStyle, cardPressStyle, springs, delays, webInteractive, webHoverStyle, focusRing, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -441,7 +441,7 @@ export default function WorkflowsScreen() {
           className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden"
           onPress={() => setModalVisible(true)}
           style={({ pressed }) => [
-            ...pressStyle({ pressed }),
+            ...actionPressStyle({ pressed }),
             webInteractive(),
           ]}
         >

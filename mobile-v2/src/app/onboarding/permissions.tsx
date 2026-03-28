@@ -12,7 +12,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
-import { entrance, chipPressStyle, springs, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { entrance, pressStyle, springs, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 type PermissionItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -159,7 +159,7 @@ export default function PermissionsScreen() {
                       disabled={isGranted}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={({ pressed }) => [
-                        ...chipPressStyle({ pressed }),
+                        ...pressStyle({ pressed }),
                         webInteractive(),
                         styles.permActionButton,
                       ]}

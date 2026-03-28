@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, Pressable, Platform, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { MotiView, AnimatePresence } from 'moti';
 import { showMessage } from 'react-native-flash-message';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
+import { Button } from '@/components/ui/button';
 import GradientButton from '@/components/wingman/gradient-button';
 import SectionLabel from '@/components/wingman/section-label';
 import { base, layout, presets, radii, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
@@ -310,19 +311,19 @@ export default function PhoneScreen() {
                 <Text style={themed.resendLabel}>
                   Didn't get it?
                 </Text>
-                <Pressable
+                <Button
+                  variant="link"
+                  size="sm"
+                  fullWidth={false}
                   disabled={resendCooldown > 0}
+                  label={resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
                   onPress={() => {
                     setCode(['', '', '', '', '', '']);
                     setActiveIdx(0);
                     handleSendCode();
                   }}
-                  style={Platform.OS === 'web' && resendCooldown <= 0 ? { cursor: 'pointer' } as any : undefined}
-                >
-                  <Text style={[styles.resendLink, resendCooldown > 0 && { opacity: 0.5 }]}>
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
-                  </Text>
-                </Pressable>
+                  textClassName="font-semibold text-xs"
+                />
               </View>
             </MotiView>
           )}
@@ -428,11 +429,6 @@ const styles = StyleSheet.create({
   },
   resendRow: {
     gap: spacing.xs,
-  },
-  resendLink: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: fontScale(13),
-    color: semantic.info,
   },
   successSection: {
     gap: spacing.md,
