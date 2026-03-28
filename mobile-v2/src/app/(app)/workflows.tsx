@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Switch, Modal, TextInput, Alert, Platform, Pressable, StyleSheet, KeyboardAvoidingView } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -458,7 +458,10 @@ export default function WorkflowsScreen() {
 
       {/* NL Input Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View className="flex-1 bg-black/70 justify-end">
+        <KeyboardAvoidingView
+          className="flex-1 bg-black/70 justify-end"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View
             ref={modalContentRef}
             style={s.modalContent}
@@ -501,7 +504,7 @@ export default function WorkflowsScreen() {
               onPress={() => setModalVisible(false)}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
