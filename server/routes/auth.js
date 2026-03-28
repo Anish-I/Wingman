@@ -74,8 +74,8 @@ if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is required');
   process.exit(1);
 }
-if (JWT_SECRET.length < 32) {
-  console.error('FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
+if (JWT_SECRET.length < 64) {
+  console.error('FATAL: JWT_SECRET must be at least 64 characters long to prevent brute-force token forgery');
   process.exit(1);
 }
 const OTP_SECRET = process.env.OTP_SECRET;

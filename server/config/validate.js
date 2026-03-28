@@ -66,8 +66,8 @@ function validateEnv() {
   // Enforce minimum length for secrets in ALL environments — short secrets are
   // never acceptable, even in development, because they allow trivial brute-force.
   const jwtSecret = process.env.JWT_SECRET;
-  if (jwtSecret && jwtSecret.length < 32) {
-    console.error('[env-validate] FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
+  if (jwtSecret && jwtSecret.length < 64) {
+    console.error('[env-validate] FATAL: JWT_SECRET must be at least 64 characters long to prevent brute-force token forgery');
     process.exit(1);
   }
 
