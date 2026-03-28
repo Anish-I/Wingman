@@ -1639,12 +1639,13 @@ router.delete('/account', requireAuth, async (req, res) => {
     await deleteUser(req.user.id);
 
     // Blacklist ALL tokens for this user (not just the current session).
-    // TTL matches JWT max lifetime (24h) so the key auto-expires once all
-    // tokens issued before deletion are naturally invalid.
+    // TTL covers JWT lifetime (24h) + refresh grace window (7d) so the key
+    // persists until all affected tokens can no longer be refreshed.
+    const delTtl = 86400 + REFRESH_GRACE_SECONDS;
     const delKey = `user_deleted:${req.user.id}`;
     await Promise.all([
-      redis.set(delKey, '1', 'EX', 86400),
-      persistBlacklistEntry(delKey, '1', 86400),
+      redis.set(delKey, '1', 'EX', delTtl),
+      persistBlacklistEntry(delKey, '1', delTtl),
     ]);
 
     clearAuthCookie(res);
@@ -1868,10 +1869,13 @@ async function isTokenRevoked(jti, userId, iat) {
 /**
  * Re-populate a blacklist entry into Redis after discovering it only in
  * PostgreSQL, so subsequent checks hit the fast path.
+ * Uses the max revocation TTL (JWT lifetime + refresh grace) as a safe
+ * upper bound; PG's expires_at remains the authoritative expiry.
  */
 async function _restoreToRedis(key, value) {
   try {
-    await redis.set(key, value, 'EX', 86400);
+    const ttl = 86400 + REFRESH_GRACE_SECONDS;
+    await redis.set(key, value, 'EX', ttl);
   } catch {
     // Ignore — Redis may still be recovering
   }
