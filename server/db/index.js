@@ -28,11 +28,14 @@ function buildSslConfig() {
   return sslConfig;
 }
 
+const STATEMENT_TIMEOUT_MS = parseInt(process.env.DB_STATEMENT_TIMEOUT_MS, 10) || 30000; // 30s default
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  statement_timeout: STATEMENT_TIMEOUT_MS,
   ssl: buildSslConfig(),
 });
 
@@ -42,6 +45,9 @@ pool.on('error', (err) => {
 });
 
 pool.on('connect', (client) => {
+  client.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`).catch((err) => {
+    logger.error({ err: err.message }, 'Failed to set statement_timeout on new client');
+  });
   logger.debug('New database client connected');
 });
 
