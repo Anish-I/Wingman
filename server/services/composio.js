@@ -236,7 +236,7 @@ async function getTools(userId) {
   // This prevents re-populating stale data before Composio fully propagates connection changes.
   const inCooldown = await redis.exists(cooldownKey).catch(() => 0);
   if (!inCooldown) {
-    await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache set error'); throw err; });
+    await redis.set(cacheKey, JSON.stringify(tools), 'EX', TOOLS_CACHE_TTL).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache set error'); });
   }
   return tools;
 }
