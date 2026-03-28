@@ -262,8 +262,13 @@ router.post('/workflows', requireAuth, async (req, res) => {
         return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'description must be a string of at most 2000 characters' } });
       }
     }
-    if (trigger_type === 'schedule' && cron_expression && !isValidCron(cron_expression)) {
-      return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
+    if (trigger_type === 'schedule') {
+      if (!cron_expression) {
+        return res.status(400).json({ error: { code: 'MISSING_CRON', message: 'cron_expression is required when trigger_type is schedule' } });
+      }
+      if (!isValidCron(cron_expression)) {
+        return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
+      }
     }
     if (trigger_config !== undefined && trigger_config !== null) {
       if (typeof trigger_config !== 'object' || Array.isArray(trigger_config)) {
