@@ -11,9 +11,10 @@ const TOOL_IDEMPOTENCY_TTL = 300; // 5 minutes — window for deduplicating retr
 const SIDE_EFFECT_ERROR_TTL = 60;  // 1 minute — shorter cache for definitive failures on side-effect tools
                                    // (long enough to debounce rapid retries, short enough to unblock legitimate ones)
 // Pending TTL must be short enough that a timed-out external call doesn't strand the key for
-// the full dedup window.  30 s > the typical 20 s orchestrator timeout, giving the in-flight
-// call time to write its result while still expiring quickly if it is abandoned.
-const PENDING_TTL = 30; // seconds
+// the full dedup window if the executor dies.  The heartbeat interval extends the TTL while
+// the executor is still alive, so the key never expires mid-flight.
+const PENDING_TTL = 30; // seconds — base TTL, refreshed by heartbeat during execution
+const HEARTBEAT_INTERVAL_MS = 10_000; // refresh pending TTL every 10 s
 
 // Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
 // For these tools, we must NOT remove the idempotency key on failure, because an orphaned
@@ -360,6 +361,15 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     }
   }
 
+  // Heartbeat: periodically extend the pending key's TTL so it outlives slow
+  // Composio API calls.  If the executor dies, the key expires after PENDING_TTL.
+  const _heartbeat = setInterval(() => {
+    redis.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then redis.call('expire', KEYS[1], ARGV[2]) return 1 else return 0 end",
+      1, idempKey, myToken, String(PENDING_TTL)
+    ).catch(err => { logger.error({ err: err.message }, `[composio] heartbeat refresh error for ${toolCallBlock.name}`); });
+  }, HEARTBEAT_INTERVAL_MS);
+
   // We claimed the slot — execute the tool
   try {
     // Check abort signal before starting the API call — avoids sending a
@@ -409,6 +419,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       }
     }
 
+    clearInterval(_heartbeat);
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
 
     // Cache the result so retries get the same response.
@@ -422,6 +433,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     });
     return parsed;
   } catch (err) {
+    clearInterval(_heartbeat);
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
       // Timeout/abort: the action may have partially succeeded — cache longer
       // to prevent duplicate execution.  Other errors: the action definitively
