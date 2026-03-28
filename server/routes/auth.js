@@ -87,6 +87,15 @@ if (OTP_SECRET.length < 32) {
   console.error('FATAL: OTP_SECRET must be at least 32 characters long');
   process.exit(1);
 }
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET;
+if (!OAUTH_STATE_SECRET) {
+  console.error('FATAL: OAUTH_STATE_SECRET environment variable is required (must differ from JWT_SECRET)');
+  process.exit(1);
+}
+if (OAUTH_STATE_SECRET.length < 32) {
+  console.error('FATAL: OAUTH_STATE_SECRET must be at least 32 characters long');
+  process.exit(1);
+}
 const JWT_ISSUER = 'wingman';
 const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
@@ -997,7 +1006,7 @@ router.post('/google/init-state', async (req, res) => {
     const nonce = crypto.randomBytes(32).toString('hex');
     const jti = crypto.randomBytes(16).toString('hex');
     await redis.set(`oauth_nonce:${nonce}`, '1', 'EX', 300); // 5-minute TTL
-    const state = jwt.sign({ nonce, flow: 'spa', jti }, JWT_SECRET, { expiresIn: '5m' });
+    const state = jwt.sign({ nonce, flow: 'spa', jti }, OAUTH_STATE_SECRET, { expiresIn: '5m' });
     res.json({ state });
   } catch (err) {
     logger.error({ err: err.message }, 'Google init-state error');
@@ -1019,7 +1028,7 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
     }
     let statePayload;
     try {
-      statePayload = jwt.verify(state, JWT_SECRET, { algorithms: ['HS256'] });
+      statePayload = jwt.verify(state, OAUTH_STATE_SECRET, { algorithms: ['HS256'] });
     } catch {
       return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
     }
@@ -1184,7 +1193,7 @@ router.get('/google', async (req, res, next) => {
     const pkce = generatePkce();
     await redis.set(`oauth_pkce:${nonce}`, pkce.verifier, 'EX', 300); // same TTL as nonce
 
-    const state = jwt.sign({ platform, webOrigin, nonce, clientState, jti }, JWT_SECRET, { expiresIn: '5m' });
+    const state = jwt.sign({ platform, webOrigin, nonce, clientState, jti }, OAUTH_STATE_SECRET, { expiresIn: '5m' });
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}&code_challenge=${pkce.challenge}&code_challenge_method=S256`;
     res.redirect(url);
   } catch (err) {
@@ -1197,7 +1206,7 @@ function parseOAuthState(stateParam) {
   const fallback = { platform: 'native', webOrigin: '', clientState: '' };
   try {
     if (!stateParam) return fallback;
-    const payload = jwt.verify(stateParam, JWT_SECRET, { algorithms: ['HS256'] });
+    const payload = jwt.verify(stateParam, OAUTH_STATE_SECRET, { algorithms: ['HS256'] });
     return {
       platform: payload.platform || 'native',
       webOrigin: payload.webOrigin || '',
@@ -1231,7 +1240,7 @@ router.get('/google/callback', async (req, res) => {
   }
   let statePayload;
   try {
-    statePayload = jwt.verify(req.query.state, JWT_SECRET, { algorithms: ['HS256'] });
+    statePayload = jwt.verify(req.query.state, OAUTH_STATE_SECRET, { algorithms: ['HS256'] });
   } catch {
     return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state. Please restart the login flow.' } });
   }

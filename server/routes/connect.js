@@ -9,7 +9,7 @@ const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET; // Dedicated secret for OAuth state token signing
 const OTP_SECRET = process.env.OTP_SECRET; // Dedicated HMAC key — avoids reusing JWT_SECRET for non-JWT operations
 const CONNECT_TOKEN_TTL = 300; // 5 minutes
 
@@ -33,7 +33,7 @@ async function generateOAuthState(userId, app) {
   const nonce = crypto.randomBytes(32).toString('hex');
   // Store userId alongside nonce so callback can verify the state token wasn't forged for a different user
   await redis.set(`oauth_nonce:${nonce}`, String(userId), 'EX', 600); // 10-minute TTL matching JWT expiry
-  return jwt.sign({ userId, app, nonce }, JWT_SECRET, { expiresIn: '10m' });
+  return jwt.sign({ userId, app, nonce }, OAUTH_STATE_SECRET, { expiresIn: '10m' });
 }
 
 // Lua script: atomically consume the OAuth nonce, invalidate the tools cache,
@@ -59,7 +59,7 @@ return storedUserId
 async function verifyOAuthState(stateToken) {
   let payload;
   try {
-    payload = jwt.verify(stateToken, JWT_SECRET, { algorithms: ['HS256'] });
+    payload = jwt.verify(stateToken, OAUTH_STATE_SECRET, { algorithms: ['HS256'] });
   } catch {
     return null; // expired or malformed JWT — not a server error
   }

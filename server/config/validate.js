@@ -13,6 +13,7 @@ function validateEnv() {
   const required = [
     'JWT_SECRET',
     'OTP_SECRET',
+    'OAUTH_STATE_SECRET',
     'DATABASE_URL',
     'REDIS_URL',
     'COMPOSIO_API_KEY',
@@ -86,9 +87,27 @@ function validateEnv() {
     }
   }
 
+  // Enforce minimum length for OAUTH_STATE_SECRET
+  const oauthStateSecret = process.env.OAUTH_STATE_SECRET;
+  if (oauthStateSecret && oauthStateSecret.length < 32) {
+    const msg = 'OAUTH_STATE_SECRET must be at least 32 characters long to prevent brute-force state forgery';
+    if (isProduction) {
+      console.error(`[env-validate] ERROR: ${msg}`);
+      process.exit(1);
+    } else {
+      console.warn(`[env-validate] WARN: ${msg}`);
+    }
+  }
+
   // Warn if OTP_SECRET and JWT_SECRET are the same — defeats the purpose of separation
   if (otpSecret && jwtSecret && otpSecret === jwtSecret) {
     const msg = 'OTP_SECRET should differ from JWT_SECRET for proper secret isolation';
+    console.warn(`[env-validate] WARN: ${msg}`);
+  }
+
+  // Warn if OAUTH_STATE_SECRET reuses JWT_SECRET — defeats domain separation
+  if (oauthStateSecret && jwtSecret && oauthStateSecret === jwtSecret) {
+    const msg = 'OAUTH_STATE_SECRET should differ from JWT_SECRET for proper secret isolation';
     console.warn(`[env-validate] WARN: ${msg}`);
   }
 

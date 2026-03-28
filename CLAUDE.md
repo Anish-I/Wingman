@@ -62,6 +62,7 @@ DATABASE_URL=postgresql://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:5432/win
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=<64+ char random string>
 OTP_SECRET=<64+ char random string>   # REQUIRED: dedicated OTP HMAC key (must differ from JWT_SECRET)
+OAUTH_STATE_SECRET=<64+ char random string>  # REQUIRED: dedicated OAuth state signing key (must differ from JWT_SECRET)
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=<your key>
 MESSAGING_PROVIDER=stub          # use 'twilio' for real SMS
