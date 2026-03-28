@@ -8,8 +8,8 @@ const { provider } = require('../services/messaging');
 const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, createPendingReply } = require('../db/queries');
 
 const MAX_AGENT_ITERATIONS = 15;
-const WORKFLOW_LOCK_TTL_SECONDS = 60;
-const WORKFLOW_LOCK_EXTEND_INTERVAL_MS = 20 * 1000;
+const WORKFLOW_LOCK_TTL_SECONDS = 30;
+const WORKFLOW_LOCK_EXTEND_INTERVAL_MS = 10 * 1000;
 const MAX_RESUME_RETRY_ATTEMPTS = 10;
 
 const EXTEND_SCRIPT = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end`;
@@ -136,11 +136,19 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
   const lockKey = `workflow:lock:${workflowId}`;
   const lockValue = crypto.randomUUID();
 
-  const acquired = await redis.set(lockKey, lockValue, 'EX', WORKFLOW_LOCK_TTL_SECONDS, 'NX');
+  let acquired;
+  try {
+    acquired = await redis.set(lockKey, lockValue, 'EX', WORKFLOW_LOCK_TTL_SECONDS, 'NX');
+  } catch (err) {
+    logger.error({ err: err.message }, `[workflow-agent] Redis unavailable when acquiring lock for ${lockKey}`);
+    return onLocked();
+  }
   if (!acquired) return onLocked();
 
   // Shared flag so fn() can detect when the lock is no longer held
   const lockStatus = { lost: false, reason: null };
+  let consecutiveFailures = 0;
+  const MAX_EXTEND_FAILURES = 2;
 
   let extendTimer;
   try {
@@ -154,12 +162,18 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
           lockStatus.reason = 'lock_stolen';
           logger.error(`[workflow-agent] Lock lost (stolen) for ${lockKey} — another executor may be running`);
           clearInterval(extendTimer);
+        } else {
+          consecutiveFailures = 0;
         }
       } catch (err) {
-        lockStatus.lost = true;
-        lockStatus.reason = 'redis_error';
-        logger.error({ err: err.message }, `[workflow-agent] Lock extend failed for ${lockKey} — marking lock as lost`);
-        clearInterval(extendTimer);
+        consecutiveFailures++;
+        logger.error({ err: err.message, consecutiveFailures }, `[workflow-agent] Lock extend failed for ${lockKey}`);
+        if (consecutiveFailures >= MAX_EXTEND_FAILURES) {
+          lockStatus.lost = true;
+          lockStatus.reason = 'redis_error';
+          logger.error(`[workflow-agent] Lock marked lost after ${consecutiveFailures} consecutive extend failures for ${lockKey}`);
+          clearInterval(extendTimer);
+        }
       }
     }, WORKFLOW_LOCK_EXTEND_INTERVAL_MS);
 
