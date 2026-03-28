@@ -143,8 +143,8 @@ app.use(globalLimiter);
 app.use(express.json({
   limit: '100kb',
   verify: (req, _res, buf) => {
-    // Preserve raw body for webhook signature verification (Telnyx)
-    if (req.originalUrl && req.originalUrl.startsWith('/webhook')) {
+    // Preserve raw body for signature verification (Telnyx webhooks, SMS routes)
+    if (req.originalUrl && (req.originalUrl.startsWith('/webhook') || req.originalUrl.startsWith('/sms'))) {
       req.rawBody = buf;
     }
   },
