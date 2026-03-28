@@ -20,6 +20,14 @@ if (!PROVIDER) {
   }
 }
 
+// Guard: refuse to run stub provider in production
+if (PROVIDER === 'stub' && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    '[messaging] FATAL: MESSAGING_PROVIDER=stub is not allowed when NODE_ENV=production. ' +
+    'This would disable SMS webhook signature validation, allowing forged requests.'
+  );
+}
+
 let provider;
 if (PROVIDER === 'stub') {
   provider = new StubProvider();

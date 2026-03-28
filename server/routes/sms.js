@@ -13,9 +13,13 @@ const WEBHOOK_TIMESTAMP_TOLERANCE = 300; // 5 minutes
 /**
  * Returns true if the request originates from a loopback address.
  * Used to restrict stub-mode webhooks to local traffic only.
+ *
+ * IMPORTANT: Uses req.socket.remoteAddress (the actual TCP peer address)
+ * instead of req.ip, which respects Express "trust proxy" and can be
+ * spoofed via X-Forwarded-For headers.
  */
 function isLoopbackRequest(req) {
-  const ip = req.ip || req.connection?.remoteAddress || '';
+  const ip = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
 }
 
