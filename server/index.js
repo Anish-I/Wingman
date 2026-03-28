@@ -3,7 +3,10 @@ require('dotenv').config();
 // Global error traps — capture startup and runtime crashes with detailed logging
 process.on('uncaughtException', (err) => {
   const msg = err?.message || String(err);
-  const isExpected = msg.includes('ECONNREFUSED') || msg.includes('Redis');
+  const code = err?.code || '';
+  // Use error code instead of fragile string matching on message text.
+  // ECONNREFUSED from Redis/Postgres is transient and non-fatal.
+  const isExpected = code === 'ECONNREFUSED' || code === 'ECONNRESET';
   
   // Use pino logger if available, fall back to console for very early errors
   const log = (() => { try { return require('./services/logger'); } catch { return console; } })();
