@@ -297,4 +297,4 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
   }, { signal });
 }
 
-module.exports = { callLLM, MODEL_DEFAULT, MODEL_COMPLEX };
+module.exports = { callLLM, MODEL_DEFAULT, MODEL_COMPLEX, MAX_TOKENS };

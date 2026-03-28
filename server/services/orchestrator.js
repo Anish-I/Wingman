@@ -1,4 +1,4 @@
-const { callLLM } = require('./llm');
+const { callLLM, MAX_TOKENS } = require('./llm');
 const { buildContext } = require('./context');
 const { getConversationHistory, appendMessage, acquireConversationLock } = require('./redis');
 const { getTools, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage } = require('./composio');
@@ -45,6 +45,52 @@ function validateToolInputSize(obj, depth = 0) {
     if (r) return r;
   }
   return null;
+}
+
+// Token budget for conversation history trimming.
+// Conservative context window — use the smallest common denominator across
+// providers (Groq llama-3.3-70b = 128k).  Override via env if needed.
+const CONTEXT_WINDOW = parseInt(process.env.CONTEXT_WINDOW_TOKENS || '128000', 10);
+// Reserve tokens for the LLM response + a safety margin for tool definitions / overhead
+const HISTORY_TOKEN_BUDGET = CONTEXT_WINDOW - MAX_TOKENS - 4096; // response + overhead
+
+/**
+ * Rough token estimate: ~4 chars per token for English text.
+ * Accurate enough for budget trimming without adding a tokenizer dependency.
+ */
+function estimateTokens(text) {
+  if (!text) return 0;
+  if (typeof text === 'string') return Math.ceil(text.length / 4);
+  // Array content blocks (tool results, etc.)
+  return Math.ceil(JSON.stringify(text).length / 4);
+}
+
+/**
+ * Trim conversation history (oldest first) so the total token count of
+ * systemPrompt + history + currentMessage stays within HISTORY_TOKEN_BUDGET.
+ * Returns a (possibly shorter) copy of the history array.
+ */
+function trimHistoryToTokenBudget(history, systemPromptTokens, currentMessageTokens) {
+  const available = HISTORY_TOKEN_BUDGET - systemPromptTokens - currentMessageTokens;
+  if (available <= 0) return []; // system prompt + current message already exceed budget
+
+  // Estimate tokens per history message
+  const estimates = history.map(m => estimateTokens(m.content));
+  let total = estimates.reduce((sum, t) => sum + t, 0);
+
+  if (total <= available) return history; // fits as-is
+
+  // Drop oldest messages until we're within budget
+  let startIdx = 0;
+  while (startIdx < history.length && total > available) {
+    total -= estimates[startIdx];
+    startIdx++;
+  }
+  if (startIdx > 0) {
+    logger.info({ dropped: startIdx, remaining: history.length - startIdx, budget: available },
+      '[orchestrator] Trimmed conversation history to fit token budget');
+  }
+  return history.slice(startIdx);
 }
 
 const MAX_TOOL_ITERATIONS = 5;
@@ -561,7 +607,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // switching, fake tool responses, system-prompt overrides) before the
   // LLM sees it.  The raw text is already persisted via safeAppend above.
   const sanitizedMessage = sanitizeUserMessage(messageText);
-  const messages = [...safeHistory, { role: 'user', content: sanitizedMessage }];
+  // Trim history so total tokens (system prompt + history + current message)
+  // stay within budget, leaving room for the LLM response.
+  const systemPromptTokens = estimateTokens(systemPrompt);
+  const currentMessageTokens = estimateTokens(sanitizedMessage);
+  const trimmedHistory = trimHistoryToTokenBudget(safeHistory, systemPromptTokens, currentMessageTokens);
+  const messages = [...trimmedHistory, { role: 'user', content: sanitizedMessage }];
 
   let response;
   let iterations = 0;
