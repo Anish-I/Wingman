@@ -22,7 +22,7 @@ const OAUTH_COOKIE_NAME = 'oauth_state_hmac';
 const OAUTH_COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.NODE_ENV !== 'development',
+  secure: process.env.COOKIE_SECURE !== 'false',
   maxAge: 10 * 60 * 1000, // 10 minutes, matches state JWT expiry
   path: '/connect/callback',
 };
