@@ -123,6 +123,24 @@ function assertCircuit() {
   }
 }
 
+// --- Pool backpressure ---
+// Fail fast when the pool is nearly exhausted to prevent retry storms
+// from starving new requests of connections.
+const POOL_PRESSURE_THRESHOLD = 0.8; // reject retries when ≥80% of connections are in use
+
+function isPoolUnderPressure() {
+  const total = pool.totalCount;
+  const idle = pool.idleCount;
+  const waiting = pool.waitingCount;
+  // If there are waiters, pool is definitely under pressure
+  if (waiting > 0) return true;
+  // If pool hasn't grown to max yet, there's room
+  if (total < pool.options.max) return false;
+  // Check if active (non-idle) connections exceed threshold
+  const active = total - idle;
+  return active >= Math.floor(pool.options.max * POOL_PRESSURE_THRESHOLD);
+}
+
 // --- Retry with exponential backoff ---
 const MAX_RETRIES = 4;
 const BASE_DELAY_MS = 500;  // 500, 1000, 2000, 4000
@@ -141,6 +159,18 @@ async function retryOnConnectionError(operation, label) {
     if (!isConnectionError(err)) throw err;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // Backpressure: skip retries when the pool is nearly exhausted
+      if (isPoolUnderPressure()) {
+        logger.warn(
+          { attempt, total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
+          `${label} retry aborted — pool under pressure, failing fast`,
+        );
+        const pressureErr = new Error('Connection pool under pressure — retry aborted');
+        pressureErr.code = 'POOL_EXHAUSTED';
+        pressureErr.cause = err;
+        throw pressureErr;
+      }
+
       const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
       logger.warn(
         { err: err.message, code: err.code, attempt, maxRetries: MAX_RETRIES, delayMs: delay },
