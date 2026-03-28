@@ -439,7 +439,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     if (!user || !user.pin_hash || !valid) {
       const failCount = await redis.incr(attemptKey);
-      if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
+      await redis.expire(attemptKey, 15 * 60);
 
       // Cumulative counter for escalating lockout (24h TTL)
       const cumulative = await redis.incr(loginCumulativeKey);
@@ -1578,7 +1578,7 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
     if (!valid) {
       // Per-window counter
       const failCount = await redis.incr(attemptKey);
-      if (failCount === 1) await redis.expire(attemptKey, 15 * 60);
+      await redis.expire(attemptKey, 15 * 60);
 
       // Cumulative counter for escalating lockout (persists across windows, 24h TTL)
       const cumulative = await redis.incr(cumulativeKey);
