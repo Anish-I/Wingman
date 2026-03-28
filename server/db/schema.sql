@@ -164,3 +164,12 @@ CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_hist
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_pending_replies_user_id ON workflow_pending_replies(user_id);
+
+-- Pending reminders: covers getPendingReminders() WHERE fire_at <= NOW() AND fired = false
+CREATE INDEX IF NOT EXISTS idx_reminders_pending ON reminders(fire_at) WHERE fired = false;
+
+-- Workflow template search: GIN trigram indexes for ILIKE pattern matching in searchTemplates()
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_wf_templates_name_trgm ON workflow_templates USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_wf_templates_desc_trgm ON workflow_templates USING gin (description gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_wf_templates_category ON workflow_templates(category);
