@@ -18,15 +18,20 @@ async function startWorker() {
       return null;
     }
 
-    const { Worker } = require('bullmq');
+    const { Worker, UnrecoverableError } = require('bullmq');
     workflowWorker = new Worker('workflows', async (job) => {
-      const { workflowId, userId, runId, replyText, resumeAttempt } = job.data;
+      const { workflowId, userId, runId, replyText, resumeAttempt } = job.data || {};
 
       // Resume a delayed workflow run — no need to re-check active/steps
       if (job.name === 'resume-delayed') {
+        if (!runId) throw new UnrecoverableError(`Job ${job.id} missing required field: runId`);
         console.log(`[workflow-worker] Resuming delayed run ${runId} for workflow ${workflowId}`);
         const { resumeWorkflowRun } = require('../services/workflow-agent');
         return resumeWorkflowRun(runId, replyText ?? null, { retryAttempt: resumeAttempt || 0 });
+      }
+
+      if (!workflowId || !userId) {
+        throw new UnrecoverableError(`Job ${job.id} missing required fields: ${!workflowId ? 'workflowId' : ''} ${!userId ? 'userId' : ''}`.trim());
       }
 
       console.log(`[workflow-worker] Running workflow ${workflowId} for user ${userId}${runId ? ` (run ${runId})` : ''}`);
