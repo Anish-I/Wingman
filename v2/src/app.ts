@@ -6,12 +6,12 @@ import { pool } from './db/client.js';
 import { BossService } from './jobs/boss.js';
 import { isAppError } from './lib/errors.js';
 import { registerHealthRoute } from './routes/health.js';
-import { registerTelnyxRoutes } from './routes/telnyx.js';
+import { registerSmsRoutes } from './routes/sms.js';
 import { AutomationService } from './services/automations.js';
 import { ComposioService } from './services/composio.js';
 import { MessageProcessor } from './services/message-processor.js';
 import { OpenAIAgentService } from './services/openai-agent.js';
-import { TelnyxService } from './services/telnyx.js';
+import { SmsService } from './services/sms.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -38,7 +38,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   const boss = new BossService();
-  const telnyx = new TelnyxService();
+  const sms = new SmsService();
   const openaiAgent = new OpenAIAgentService();
   const composio = new ComposioService();
   const automations = new AutomationService();
@@ -47,15 +47,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     boss,
     composio,
     openaiAgent,
-    telnyx
+    sms
   });
 
   await boss.start((inboundMessageId) => messageProcessor.processQueuedInboundMessage(inboundMessageId));
 
   await registerHealthRoute(app);
-  await registerTelnyxRoutes(app, {
+  await registerSmsRoutes(app, {
     messageProcessor,
-    telnyx
+    sms
   });
 
   app.setErrorHandler((error, _request, reply) => {

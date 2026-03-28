@@ -7,7 +7,7 @@ import { logger } from '../lib/logger.js';
 import type { AutomationService } from './automations.js';
 import type { ComposioService } from './composio.js';
 import type { ConversationTurn, OpenAIAgentService } from './openai-agent.js';
-import type { ParsedInboundMessage, TelnyxService } from './telnyx.js';
+import type { ParsedInboundMessage, SmsService } from './sms.js';
 
 const HISTORY_WINDOW = 6;
 
@@ -16,7 +16,7 @@ type MessageProcessorDeps = {
   boss: BossService;
   composio: ComposioService;
   openaiAgent: OpenAIAgentService;
-  telnyx: TelnyxService;
+  sms: SmsService;
 };
 
 export class MessageProcessor {
@@ -24,14 +24,14 @@ export class MessageProcessor {
   private readonly boss: BossService;
   private readonly composio: ComposioService;
   private readonly openaiAgent: OpenAIAgentService;
-  private readonly telnyx: TelnyxService;
+  private readonly sms: SmsService;
 
   constructor(deps: MessageProcessorDeps) {
     this.automations = deps.automations;
     this.boss = deps.boss;
     this.composio = deps.composio;
     this.openaiAgent = deps.openaiAgent;
-    this.telnyx = deps.telnyx;
+    this.sms = deps.sms;
   }
 
   async recordAndQueueInboundMessage(message: ParsedInboundMessage) {
@@ -160,7 +160,7 @@ export class MessageProcessor {
         })
         .where(eq(inboundMessages.id, inboundMessageId));
 
-      await this.telnyx.sendMessage(row.fromPhone, replyText);
+      await this.sms.sendMessage(row.fromPhone, replyText);
 
       await db.update(inboundMessages)
         .set({
@@ -180,7 +180,7 @@ export class MessageProcessor {
         .where(eq(inboundMessages.id, inboundMessageId));
 
       try {
-        await this.telnyx.sendMessage(
+        await this.sms.sendMessage(
           row.fromPhone,
           'I hit a problem while handling that request. Please try again.'
         );
