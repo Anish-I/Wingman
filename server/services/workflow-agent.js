@@ -8,8 +8,8 @@ const { provider } = require('../services/messaging');
 const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, createPendingReply } = require('../db/queries');
 
 const MAX_AGENT_ITERATIONS = 15;
-const WORKFLOW_LOCK_TTL_SECONDS = 600;
-const WORKFLOW_LOCK_EXTEND_INTERVAL_MS = 5 * 60 * 1000;
+const WORKFLOW_LOCK_TTL_SECONDS = 60;
+const WORKFLOW_LOCK_EXTEND_INTERVAL_MS = 20 * 1000;
 const MAX_RESUME_RETRY_ATTEMPTS = 10;
 
 const EXTEND_SCRIPT = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end`;
