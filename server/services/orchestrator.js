@@ -560,6 +560,17 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // tool execution for unconnected apps before any Composio API call.
   const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
 
+  // Filter out tools for apps the user has disconnected. The tools cache (30 min TTL)
+  // may contain stale tools for recently disconnected apps. Without this filter, the LLM
+  // would see those tools, attempt to call them, fail with 'not connected' errors, and
+  // generate confusing OAuth re-connection links for apps the user intentionally removed.
+  const connectedTools = allTools.filter(tool => {
+    const name = tool.function?.name;
+    if (!name) return false;
+    const app = appFromToolName(name);
+    return connectedApps.has(app);
+  });
+
   // Append user message immediately so it's sequenced before any LLM work.
   // This ensures cache path and main path both have the message persisted atomically.
   await safeAppend('user', messageText);
@@ -567,7 +578,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // When toolsDisabled is set (orphan limit reached), pass no tools to the LLM.
   // This lets the user still get text responses without creating new orphan-
   // producing tool calls, breaking the reject→retry→more-orphans DoS cycle.
-  const selectedTools = toolsDisabled ? [] : selectToolsForMessage(allTools, messageText);
+  const selectedTools = toolsDisabled ? [] : selectToolsForMessage(connectedTools, messageText);
   const tools = toolsDisabled ? [] : [...LOCAL_TOOLS, ...selectedTools];
   // Build allowlist of tool names the LLM is permitted to call this turn
   const allowedToolNames = new Set(tools.map(t => t.function?.name?.toUpperCase()).filter(Boolean));

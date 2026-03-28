@@ -252,8 +252,14 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   // Build a set of apps the user has actively connected — used to block
   // tool execution for unconnected apps before any Composio API call.
   const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
+  // Filter out tools for disconnected apps before selection (cache may be stale)
+  const connectedTools = allTools.filter(t => {
+    const name = t.function?.name;
+    if (!name) return false;
+    return connectedApps.has(appFromToolName(name));
+  });
   // Use workflow description to select relevant tools
-  const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
+  const relevantTools = selectToolsForMessage(connectedTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
   // Build allowlist of tool names the agent is permitted to call
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
@@ -544,7 +550,13 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
     getConnectionStatus(entityId),
   ]);
   const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
-  const relevantTools = selectToolsForMessage(allTools, `${workflow.name} ${workflow.description || ''}`);
+  // Filter out tools for disconnected apps before selection (cache may be stale)
+  const connectedTools = allTools.filter(t => {
+    const name = t.function?.name;
+    if (!name) return false;
+    return connectedApps.has(appFromToolName(name));
+  });
+  const relevantTools = selectToolsForMessage(connectedTools, `${workflow.name} ${workflow.description || ''}`);
   const tools = [...PSEUDO_TOOLS, ...relevantTools];
   const allowedToolNames = new Set(tools.map(t => t.function?.name).filter(Boolean));
   const toolSchemas = new Map();
