@@ -69,6 +69,10 @@ const ORPHAN_WINDOW_MS = parseInt(process.env.ORPHAN_WINDOW_MS || '60000', 10);
 const ORPHAN_KEY_PREFIX = 'wingman:orphans:';
 const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS || '60000', 10);
 
+// Sentinel value used by Promise.race to distinguish reap-timeout resolution
+// from a legitimate completionPromise result (which could be null/undefined).
+const _REAPED = Symbol('orphan-reaped');
+
 // Add an orphan entry to Redis.  Returns a token string for later removal.
 async function _addOrphan(userId) {
   const token = crypto.randomUUID();
@@ -265,21 +269,30 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
   // Only track as orphan when we have a completionPromise that will eventually
   // settle and clean up.  Previously, _addOrphan was called unconditionally —
   // when completionPromise was null the orphan token was never removed, leaking
-  // an entry in Redis and inflating the user's orphan count.  Even with a valid
-  // completionPromise, if it never settled the orphan lingered indefinitely.
-  // Now we gate orphan creation on having a promise AND add a reap timer so the
-  // entry is cleaned up even if the promise hangs.
+  // an entry in Redis and inflating the user's orphan count.
+  //
+  // We race completionPromise against a reap timeout so the handler chain
+  // ALWAYS settles within ORPHAN_REAP_TIMEOUT.  Without the race, handlers
+  // attached directly to a never-settling promise pin their closures
+  // (orphanToken, reapTimer, Redis key, logger) in memory indefinitely —
+  // an unbounded leak under sustained load with many hanging tool calls.
+  // With Promise.race, only a tiny internal race-handler closure remains on
+  // the original promise; the heavy closures live on the race chain which
+  // settles promptly.
   if (completionPromise) {
     const orphanToken = await _addOrphan(userId);
-    // Reap timer is a backup: if .finally() removal fails (e.g. transient
-    // Redis error), the timer still fires and retries.  _removeOrphan uses
-    // zrem which is idempotent, so double-removal is harmless.
-    const reapTimer = setTimeout(() => {
-      _removeOrphan(userId, orphanToken).catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove reaped inflight orphan from Redis`); });
-    }, ORPHAN_REAP_TIMEOUT);
-    if (reapTimer.unref) reapTimer.unref();
-    completionPromise
+
+    // Reap promise settles the race if completionPromise hangs forever.
+    let reapTimer;
+    const reapPromise = new Promise(resolve => {
+      reapTimer = setTimeout(() => resolve(_REAPED), ORPHAN_REAP_TIMEOUT);
+      if (reapTimer.unref) reapTimer.unref();
+    });
+
+    Promise.race([completionPromise, reapPromise])
       .then((result) => {
+        clearTimeout(reapTimer);
+        if (result === _REAPED) return; // timed out — no outcome to record
         const succeeded = result && result.successful !== false;
         const record = JSON.stringify({
           status: succeeded ? 'completed' : 'failed',
@@ -291,6 +304,7 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL);
       })
       .catch((err) => {
+        clearTimeout(reapTimer);
         const record = JSON.stringify({
           status: 'failed',
           toolName,
@@ -300,11 +314,8 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL).catch(() => {});
       })
       .finally(() => {
-        // Eagerly remove the orphan on completion.  Only cancel the reap
-        // timer after successful removal so it stays as a backup on failure.
         _removeOrphan(userId, orphanToken)
-          .then(() => { clearTimeout(reapTimer); })
-          .catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove settled inflight orphan from Redis`); });
+          .catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove orphan from Redis`); });
       });
   }
 }
