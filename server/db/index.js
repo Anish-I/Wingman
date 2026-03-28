@@ -80,28 +80,92 @@ function isConnectionError(err) {
     msg.includes('timeout');
 }
 
-async function query(text, params) {
-  const start = Date.now();
-  try {
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-    if (duration > 1000) {
-      logger.warn({ text, duration, rows: result.rowCount }, 'Slow query');
+// --- Circuit breaker ---
+const CIRCUIT_BREAKER_THRESHOLD = 5;   // failures before opening
+const CIRCUIT_BREAKER_RESET_MS = 30000; // 30s before half-open probe
+
+const circuitBreaker = {
+  failures: 0,
+  state: 'closed',       // closed | open | half-open
+  openedAt: 0,
+};
+
+function recordSuccess() {
+  circuitBreaker.failures = 0;
+  circuitBreaker.state = 'closed';
+}
+
+function recordFailure() {
+  circuitBreaker.failures++;
+  if (circuitBreaker.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+    circuitBreaker.state = 'open';
+    circuitBreaker.openedAt = Date.now();
+    logger.error({ failures: circuitBreaker.failures }, 'Circuit breaker OPEN — database connections failing');
+  }
+}
+
+function assertCircuit() {
+  if (circuitBreaker.state === 'open') {
+    if (Date.now() - circuitBreaker.openedAt >= CIRCUIT_BREAKER_RESET_MS) {
+      circuitBreaker.state = 'half-open';
+      logger.info('Circuit breaker half-open — allowing probe query');
+    } else {
+      const err = new Error('Circuit breaker is open — database unavailable');
+      err.code = 'CIRCUIT_OPEN';
+      throw err;
     }
+  }
+}
+
+// --- Retry with exponential backoff ---
+const MAX_RETRIES = 4;
+const BASE_DELAY_MS = 500;  // 500, 1000, 2000, 4000
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryOnConnectionError(operation, label) {
+  assertCircuit();
+  try {
+    const result = await operation();
+    recordSuccess();
     return result;
   } catch (err) {
-    if (isConnectionError(err)) {
-      logger.warn({ err: err.message, code: err.code }, 'Query failed with connection error, retrying in 1s');
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const result = await pool.query(text, params);
-      const duration = Date.now() - start;
-      if (duration > 1000) {
-        logger.warn({ text, duration, rows: result.rowCount }, 'Slow query (retry)');
+    if (!isConnectionError(err)) throw err;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn(
+        { err: err.message, code: err.code, attempt, maxRetries: MAX_RETRIES, delayMs: delay },
+        `${label} connection error, retrying in ${delay}ms`,
+      );
+      await sleep(delay);
+
+      assertCircuit();
+      try {
+        const result = await operation();
+        recordSuccess();
+        return result;
+      } catch (retryErr) {
+        if (!isConnectionError(retryErr)) throw retryErr;
+        recordFailure();
+        err = retryErr; // keep latest error for final throw
       }
-      return result;
     }
+
     throw err;
   }
+}
+
+async function query(text, params) {
+  const start = Date.now();
+  const result = await retryOnConnectionError(() => pool.query(text, params), 'query()');
+  const duration = Date.now() - start;
+  if (duration > 1000) {
+    logger.warn({ text, duration, rows: result.rowCount }, 'Slow query');
+  }
+  return result;
 }
 
 /**
@@ -110,18 +174,7 @@ async function query(text, params) {
  * checked-out client so every statement shares the transaction.
  */
 async function withTransaction(fn) {
-  let client;
-  try {
-    client = await pool.connect();
-  } catch (err) {
-    if (isConnectionError(err)) {
-      logger.warn({ err: err.message, code: err.code }, 'Transaction connect failed with connection error, retrying in 1s');
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      client = await pool.connect();
-    } else {
-      throw err;
-    }
-  }
+  const client = await retryOnConnectionError(() => pool.connect(), 'withTransaction()');
   try {
     await client.query('BEGIN');
     const txQuery = async (text, params) => {
@@ -142,4 +195,8 @@ async function withTransaction(fn) {
   }
 }
 
-module.exports = { pool, query, getPoolStats, withTransaction };
+function getCircuitBreakerState() {
+  return { state: circuitBreaker.state, failures: circuitBreaker.failures };
+}
+
+module.exports = { pool, query, getPoolStats, withTransaction, getCircuitBreakerState };
