@@ -199,7 +199,8 @@ async function createUser(phone, name) {
 
 /**
  * Atomically get or create a user by phone number.
- * Uses INSERT ... ON CONFLICT DO NOTHING to avoid TOCTOU races.
+ * Uses INSERT ... ON CONFLICT DO UPDATE to guarantee a row is always returned,
+ * eliminating the race where concurrent callers both see no row from DO NOTHING.
  * Returns { user, created } so callers know whether this is a new user.
  */
 async function getOrCreateUserByPhone(phone, queryFn) {
@@ -208,17 +209,15 @@ async function getOrCreateUserByPhone(phone, queryFn) {
   if (!isRealPhone(phone)) {
     throw new Error(`getOrCreateUserByPhone: refusing non-E.164 value "${phone.slice(0, 30)}"`);
   }
-  // Attempt insert; DO NOTHING if phone already exists
-  const ins = await q(
-    'INSERT INTO users (phone) VALUES ($1) ON CONFLICT (phone) DO NOTHING RETURNING *',
+  // Upsert: on conflict, perform a no-op update (phone = phone) so RETURNING * always yields a row
+  const res = await q(
+    `INSERT INTO users (phone) VALUES ($1)
+     ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone
+     RETURNING *, (xmax = 0) AS created`,
     [phone]
   );
-  if (ins.rows[0]) {
-    return { user: ins.rows[0], created: true };
-  }
-  // Row already existed — fetch it
-  const existing = await q('SELECT * FROM users WHERE phone = $1', [phone]);
-  return { user: existing.rows[0], created: false };
+  const row = res.rows[0];
+  return { user: row, created: row.created };
 }
 
 /**
