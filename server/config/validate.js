@@ -111,6 +111,42 @@ function validateEnv() {
     console.warn(`[env-validate] WARN: ${msg}`);
   }
 
+  // In production, Google OAuth vars are required — without them OAuth login fails at runtime
+  if (isProduction) {
+    if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID.trim() === '') {
+      missing.push('GOOGLE_CLIENT_ID');
+    }
+    if (!process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET.trim() === '') {
+      missing.push('GOOGLE_CLIENT_SECRET');
+    }
+  }
+
+  // At least one LLM provider API key must be set — without one, chat is completely broken.
+  // Check the configured primary provider first, then any fallback.
+  const llmProvider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
+  const llmKeyMap = {
+    gemini: 'GEMINI_API_KEY',
+    together: 'TOGETHER_API_KEY',
+    groq: 'GROQ_API_KEY',
+  };
+  const primaryKey = llmKeyMap[llmProvider];
+  const hasPrimaryLLM = primaryKey && process.env[primaryKey] && process.env[primaryKey].trim() !== '';
+  const hasAnyLLM = Object.values(llmKeyMap).some(
+    (k) => process.env[k] && process.env[k].trim() !== ''
+  );
+
+  if (!hasAnyLLM) {
+    missing.push(`LLM API key (set ${primaryKey || 'GEMINI_API_KEY'} or any of: ${Object.values(llmKeyMap).join(', ')})`);
+  } else if (!hasPrimaryLLM) {
+    const availableKeys = Object.entries(llmKeyMap)
+      .filter(([, k]) => process.env[k] && process.env[k].trim() !== '')
+      .map(([name]) => name);
+    console.warn(
+      `[env-validate] WARN: LLM_PROVIDER is '${llmProvider}' but ${primaryKey} is not set. ` +
+      `Fallback providers available: ${availableKeys.join(', ')}. Chat may use a slower fallback.`
+    );
+  }
+
   if (missing.length === 0) {
     return; // All good
   }
