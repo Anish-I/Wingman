@@ -109,6 +109,12 @@ client.interceptors.request.use(async (config) => {
 // Before signing out, attempts a single token refresh. If the refresh
 // succeeds the original request is retried transparently. If it fails
 // (e.g. token was revoked, not just expired) we proceed with sign-out.
+//
+// A dedicated signOutPromise serialises the sign-out path so that when
+// multiple in-flight requests all 401 at once, only the first one
+// triggers signOut + the toast; the rest simply reject.
+let signOutPromise: Promise<void> | null = null;
+
 client.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -119,6 +125,11 @@ client.interceptors.response.use(
 
     if (error.response?.status === 401 && originalRequest && !originalRequest.__retried) {
       const requestToken = originalRequest.__requestToken;
+
+      // If a sign-out is already in progress, skip all retry/refresh logic.
+      if (signOutPromise) {
+        return Promise.reject(error);
+      }
 
       // Only attempt refresh if the request was authenticated and the token
       // is still the current one (no other 401 handler already signed out).
@@ -141,14 +152,25 @@ client.interceptors.response.use(
           return client(originalRequest);
         }
 
-        // Refresh failed — sign out
-        signOut();
-        showMessage({
-          message: 'Session expired',
-          description: 'Please sign in again to continue.',
-          type: 'warning',
-          duration: 4000,
-        });
+        // Refresh failed — atomically claim the sign-out so concurrent
+        // 401 handlers that are awaiting the same refreshPromise will
+        // see signOutPromise set and bail out above on their next check.
+        if (!signOutPromise) {
+          signOutPromise = Promise.resolve().then(() => {
+            signOut();
+            showMessage({
+              message: 'Session expired',
+              description: 'Please sign in again to continue.',
+              type: 'warning',
+              duration: 4000,
+            });
+            // Keep the guard active briefly so late-arriving 401s are
+            // suppressed, then reset for the next session.
+            setTimeout(() => { signOutPromise = null; }, 2000);
+          });
+        }
+
+        await signOutPromise;
       }
     }
 
