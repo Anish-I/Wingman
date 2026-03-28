@@ -67,6 +67,15 @@ export default function SignupScreen() {
   const codeExchangedRef = useRef(false);
   const googleSignInActiveRef = useRef(false);
 
+  // Clear stale oauth_pending on mount — handles cases where the browser
+  // closed mid-OAuth and the user navigated back to signup.
+  React.useEffect(() => {
+    const pending = getItem<{ clientState: string; createdAt: number }>('oauth_pending');
+    if (pending?.createdAt && Date.now() - pending.createdAt > 10 * 60 * 1000) {
+      removeItem('oauth_pending');
+    }
+  }, []);
+
   // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
     safeArea: [styles.safeArea, { backgroundColor: surface.bg }],
@@ -146,6 +155,10 @@ export default function SignupScreen() {
     setLoading(true);
     codeExchangedRef.current = false;
     try {
+      // Clear any stale oauth_pending from a previously interrupted flow (e.g.
+      // browser closed mid-OAuth) so old callbacks can't collide with this attempt.
+      removeItem('oauth_pending');
+
       // Generate a CSRF token and store it locally with the intended return path.
       // The server echoes this back in the redirect so both the inline (WebBrowser)
       // and fallback (callback.tsx) flows can verify the OAuth session is genuine.
