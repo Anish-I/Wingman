@@ -63,40 +63,24 @@ function validateEnv() {
     process.exit(1);
   }
 
-  // Enforce minimum length for JWT_SECRET to prevent brute-force token forgery
+  // Enforce minimum length for secrets in ALL environments — short secrets are
+  // never acceptable, even in development, because they allow trivial brute-force.
   const jwtSecret = process.env.JWT_SECRET;
   if (jwtSecret && jwtSecret.length < 32) {
-    const msg = 'JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery';
-    if (isProduction) {
-      console.error(`[env-validate] ERROR: ${msg}`);
-      process.exit(1);
-    } else {
-      console.warn(`[env-validate] WARN: ${msg}`);
-    }
+    console.error('[env-validate] FATAL: JWT_SECRET must be at least 32 characters long to prevent brute-force token forgery');
+    process.exit(1);
   }
 
-  // Enforce minimum length for OTP_SECRET to prevent brute-force OTP precomputation
   const otpSecret = process.env.OTP_SECRET;
   if (otpSecret && otpSecret.length < 32) {
-    const msg = 'OTP_SECRET must be at least 32 characters long to prevent OTP precomputation attacks';
-    if (isProduction) {
-      console.error(`[env-validate] ERROR: ${msg}`);
-      process.exit(1);
-    } else {
-      console.warn(`[env-validate] WARN: ${msg}`);
-    }
+    console.error('[env-validate] FATAL: OTP_SECRET must be at least 32 characters long to prevent OTP precomputation attacks');
+    process.exit(1);
   }
 
-  // Enforce minimum length for OAUTH_STATE_SECRET
   const oauthStateSecret = process.env.OAUTH_STATE_SECRET;
   if (oauthStateSecret && oauthStateSecret.length < 32) {
-    const msg = 'OAUTH_STATE_SECRET must be at least 32 characters long to prevent brute-force state forgery';
-    if (isProduction) {
-      console.error(`[env-validate] ERROR: ${msg}`);
-      process.exit(1);
-    } else {
-      console.warn(`[env-validate] WARN: ${msg}`);
-    }
+    console.error('[env-validate] FATAL: OAUTH_STATE_SECRET must be at least 32 characters long to prevent brute-force state forgery');
+    process.exit(1);
   }
 
   // Warn if OTP_SECRET and JWT_SECRET are the same — defeats the purpose of separation
