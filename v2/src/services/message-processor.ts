@@ -152,13 +152,19 @@ export class MessageProcessor {
         }
       }
 
+      // Persist decision before attempting SMS so it survives send failures
+      await db.update(inboundMessages)
+        .set({
+          agentDecision: decision,
+          replyText
+        })
+        .where(eq(inboundMessages.id, inboundMessageId));
+
       await this.telnyx.sendMessage(row.fromPhone, replyText);
 
       await db.update(inboundMessages)
         .set({
           status: 'completed',
-          agentDecision: decision,
-          replyText,
           processedAt: new Date()
         })
         .where(eq(inboundMessages.id, inboundMessageId));
