@@ -101,6 +101,11 @@ async function linkUserIdentity(userId, fields) {
  * Must run inside a transaction.
  */
 async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
+  // No-op when source and target are the same user — acquiring advisory locks
+  // twice with the same ID pair could deadlock, and the merge logic would
+  // delete the user's own data.
+  if (targetUserId === sourceUserId) return;
+
   // Acquire advisory locks to serialize any concurrent merge involving these users.
   // pg_advisory_xact_lock is automatically released when the transaction ends.
   const lockId1 = Math.min(targetUserId, sourceUserId);
