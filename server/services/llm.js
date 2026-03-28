@@ -179,10 +179,8 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
               try {
                 parsedArgs = JSON.parse(tc.function.arguments);
               } catch (parseErr) {
-                const err = new Error(`Malformed JSON in tool_call arguments for ${tc.function.name}: ${parseErr.message}`);
-                err.status = 500;
-                err.malformedToolArgs = true;
-                throw err;
+                logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message}`);
+                continue;
               }
               toolUseBlocks.push({
                 type: 'tool_use',
@@ -200,11 +198,6 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
         } catch (err) {
           lastErr = err;
-          // Malformed tool args: don't retry same LLM, fall back to next provider
-          if (err.malformedToolArgs) {
-            console.warn(`[llm] ${provider.name} returned malformed tool args, skipping retries`);
-            break;
-          }
           // Timeout errors: don't retry, fall back to next provider immediately
           const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
           if (isTimeout) {
@@ -237,9 +230,6 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       let errorType;
       if (isTimeout) {
         errorType = 'timeout';
-      } else if (lastErr?.malformedToolArgs) {
-        // LLM generated invalid JSON for tool args — different LLM may succeed
-        errorType = 'malformed-tool-args';
       } else if (AUTH_STATUSES.has(status)) {
         // Wrong API key / forbidden — other providers have different keys
         errorType = 'auth';
@@ -279,11 +269,18 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         const toolUseBlocks = [];
         if (message.tool_calls) {
           for (const tc of message.tool_calls) {
+            let parsedArgs;
+            try {
+              parsedArgs = JSON.parse(tc.function.arguments);
+            } catch (parseErr) {
+              logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message}`);
+              continue;
+            }
             toolUseBlocks.push({
               type: 'tool_use',
               id: tc.id,
               name: tc.function.name,
-              input: JSON.parse(tc.function.arguments),
+              input: parsedArgs,
             });
           }
         }
