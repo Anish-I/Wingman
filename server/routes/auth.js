@@ -533,9 +533,9 @@ router.post('/request-password-reset', passwordResetLimiter, async (req, res) =>
       }
     }
 
-    // In stub/dev mode, also log to console for convenience
+    // In stub/dev mode, log redacted confirmation (code is retrievable via verify flow)
     if (process.env.MESSAGING_PROVIDER === 'stub' || !process.env.MESSAGING_PROVIDER) {
-      console.log(`[PASSWORD RESET] Code for ${normalizedEmail}: ${resetCode}`);
+      logger.info(`[PASSWORD RESET] Reset code sent for ${normalizedEmail} (redacted from logs)`);
     }
 
     res.json({ success: true, message: 'If an account with that email exists, a reset code has been sent.' });

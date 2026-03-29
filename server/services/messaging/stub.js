@@ -23,14 +23,17 @@ class StubProvider extends EventEmitter {
       id,
     };
 
-    // Store in Redis list
+    // Redact 6-digit codes (OTPs, reset codes) from all persisted/emitted data
+    const redactedBody = body.replace(/\b\d{6}\b/g, '******');
+    const redactedMessage = { ...message, body: redactedBody };
+
+    // Store redacted message in Redis list
     const key = `stub:messages:${to}`;
-    await this.redis.rpush(key, JSON.stringify(message));
+    await this.redis.rpush(key, JSON.stringify(redactedMessage));
     await this.redis.expire(key, 86400); // 24h TTL
 
-    const redacted = body.replace(/\b\d{6}\b/g, '******');
-    logger.info(`[STUB SMS → ${to}]: ${redacted}`);
-    this.emit('message', message);
+    logger.info(`[STUB SMS → ${to}]: ${redactedBody}`);
+    this.emit('message', redactedMessage);
     return { id };
   }
 
