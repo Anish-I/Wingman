@@ -9,6 +9,10 @@ function generateIdempotencyKey(): string {
   return `${Date.now()}-${++_idemCounter}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** Client-side timeout for chat requests (ms).  LLM responses can be slow,
+ *  but anything beyond this is almost certainly a hang. */
+export const CHAT_TIMEOUT_MS = 45_000;
+
 type ChatResponse = { reply: string };
 type ChatVariables = { message: string; idempotencyKey?: string | null; signal?: AbortSignal };
 
@@ -38,13 +42,16 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
       const { data } = await client.post<ChatResponse>(
         '/api/chat',
         { message: variables.message },
-        { headers, signal: variables.signal },
+        { headers, signal: variables.signal, timeout: CHAT_TIMEOUT_MS },
       );
       return data;
     } catch (err) {
       if (err instanceof AxiosError) {
         // Propagate cancellation directly — caller checks signal.aborted
         if (variables.signal?.aborted) throw err;
+        if (err.code === 'ECONNABORTED') {
+          throw new Error('The request timed out. Please try again.');
+        }
         if (err.response?.status === 401) {
           throw new Error('Your session has expired. Please sign in again.');
         }

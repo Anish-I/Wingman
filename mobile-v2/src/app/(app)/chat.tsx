@@ -10,7 +10,7 @@ import { useFocusEffect } from 'expo-router';
 import { fontScale, useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
-import { useSendMessage } from '@/features/chat/api';
+import { useSendMessage, CHAT_TIMEOUT_MS } from '@/features/chat/api';
 import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey, trackFailedContent, getFailedContentKey, clearFailedContent } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
@@ -169,6 +169,8 @@ export default function ChatScreen() {
   const mountedRef = useRef(true);
   // Auto-dismiss timers for failed messages — cleaned up on blur/unmount
   const autoDismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Client-side timeout that aborts the request if the server hangs
+  const chatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Reset pending refs when a failed message is dismissed so the next send
    *  generates fresh IDs/keys instead of reusing stale ones. */
@@ -183,6 +185,12 @@ export default function ChatScreen() {
       pendingIdempotencyKey.current = null;
     }
     deleteIdempotencyKey(messageId);
+  }
+
+  /** Let the user cancel a pending chat request. */
+  function cancelSend() {
+    if (!isSendingRef.current) return;
+    abortRef.current?.abort();
   }
 
   async function send(text?: string, isRetry = false) {
@@ -212,8 +220,15 @@ export default function ChatScreen() {
 
     // Cancel any previous in-flight request
     abortRef.current?.abort();
+    if (chatTimeoutRef.current) clearTimeout(chatTimeoutRef.current);
     abortRef.current = new AbortController();
     const signal = abortRef.current.signal;
+
+    // Client-side safety net: abort if the request hangs beyond the timeout
+    chatTimeoutRef.current = setTimeout(() => {
+      chatTimeoutRef.current = null;
+      abortRef.current?.abort();
+    }, CHAT_TIMEOUT_MS + 2_000); // +2s grace over Axios timeout
 
     // Reuse pending IDs on retry; only generate fresh ones for new messages
     if (!pendingUserMsgId.current) {
@@ -342,6 +357,7 @@ export default function ChatScreen() {
       autoDismissTimers.current.set(userMsgId, timerId);
     }
     finally {
+      if (chatTimeoutRef.current) { clearTimeout(chatTimeoutRef.current); chatTimeoutRef.current = null; }
       setLoading(false);
       isSendingRef.current = false;
     }
@@ -678,7 +694,24 @@ export default function ChatScreen() {
         />
         )}
 
-        {loading && <TypingDots reducedMotion={reducedMotion} />}
+        {loading && (
+          <View style={styles.loadingRow}>
+            <TypingDots reducedMotion={reducedMotion} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel request"
+              onPress={cancelSend}
+              style={({ pressed }: any) => [
+                styles.cancelButton,
+                { backgroundColor: surface.section },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={semantic.error} />
+              <Text style={[styles.cancelText, { color: semantic.error }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Input bar */}
         <MotiView
@@ -852,6 +885,24 @@ const styles = StyleSheet.create({
     fontSize: fontScale(13),
     fontFamily: 'Inter_600SemiBold',
     marginLeft: spacing.xs,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.lg,
+    marginRight: spacing.lg,
+  },
+  cancelText: {
+    fontSize: fontScale(13),
+    fontFamily: 'Inter_600SemiBold',
   },
   messageAvatarImage: {
     width: 32,
