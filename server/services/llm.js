@@ -179,7 +179,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
               try {
                 parsedArgs = JSON.parse(tc.function.arguments);
               } catch (parseErr) {
-                logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message}`);
+                logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message} | raw: ${tc.function.arguments}`);
                 continue;
               }
               toolUseBlocks.push({
@@ -189,6 +189,12 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
                 input: parsedArgs,
               });
             }
+          }
+
+          // If the LLM tried to call tools but all had malformed JSON, surface a clear message
+          if (message.tool_calls?.length > 0 && toolUseBlocks.length === 0 && !text) {
+            logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from ${provider.name} had malformed JSON arguments`);
+            return { text: "I tried to perform an action but encountered a formatting issue. Let me try again — could you repeat your request?", toolUseBlocks: [], stopReason: 'malformed_tool_args', usage: response.usage };
           }
 
           if (i > 0) {
@@ -273,7 +279,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
             try {
               parsedArgs = JSON.parse(tc.function.arguments);
             } catch (parseErr) {
-              logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message}`);
+              logger.warn(`[llm] Skipping tool_call ${tc.function.name} (${tc.id}): malformed JSON — ${parseErr.message} | raw: ${tc.function.arguments}`);
               continue;
             }
             toolUseBlocks.push({
@@ -284,6 +290,13 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
             });
           }
         }
+
+        // If the LLM tried to call tools but all had malformed JSON, surface a clear message
+        if (message.tool_calls?.length > 0 && toolUseBlocks.length === 0 && !text) {
+          logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from ${primary.name} retry had malformed JSON arguments`);
+          return { text: "I tried to perform an action but encountered a formatting issue. Let me try again — could you repeat your request?", toolUseBlocks: [], stopReason: 'malformed_tool_args', usage: response.usage };
+        }
+
         console.log(`[llm] Primary retry (${primary.name}) succeeded`);
         return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
       } catch (retryErr) {
