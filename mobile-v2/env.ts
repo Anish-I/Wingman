@@ -44,7 +44,14 @@ const _env: z.infer<typeof envSchema> = {
   EXPO_PUBLIC_BUNDLE_ID: BUNDLE_IDS[EXPO_PUBLIC_APP_ENV],
   EXPO_PUBLIC_PACKAGE: PACKAGES[EXPO_PUBLIC_APP_ENV],
   EXPO_PUBLIC_VERSION: packageJSON.version,
-  EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001',
+  EXPO_PUBLIC_API_URL: (() => {
+    const url = process.env.EXPO_PUBLIC_API_URL;
+    if (url) return url;
+    if (EXPO_PUBLIC_APP_ENV === 'development') return 'http://localhost:3001';
+    throw new Error(
+      `EXPO_PUBLIC_API_URL is required for ${EXPO_PUBLIC_APP_ENV} builds`,
+    );
+  })(),
 };
 
 function getValidatedEnv(env: z.infer<typeof envSchema>) {
