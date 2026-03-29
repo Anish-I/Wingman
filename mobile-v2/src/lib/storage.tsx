@@ -5,32 +5,39 @@ import * as SecureStore from 'expo-secure-store';
 const ENCRYPTION_KEY_ALIAS = 'mmkv_encryption_key';
 
 let storage: ReturnType<typeof createMMKV> | null = null;
+let initPromise: Promise<void> | null = null;
 
 export async function initStorage(): Promise<void> {
   if (storage) return;
+  if (initPromise) return initPromise;
 
-  if (Platform.OS === 'web') {
-    storage = createMMKV({ id: 'wingman-storage' });
-    return;
-  }
-
-  try {
-    let encryptionKey = await SecureStore.getItemAsync(ENCRYPTION_KEY_ALIAS);
-    if (!encryptionKey) {
-      const bytes = new Uint8Array(32);
-      crypto.getRandomValues(bytes);
-      encryptionKey = Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      await SecureStore.setItemAsync(ENCRYPTION_KEY_ALIAS, encryptionKey);
+  initPromise = (async () => {
+    if (Platform.OS === 'web') {
+      storage = createMMKV({ id: 'wingman-storage' });
+      return;
     }
 
-    storage = createMMKV({ id: 'wingman-storage', encryptionKey });
-  } catch (error) {
-    throw new Error(
-      `[storage] Failed to initialise encrypted MMKV — refusing to fall back to unencrypted storage. Original error: ${error}`
-    );
-  }
+    try {
+      let encryptionKey = await SecureStore.getItemAsync(ENCRYPTION_KEY_ALIAS);
+      if (!encryptionKey) {
+        const bytes = new Uint8Array(32);
+        crypto.getRandomValues(bytes);
+        encryptionKey = Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+        await SecureStore.setItemAsync(ENCRYPTION_KEY_ALIAS, encryptionKey);
+      }
+
+      storage = createMMKV({ id: 'wingman-storage', encryptionKey });
+    } catch (error) {
+      initPromise = null;
+      throw new Error(
+        `[storage] Failed to initialise encrypted MMKV — refusing to fall back to unencrypted storage. Original error: ${error}`
+      );
+    }
+  })();
+
+  return initPromise;
 }
 
 export function getStorage(): ReturnType<typeof createMMKV> {
