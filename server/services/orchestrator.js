@@ -332,15 +332,25 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
     const orphanToken = await _addOrphan(userId);
 
     // Reap promise settles the race if completionPromise hangs forever.
+    // A single `reaped` flag guards cleanup so the reapTimer callback and the
+    // finally block never duplicate _removeOrphan calls or write stale
+    // diagnostic records after the race has already been decided.
+    let reaped = false;
     let reapTimer;
     const reapPromise = new Promise(resolve => {
-      reapTimer = setTimeout(() => resolve(_REAPED), ORPHAN_REAP_TIMEOUT);
+      reapTimer = setTimeout(() => {
+        reaped = true;
+        resolve(_REAPED);
+      }, ORPHAN_REAP_TIMEOUT);
       if (reapTimer.unref) reapTimer.unref();
     });
 
+    // Swallow rejections on the losing branch so they don't surface as
+    // unhandled promise rejections after the race settles.
+    completionPromise.catch(() => {});
+
     Promise.race([completionPromise, reapPromise])
       .then((result) => {
-        clearTimeout(reapTimer);
         if (result === _REAPED) return; // timed out — no outcome to record
         const succeeded = result && result.successful !== false;
         const record = JSON.stringify({
@@ -353,7 +363,7 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL);
       })
       .catch((err) => {
-        clearTimeout(reapTimer);
+        if (reaped) return; // reap timer already won — skip stale diagnostic
         const record = JSON.stringify({
           status: 'failed',
           toolName,
@@ -363,6 +373,7 @@ async function _trackInflightOutcome(userId, toolName, toolInput, completionProm
         return redis.set(key, record, 'EX', INFLIGHT_OUTCOME_TTL).catch(() => {});
       })
       .finally(() => {
+        clearTimeout(reapTimer);
         _removeOrphan(userId, orphanToken)
           .catch(e => { logger.error({ err: e.message }, `[user:${userId}] Failed to remove orphan from Redis`); });
       });
