@@ -494,10 +494,23 @@ async function getConnectionLink(userId, appName, oauthState = null) {
   ]);
   const params = { appName };
   if (oauthState) {
-    // SSRF prevention: never accept an external URL — build the redirect
-    // URL internally from the trusted BASE_URL environment variable.
+    // Build the redirect URL internally from the trusted BASE_URL env var.
     const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-    params.redirectUrl = `${baseUrl}/connect/callback?state=${encodeURIComponent(oauthState)}`;
+    const redirectUrl = `${baseUrl}/connect/callback?state=${encodeURIComponent(oauthState)}`;
+    // Validate that the constructed redirectUrl origin matches our allowed
+    // origins to prevent open-redirect / token-phishing attacks. This is
+    // defense-in-depth: even though we build the URL server-side, validating
+    // the origin guards against BASE_URL misconfiguration or future callers
+    // that might pass untrusted data.
+    const allowedOrigins = [
+      baseUrl.replace(/\/+$/, ''),
+      ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : []),
+    ];
+    const parsed = new URL(redirectUrl);
+    if (!allowedOrigins.includes(parsed.origin)) {
+      throw new Error(`Composio redirectUrl origin "${parsed.origin}" is not in the allowed list`);
+    }
+    params.redirectUrl = redirectUrl;
   }
   const conn = await Promise.race([
     entity.initiateConnection(params),
