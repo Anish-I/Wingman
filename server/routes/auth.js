@@ -1272,6 +1272,9 @@ router.get('/google/callback', async (req, res) => {
   // Retrieve and consume PKCE code_verifier stored during GET /auth/google
   const pkceKey = `oauth_pkce:${nonce}`;
   const codeVerifier = await redis.call('GETDEL', pkceKey);
+  if (!codeVerifier) {
+    return res.status(440).json({ error: { code: 'SESSION_EXPIRED', message: 'OAuth session expired. Please restart the login flow.' } });
+  }
 
   const state = parseOAuthState(req.query.state);
 
