@@ -80,20 +80,20 @@ const MAX_STRING_LENGTH = 10000;
  * Returns { valid: true } or { valid: false, reason: string }.
  */
 function validateActionInput(obj, depth = 0) {
-  if (depth > MAX_INPUT_DEPTH) return { valid: false, reason: 'input exceeds maximum nesting depth' };
+  if (depth > MAX_INPUT_DEPTH) return { valid: false, reason: 'Input is too deeply nested.' };
   if (obj === null || obj === undefined) return { valid: true };
 
   const type = typeof obj;
   if (type === 'boolean' || type === 'number') {
-    if (!Number.isFinite(obj) && type === 'number') return { valid: false, reason: 'non-finite numbers are not allowed' };
+    if (!Number.isFinite(obj) && type === 'number') return { valid: false, reason: 'Invalid numeric value.' };
     return { valid: true };
   }
   if (type === 'string') {
-    if (obj.length > MAX_STRING_LENGTH) return { valid: false, reason: `string value exceeds maximum length (${MAX_STRING_LENGTH})` };
+    if (obj.length > MAX_STRING_LENGTH) return { valid: false, reason: 'A string value is too long.' };
     return { valid: true };
   }
   if (Array.isArray(obj)) {
-    if (obj.length > MAX_INPUT_KEYS) return { valid: false, reason: `array exceeds maximum length (${MAX_INPUT_KEYS})` };
+    if (obj.length > MAX_INPUT_KEYS) return { valid: false, reason: 'An array has too many elements.' };
     for (let i = 0; i < obj.length; i++) {
       const r = validateActionInput(obj[i], depth + 1);
       if (!r.valid) return r;
@@ -102,15 +102,15 @@ function validateActionInput(obj, depth = 0) {
   }
   if (type === 'object') {
     const keys = Object.keys(obj);
-    if (keys.length > MAX_INPUT_KEYS) return { valid: false, reason: `object exceeds maximum number of keys (${MAX_INPUT_KEYS})` };
+    if (keys.length > MAX_INPUT_KEYS) return { valid: false, reason: 'An object has too many keys.' };
     for (const key of keys) {
-      if (!ALLOWED_KEY_RE.test(key)) return { valid: false, reason: `invalid key "${key}" in input — only alphanumeric, underscore, hyphen, and dot are allowed` };
+      if (!ALLOWED_KEY_RE.test(key)) return { valid: false, reason: 'An object key contains invalid characters.' };
       const r = validateActionInput(obj[key], depth + 1);
       if (!r.valid) return r;
     }
     return { valid: true };
   }
-  return { valid: false, reason: `unsupported value type "${type}" in input` };
+  return { valid: false, reason: 'Input contains an unsupported value type.' };
 }
 
 // UUID v4 format validation
@@ -255,11 +255,11 @@ router.post('/workflows', requireAuth, async (req, res) => {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
     }
     if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) {
-      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'name must be a non-empty string of at most 200 characters' } });
+      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid workflow name.' } });
     }
     if (description !== undefined && description !== null) {
       if (typeof description !== 'string' || description.length > 2000) {
-        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'description must be a string of at most 2000 characters' } });
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid workflow description.' } });
       }
     }
     if (trigger_type === 'schedule') {
@@ -276,7 +276,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
       }
       const tc = validateActionInput(trigger_config);
       if (!tc.valid) {
-        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `trigger_config rejected: ${tc.reason}` } });
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid trigger configuration.' } });
       }
     }
     if (!Array.isArray(actions) || actions.length === 0) {
@@ -286,11 +286,11 @@ router.post('/workflows', requireAuth, async (req, res) => {
       const a = actions[i];
       if (a && a.input !== undefined) {
         if (typeof a.input !== 'object' || Array.isArray(a.input) || a.input === null) {
-          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input must be a plain object` } });
+          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'An action has an invalid input format.' } });
         }
         const v = validateActionInput(a.input);
         if (!v.valid) {
-          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input rejected: ${v.reason}` } });
+          return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'An action input failed validation.' } });
         }
       }
     }
@@ -374,7 +374,7 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     const incomingKeys = Object.keys(req.body);
     const unrecognized = incomingKeys.filter(k => !ALLOWED_PREFERENCE_KEYS.includes(k));
     if (unrecognized.length > 0) {
-      return res.status(400).json({ error: { code: 'UNRECOGNIZED_KEYS', message: `Unrecognized preference keys: ${unrecognized.join(', ')}` } });
+      return res.status(400).json({ error: { code: 'UNRECOGNIZED_KEYS', message: 'One or more preference keys are not recognized.' } });
     }
     const filtered = {};
     const invalid = [];
@@ -434,26 +434,26 @@ router.post('/workflows/:id/run', validateIdParam, requireAuth, workflowLimiter,
     const steps = workflow.steps || [];
     const actions = workflow.actions || [];
 
-    if (!Array.isArray(steps)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow steps must be an array' } });
-    if (!Array.isArray(actions)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow actions must be an array' } });
-    if (steps.length === 0 && actions.length === 0) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow has no steps or actions to execute' } });
+    if (!Array.isArray(steps)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow data is malformed.' } });
+    if (!Array.isArray(actions)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow data is malformed.' } });
+    if (steps.length === 0 && actions.length === 0) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Workflow has no executable content.' } });
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      if (!step || typeof step !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is not a valid object` } });
+      if (!step || typeof step !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow step is invalid.' } });
       const stepText = step.description || step.instruction;
-      if (typeof stepText !== 'string' || stepText.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Step ${i} is missing a description` } });
+      if (typeof stepText !== 'string' || stepText.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow step is invalid.' } });
     }
 
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
-      if (!action || typeof action !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} is not a valid object` } });
-      if (typeof action.name !== 'string' || action.name.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} is missing a name` } });
-      if (!/^[A-Z][A-Z0-9_]*$/.test(action.name)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} has an invalid name format` } });
-      if (action.input !== undefined && (typeof action.input !== 'object' || Array.isArray(action.input) || action.input === null)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input must be a plain object` } });
+      if (!action || typeof action !== 'object') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow action is invalid.' } });
+      if (typeof action.name !== 'string' || action.name.trim() === '') return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow action is invalid.' } });
+      if (!/^[A-Z][A-Z0-9_]*$/.test(action.name)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow action is invalid.' } });
+      if (action.input !== undefined && (typeof action.input !== 'object' || Array.isArray(action.input) || action.input === null)) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow action has invalid input.' } });
       if (action.input !== undefined) {
         const v = validateActionInput(action.input);
-        if (!v.valid) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: `Action ${i} input rejected: ${v.reason}` } });
+        if (!v.valid) return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'A workflow action input failed validation.' } });
       }
     }
 
@@ -492,21 +492,21 @@ router.post('/templates', requireAuth, async (req, res) => {
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 200) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'name is required and must be 1-200 characters.' } });
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid template name.' } });
     }
     if (!description || typeof description !== 'string' || description.trim().length === 0 || description.trim().length > 1000) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'description is required and must be 1-1000 characters.' } });
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid template description.' } });
     }
     const ALLOWED_CATEGORIES = ['productivity', 'messaging', 'finance', 'marketing', 'smart-home', 'other'];
     if (!category || !ALLOWED_CATEGORIES.includes(category)) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: `category must be one of: ${ALLOWED_CATEGORIES.join(', ')}` } });
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid or missing category.' } });
     }
     if (!Array.isArray(steps) || steps.length === 0 || steps.length > 20) {
-      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'steps must be a non-empty array with at most 20 entries.' } });
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Invalid steps.' } });
     }
     for (const step of steps) {
       if (!step || typeof step.instruction !== 'string' || step.instruction.trim().length === 0 || step.instruction.trim().length > 500) {
-        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Each step must have an instruction (1-500 characters).' } });
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'A step has an invalid instruction.' } });
       }
     }
     if (variables !== undefined && (typeof variables !== 'object' || variables === null || Array.isArray(variables))) {
