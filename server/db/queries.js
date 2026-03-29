@@ -72,7 +72,7 @@ async function linkUserIdentity(userId, fields) {
   const userRef = p.add(userId);
 
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined && allowed.includes(key)) {
+    if (value != null && allowed.includes(key)) {
       const ref = p.add(value);
       // Only update if the column is NULL or already matches — never overwrite
       // a different existing value (prevents identity hijacking).
