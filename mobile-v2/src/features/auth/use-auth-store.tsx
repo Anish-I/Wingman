@@ -18,8 +18,33 @@ const PENDING_BLACKLIST_KEY = 'wingman_pending_blacklist';
  *
  * On native, tokens are persisted to encrypted MMKV so they survive
  * app restarts and can be blacklisted on next launch.
+ *
+ * On web, a `pagehide` listener uses navigator.sendBeacon() to flush
+ * any pending tokens before the tab closes, ensuring they still reach
+ * the server even if the normal fetch retry hasn't completed yet.
  */
 let webPendingBlacklist: string[] = [];
+
+/**
+ * Flush all pending blacklist tokens via navigator.sendBeacon().
+ * sendBeacon is designed to survive page unloads where fetch would be cancelled.
+ * The server accepts the token in the JSON body for this path.
+ */
+function flushPendingViaBeacon(): void {
+  if (typeof navigator === 'undefined' || !navigator.sendBeacon) return;
+  for (const tok of webPendingBlacklist) {
+    const blob = new Blob(
+      [JSON.stringify({ token: tok })],
+      { type: 'application/json' },
+    );
+    navigator.sendBeacon(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, blob);
+  }
+}
+
+// Register pagehide listener once on web to flush pending tokens when the tab closes
+if (Platform.OS === 'web' && typeof addEventListener === 'function') {
+  addEventListener('pagehide', flushPendingViaBeacon);
+}
 
 function getPendingBlacklist(): string[] {
   if (Platform.OS === 'web') {
@@ -59,17 +84,33 @@ function removePendingBlacklist(token: string): void {
  * Attempt to blacklist a token server-side, retrying with exponential backoff.
  * The token is persisted to MMKV so that if the app is killed mid-retry,
  * hydrate() will pick it up on next launch.
+ * On web, the first attempt uses sendBeacon for reliability (survives tab close),
+ * then falls back to fetch with retries.
  * Runs in the background so the UI logout is never delayed.
  */
 async function blacklistToken(token: string): Promise<void> {
   addPendingBlacklist(token);
+
+  // On web, fire a sendBeacon immediately as a best-effort that survives page unload.
+  // We still proceed with the fetch retry loop to confirm success and clean up.
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    const blob = new Blob(
+      [JSON.stringify({ token })],
+      { type: 'application/json' },
+    );
+    navigator.sendBeacon(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, blob);
+  }
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10_000);
       const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         signal: controller.signal,
       });
       clearTimeout(timer);

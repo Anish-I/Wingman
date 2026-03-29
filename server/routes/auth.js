@@ -1734,11 +1734,14 @@ router.post('/refresh', async (req, res) => {
 // POST /auth/logout — revoke JWT and clear the httpOnly auth cookie
 router.post('/logout', async (req, res) => {
   try {
-    // Extract token from Authorization header or cookie
+    // Extract token from Authorization header, request body, or cookie.
+    // Body fallback supports navigator.sendBeacon() which cannot set headers.
     let token = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.slice(7);
+    } else if (req.body && req.body.token) {
+      token = req.body.token;
     } else if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
       token = req.cookies[AUTH_COOKIE_NAME];
     }
