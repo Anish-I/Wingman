@@ -495,6 +495,12 @@ async function appendWorkflowRunState(runId, { newMessages, newStepLogs, context
       [runId]
     );
 
+    // Verify the run still exists after acquiring the lock — it may have been
+    // cascade-deleted while we waited, and inserting into workflow_run_events
+    // with a missing run_id would violate the FK constraint.
+    const runCheck = await txQuery('SELECT id FROM workflow_runs WHERE id = $1', [runId]);
+    if (runCheck.rows.length === 0) return;
+
     const eventRows = [];
     if ((newMessages && newMessages.length > 0) || (newStepLogs && newStepLogs.length > 0)) {
       const seqRes = await txQuery(
