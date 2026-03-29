@@ -268,6 +268,15 @@ async function shutdown(signal) {
   });
 
   try {
+    // 1b. Drain in-flight memory extractions so user preferences aren't lost
+    const { drainPendingMemory } = require('./services/orchestrator');
+    await drainPendingMemory(8000);
+    logger.info('Pending memory extractions drained.');
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Error draining memory extractions');
+  }
+
+  try {
     // 2. Close Redis connection
     const { redis } = require('./services/redis');
     await redis.quit();

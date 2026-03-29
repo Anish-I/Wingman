@@ -11,6 +11,9 @@ const { sanitizeUserMessage } = require('../lib/sanitize-message');
 const logger = require('./logger');
 const crypto = require('crypto');
 
+// Track in-flight memory extractions so they can be drained on shutdown
+const _pendingMemoryExtractions = new Set();
+
 // Payload size limits for LLM tool-call inputs (mirrors api.js workflow validation)
 const MAX_TOOL_INPUT_KEYS = 50;
 const MAX_TOOL_INPUT_STRING_LENGTH = 10000;
@@ -1020,17 +1023,21 @@ async function _processMessageInner(user, messageText, abortController = { abort
     inflight.resolve(null);
   }
 
-  // Fire-and-forget: extract memory with AbortController timeout (best-effort, must never crash)
+  // Extract memory in background — tracked so graceful shutdown can drain pending work.
   // Snapshot messages so extraction works on a frozen copy — the live array
   // may be mutated by subsequent requests after the lock is released.
-  const MEMORY_EXTRACTION_TIMEOUT = 30000;
+  const MEMORY_EXTRACTION_TIMEOUT = 10_000;
   const memoryAC = new AbortController();
   const memoryTimer = setTimeout(() => memoryAC.abort(new Error('memory extraction timed out')), MEMORY_EXTRACTION_TIMEOUT);
   if (memoryTimer.unref) memoryTimer.unref();
   const messagesSnapshot = messages.map(m => ({ ...m }));
-  extractAndSaveMemory(user, messagesSnapshot, { signal: memoryAC.signal })
-    .finally(() => clearTimeout(memoryTimer))
-    .catch(err => { logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`); });
+  const memoryPromise = extractAndSaveMemory(user, messagesSnapshot, { signal: memoryAC.signal })
+    .catch(err => { logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`); })
+    .finally(() => {
+      clearTimeout(memoryTimer);
+      _pendingMemoryExtractions.delete(memoryPromise);
+    });
+  _pendingMemoryExtractions.add(memoryPromise);
 
   return finalText;
   } catch (err) {
@@ -1089,4 +1096,16 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
 }
 
-module.exports = { processMessage, getOrphanedCount };
+/**
+ * Wait for all in-flight memory extractions to settle (with a timeout).
+ * Called during graceful shutdown to avoid silently losing user memory updates.
+ */
+async function drainPendingMemory(timeoutMs = 8000) {
+  const pending = [..._pendingMemoryExtractions];
+  if (pending.length === 0) return;
+  logger.info(`Draining ${pending.length} pending memory extraction(s)...`);
+  const deadline = new Promise(r => setTimeout(r, timeoutMs));
+  await Promise.race([Promise.allSettled(pending), deadline]);
+}
+
+module.exports = { processMessage, getOrphanedCount, drainPendingMemory };
