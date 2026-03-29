@@ -24,6 +24,7 @@ const PENDING_BLACKLIST_KEY = 'wingman_pending_blacklist';
  * the server even if the normal fetch retry hasn't completed yet.
  */
 let webPendingBlacklist: string[] = [];
+let webRetryTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Flush all pending blacklist tokens via navigator.sendBeacon().
@@ -44,6 +45,47 @@ function flushPendingViaBeacon(): void {
 // Register pagehide listener once on web to flush pending tokens when the tab closes
 if (Platform.OS === 'web' && typeof addEventListener === 'function') {
   addEventListener('pagehide', flushPendingViaBeacon);
+}
+
+const WEB_RETRY_INTERVAL_MS = 30_000;
+
+/**
+ * Start a periodic retry loop on web for tokens that exhausted their initial
+ * retry attempts.  The loop auto-stops when the pending list is drained.
+ */
+function startWebRetryLoop(): void {
+  if (Platform.OS !== 'web' || webRetryTimer) return;
+  webRetryTimer = setInterval(async () => {
+    const pending = [...webPendingBlacklist];
+    if (pending.length === 0) {
+      clearInterval(webRetryTimer!);
+      webRetryTimer = null;
+      return;
+    }
+    for (const tok of pending) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10_000);
+        const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tok}`,
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        if (
+          res.ok ||
+          (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)
+        ) {
+          removePendingBlacklist(tok);
+        }
+      } catch {
+        // Network still down — will retry on next interval
+      }
+    }
+  }, WEB_RETRY_INTERVAL_MS);
 }
 
 function getPendingBlacklist(): string[] {
@@ -130,7 +172,11 @@ async function blacklistToken(token: string): Promise<void> {
       await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
     }
   }
-  // All retries exhausted — token stays in pending list for next hydrate()
+  // All retries exhausted — keep retrying in the background so the server
+  // session is eventually invalidated instead of silently giving up.
+  console.warn('[signOut] Failed to blacklist token after retries — scheduling background retry');
+  startWebRetryLoop();
+  // On native the token persists in MMKV and hydrate() will drain it on next launch.
 }
 
 type AuthState = {
