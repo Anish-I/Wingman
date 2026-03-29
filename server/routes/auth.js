@@ -990,7 +990,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
 
         if (phoneUser && authedUser && phoneUser.id !== authedUser.id) {
           // A separate phone-based account exists — merge it into the authenticated account
-          await mergeUserAccounts(authedUser.id, phoneUser.id, txQuery);
+          await mergeUserAccounts(authedUser.id, authedUser.id, phoneUser.id, txQuery);
         }
 
         if (authedUser) {

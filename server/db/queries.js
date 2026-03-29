@@ -100,7 +100,14 @@ async function linkUserIdentity(userId, fields) {
  * fields that target lacks, then delete the source account.
  * Must run inside a transaction.
  */
-async function mergeUserAccounts(targetUserId, sourceUserId, txQuery) {
+async function mergeUserAccounts(callerUserId, targetUserId, sourceUserId, txQuery) {
+  // Ownership check: the caller must be the target account.  This prevents an
+  // attacker from merging arbitrary users even if this function is accidentally
+  // exposed without route-level guards.
+  if (callerUserId !== targetUserId) {
+    throw new Error('mergeUserAccounts: caller must own the target account');
+  }
+
   // No-op when source and target are the same user — acquiring advisory locks
   // twice with the same ID pair could deadlock, and the merge logic would
   // delete the user's own data.
