@@ -27,6 +27,10 @@ const SIDE_EFFECT_PATTERN = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_PO
 const REDIS_IDEMP_RETRY_COUNT = 2;
 const REDIS_IDEMP_RETRY_DELAY_MS = 200;
 
+// Maximum size (in characters) for a tool execution response. Responses exceeding
+// this limit are truncated to prevent memory exhaustion from oversized external API data.
+const TOOL_RESPONSE_MAX_SIZE = 100_000; // ~100 KB of text
+
 /**
  * Generate a unique claim token for this executor so we can fence writes.
  */
@@ -426,16 +430,28 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     clearInterval(_heartbeat);
     const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
 
+    // Truncate oversized responses to prevent memory exhaustion / DoS from
+    // compromised or misbehaving external APIs.
+    const serialized = JSON.stringify(parsed);
+    const truncated = serialized.length > TOOL_RESPONSE_MAX_SIZE
+      ? (() => {
+          logger.warn({ tool: toolCallBlock.name, originalSize: serialized.length, limit: TOOL_RESPONSE_MAX_SIZE },
+            `[composio] Tool response truncated`);
+          const truncatedJson = serialized.slice(0, TOOL_RESPONSE_MAX_SIZE);
+          try { return JSON.parse(truncatedJson); } catch { return { result: truncatedJson, _truncated: true }; }
+        })()
+      : parsed;
+
     // Cache the result so retries get the same response.
     // For side-effecting tools, failure to cache is critical — a retry would
     // re-execute the action (send duplicate email, etc.), so we retry + throw.
     const isSideEffect = SIDE_EFFECT_PATTERN.test(toolCallBlock.name);
-    await _redisSetWithRetry(idempKey, JSON.stringify(parsed), TOOL_IDEMPOTENCY_TTL, {
+    await _redisSetWithRetry(idempKey, JSON.stringify(truncated), TOOL_IDEMPOTENCY_TTL, {
       label: toolCallBlock.name,
       rethrow: isSideEffect,
       claimToken: myToken,
     });
-    return parsed;
+    return truncated;
   } catch (err) {
     clearInterval(_heartbeat);
     if (SIDE_EFFECT_PATTERN.test(toolCallBlock.name)) {
