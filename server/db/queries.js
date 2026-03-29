@@ -259,13 +259,21 @@ async function updateUserZapierAccount(userId, zapierAccountId) {
   return result.rows[0];
 }
 
+const MAX_PREFERENCES_BYTES = 64 * 1024; // 64 KB limit for preferences JSONB
+
 async function updateUserPreferences(userId, preferences) {
   return withTransaction(async (txQuery) => {
     // Lock the row to serialize concurrent preference merges
-    await txQuery('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const locked = await txQuery('SELECT preferences FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const current = locked.rows[0]?.preferences || {};
+    const merged = { ...current, ...preferences };
+    const mergedJson = JSON.stringify(merged);
+    if (Buffer.byteLength(mergedJson, 'utf8') > MAX_PREFERENCES_BYTES) {
+      throw Object.assign(new Error('Preferences size limit exceeded'), { code: 'PREFERENCES_TOO_LARGE' });
+    }
     const result = await txQuery(
-      'UPDATE users SET preferences = preferences || $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [JSON.stringify(preferences), userId]
+      'UPDATE users SET preferences = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [mergedJson, userId]
     );
     return result.rows[0];
   });

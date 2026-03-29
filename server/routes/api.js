@@ -396,6 +396,9 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
     const updated = await updateUserPreferences(req.user.id, filtered);
     res.json({ user: updated });
   } catch (err) {
+    if (err.code === 'PREFERENCES_TOO_LARGE') {
+      return res.status(413).json({ error: { code: 'PREFERENCES_TOO_LARGE', message: 'Preferences size limit exceeded.' } });
+    }
     logger.error({ err: err.message }, '[api] update preferences error');
     res.status(500).json({ error: { code: 'PREFERENCES_UPDATE_ERROR', message: 'Failed to update preferences.' } });
   }
