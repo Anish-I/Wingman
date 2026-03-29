@@ -34,7 +34,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
   statement_timeout: STATEMENT_TIMEOUT_MS,
   ssl: buildSslConfig(),
 });
@@ -171,7 +171,9 @@ async function retryOnConnectionError(operation, label) {
         throw pressureErr;
       }
 
-      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      const baseDelay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      const jitter = Math.floor(Math.random() * baseDelay * 0.5);
+      const delay = baseDelay + jitter;
       logger.warn(
         { err: err.message, code: err.code, attempt, maxRetries: MAX_RETRIES, delayMs: delay },
         `${label} connection error, retrying in ${delay}ms`,
