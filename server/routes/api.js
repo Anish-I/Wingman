@@ -142,7 +142,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
       return res.status(400).json({ error: { code: 'MESSAGE_REQUIRED', message: 'message is required' } });
     }
     if (message.length > MAX_CHAT_MESSAGE_LENGTH) {
-      return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: `Message exceeds maximum length of ${MAX_CHAT_MESSAGE_LENGTH} characters.` } });
+      return res.status(400).json({ error: { code: 'MESSAGE_TOO_LONG', message: 'Message is too long.' } });
     }
 
     // --- Idempotency deduplication ---
@@ -252,7 +252,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
   try {
     const { name, trigger_type, cron_expression, trigger_config, actions, description } = req.body;
     if (!name || !trigger_type || !actions) {
-      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'name, trigger_type, and actions are required' } });
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Required fields are missing.' } });
     }
     if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) {
       return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid workflow name.' } });
@@ -264,15 +264,15 @@ router.post('/workflows', requireAuth, async (req, res) => {
     }
     if (trigger_type === 'schedule') {
       if (!cron_expression) {
-        return res.status(400).json({ error: { code: 'MISSING_CRON', message: 'cron_expression is required when trigger_type is schedule' } });
+        return res.status(400).json({ error: { code: 'MISSING_CRON', message: 'Schedule configuration is incomplete.' } });
       }
       if (!isValidCron(cron_expression)) {
-        return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid cron expression. Expected 5-field format: min hour dom month dow' } });
+        return res.status(400).json({ error: { code: 'INVALID_CRON', message: 'Invalid schedule expression.' } });
       }
     }
     if (trigger_config !== undefined && trigger_config !== null) {
       if (typeof trigger_config !== 'object' || Array.isArray(trigger_config)) {
-        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'trigger_config must be a plain object' } });
+        return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid trigger configuration.' } });
       }
       const tc = validateActionInput(trigger_config);
       if (!tc.valid) {
@@ -280,7 +280,7 @@ router.post('/workflows', requireAuth, async (req, res) => {
       }
     }
     if (!Array.isArray(actions) || actions.length === 0) {
-      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'actions must be a non-empty array' } });
+      return res.status(422).json({ error: { code: 'INVALID_WORKFLOW', message: 'Invalid or missing actions.' } });
     }
     for (let i = 0; i < actions.length; i++) {
       const a = actions[i];
@@ -388,7 +388,7 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
       }
     }
     if (invalid.length > 0) {
-      return res.status(422).json({ error: { code: 'INVALID_PREFERENCE_VALUE', message: `Invalid value for: ${invalid.join(', ')}` } });
+      return res.status(422).json({ error: { code: 'INVALID_PREFERENCE_VALUE', message: 'One or more preference values are invalid.' } });
     }
     if (Object.keys(filtered).length === 0) {
       return res.status(400).json({ error: { code: 'NO_VALID_KEYS', message: 'No valid preference keys provided' } });

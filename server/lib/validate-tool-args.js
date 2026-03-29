@@ -23,7 +23,7 @@ function validateToolArgs(args, schema) {
   // Check required fields
   for (const field of required) {
     if (!(field in args)) {
-      return `Missing required argument: "${field}"`;
+      return 'A required argument is missing';
     }
   }
 
@@ -32,7 +32,7 @@ function validateToolArgs(args, schema) {
     const allowed = new Set(Object.keys(properties));
     for (const key of Object.keys(args)) {
       if (!allowed.has(key)) {
-        return `Unexpected argument: "${key}"`;
+        return 'An unexpected argument was provided';
       }
     }
   }
@@ -61,7 +61,7 @@ function validateToolArgs(args, schema) {
       default:        valid = true; // unknown type — skip
     }
     if (!valid) {
-      return `Argument "${key}" must be of type ${expectedType}`;
+      return 'An argument has an invalid type';
     }
   }
 
