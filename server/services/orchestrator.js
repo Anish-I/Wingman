@@ -4,7 +4,7 @@ const { getConversationHistory, appendMessage, acquireConversationLock } = requi
 const { getTools, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
-const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock } = require('./llm-cache');
+const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock, registerInflight } = require('./llm-cache');
 const { redis } = require('./redis');
 const { validateToolArgs } = require('../lib/validate-tool-args');
 const { sanitizeUserMessage } = require('../lib/sanitize-message');
@@ -598,12 +598,15 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
 
   // Check semantic cache before doing any LLM work
+  let inflight = null;
   if (shouldCache(messageText)) {
     const cached = await getCachedResponse(messageText, userId);
     if (cached) {
       await safeAppend('assistant', cached);
       return cached;
     }
+    // Register in-process coalescing so concurrent requests await this result
+    inflight = registerInflight(messageText, userId);
   }
 
   const memoryContext = getMemoryContext(user);
@@ -1002,6 +1005,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
     await safeAppend('assistant', persistedText);
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
+    if (inflight) inflight.resolve(null);
     return finalText;
   }
   await safeAppend('assistant', persistedText);
@@ -1009,6 +1013,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Cache the response if eligible
   if (shouldCache(messageText) && finalText) {
     await setCachedResponse(messageText, finalText, userId);
+    // Resolve in-process coalescing so waiting requests get the result
+    if (inflight) inflight.resolve(finalText);
+  } else if (inflight) {
+    // No cacheable result — unblock waiters so they proceed independently
+    inflight.resolve(null);
   }
 
   // Fire-and-forget: extract memory with AbortController timeout (best-effort, must never crash)
@@ -1027,6 +1036,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
   } catch (err) {
     // Release stampede lock so other requests aren't blocked for 30s
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
+    // Unblock coalesced in-process waiters
+    if (inflight) inflight.resolve(null);
 
     // AbortError means the outer processMessage timed out and set the flag —
     // stop immediately.  The lock is still held (the outer handler no longer
