@@ -7,6 +7,7 @@ import { purple, spacing, useThemeColors } from '@/components/ui/tokens';
 import { useAuthStore as useAuth } from '@/features/auth/use-auth-store';
 import { useChatStore } from '@/features/chat/store';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
+import { useProfile } from '@/features/settings/api';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -20,16 +21,21 @@ export default function TabLayout() {
   const status = useAuth.use.status();
   const token = useAuth.use.token();
   const [isFirstTime, setIsFirstTime] = useIsFirstTime();
+  const { data: profile } = useProfile({ variables: undefined, enabled: !!token });
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
 
+  // Server-side fallback: if the user has a phone in their profile, onboarding
+  // is complete regardless of local MMKV state (handles crash-before-sync).
+  const serverConfirmsOnboarded = !!profile?.phone;
+
   // Determine all redirect conditions up-front so splash only hides once the
   // user is on the correct final screen (tabs), not during a redirect.
   const needsLogin = !hydrated || status === 'idle' || status === 'signOut' || !token;
-  const needsOnboarding = !needsLogin && isFirstTime !== false;
+  const needsOnboarding = !needsLogin && isFirstTime !== false && !serverConfirmsOnboarded;
   const showTabs = !needsLogin && !needsOnboarding;
 
   const router = useRouter();
@@ -59,6 +65,15 @@ export default function TabLayout() {
     mountedRef.current = true;
   }, []);
 
+  // Server-side fallback: if the profile confirms onboarding is done (user has
+  // a phone) but the local MMKV flag was lost (e.g. crash before sync), repair
+  // it so future cold starts skip the network check.
+  useEffect(() => {
+    if (isFirstTime !== false && serverConfirmsOnboarded) {
+      setIsFirstTime(false);
+    }
+  }, [isFirstTime, serverConfirmsOnboarded, setIsFirstTime]);
+
   useEffect(() => {
     if (showTabs) {
       const timer = setTimeout(() => {
@@ -75,14 +90,6 @@ export default function TabLayout() {
   if (status === 'signOut' || !token) {
     return <Redirect href="/login" />;
   }
-  if (isFirstTime !== false) {
-    // User has a valid token (login/signup guard above already handled the
-    // no-token case) but isFirstTime was never cleared — e.g. the app crashed
-    // after signup but before the done screen.  Clear the stale flag instead
-    // of looping back to onboarding; the token proves signup completed.
-    setIsFirstTime(false);
-  }
-
   return (
     <Tabs
       screenOptions={{
