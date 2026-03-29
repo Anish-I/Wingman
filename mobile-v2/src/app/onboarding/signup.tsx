@@ -63,8 +63,12 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const busy = signupLoading || googleLoading || appleLoading;
   const codeExchangedRef = useRef(false);
+  const signupActiveRef = useRef(false);
   const googleSignInActiveRef = useRef(false);
 
   // Clear stale oauth_pending on mount — handles cases where the browser
@@ -104,13 +108,14 @@ export default function SignupScreen() {
       showAlert('Weak password', 'Password must include uppercase, lowercase, digit, and special character.');
       return;
     }
-    setLoading(true);
+    if (signupActiveRef.current) return;
+    signupActiveRef.current = true;
+    setSignupLoading(true);
     try {
       const { data } = await client.post('/auth/signup', { email, password });
       // Validate token is a well-formed JWT (three base64url segments)
       if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
         showAlert('Sign-Up Failed', 'Authentication token was not generated. Please try again.');
-        setLoading(false);
         return;
       }
       signIn(data.token);
@@ -119,7 +124,8 @@ export default function SignupScreen() {
       const message = err?.response?.data?.error || 'Sign-up failed. Please try again.';
       showAlert('Sign-Up Error', message);
     } finally {
-      setLoading(false);
+      setSignupLoading(false);
+      signupActiveRef.current = false;
     }
   }
 
@@ -152,7 +158,7 @@ export default function SignupScreen() {
     // or back/forward before re-render.
     if (googleSignInActiveRef.current) return;
     googleSignInActiveRef.current = true;
-    setLoading(true);
+    setGoogleLoading(true);
     codeExchangedRef.current = false;
     try {
       // Clear any stale oauth_pending from a previously interrupted flow (e.g.
@@ -218,7 +224,7 @@ export default function SignupScreen() {
       console.error('Google sign-in error:', err);
       showAlert('Sign-In Error', 'Google sign-in failed. Please try again.');
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
       googleSignInActiveRef.current = false;
     }
   }
@@ -228,11 +234,11 @@ export default function SignupScreen() {
       showAlert('Not Available', 'Apple Sign-In is only available on iOS devices.');
       return;
     }
-    setLoading(true);
+    setAppleLoading(true);
     try {
       showAlert('Coming Soon', 'Apple Sign-In will be available in a future update.');
     } finally {
-      setLoading(false);
+      setAppleLoading(false);
     }
   }
 
@@ -266,7 +272,7 @@ export default function SignupScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
-                editable={!loading}
+                editable={!busy}
               />
             </View>
 
@@ -282,7 +288,7 @@ export default function SignupScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
-                editable={!loading}
+                editable={!busy}
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
@@ -294,7 +300,7 @@ export default function SignupScreen() {
           </View>
 
           <View className="w-full" style={{ marginTop: spacing.lg }}>
-            <GradientButton title={loading ? "Signing Up..." : "Sign Up"} onPress={handleSignUp} disabled={loading} />
+            <GradientButton title={signupLoading ? "Signing Up..." : "Sign Up"} onPress={handleSignUp} disabled={busy} />
           </View>
 
           {/* Divider */}
@@ -312,7 +318,7 @@ export default function SignupScreen() {
               variant="social"
               className="gap-2"
               onPress={handleGoogleSignIn}
-              disabled={loading}
+              disabled={busy}
             >
               <GoogleIcon />
               <Text className="text-neutral-900 dark:text-[#F0F0F5] text-[15px] font-medium font-inter">
@@ -324,7 +330,7 @@ export default function SignupScreen() {
               variant="social"
               className="gap-2"
               onPress={handleAppleSignIn}
-              disabled={loading}
+              disabled={busy}
             >
               <AppleIcon />
               <Text className="text-neutral-900 dark:text-[#F0F0F5] text-[15px] font-medium font-inter">
