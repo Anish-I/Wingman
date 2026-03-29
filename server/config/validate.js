@@ -65,8 +65,32 @@ function validateEnv() {
 
   // Enforce minimum length for secrets in ALL environments — short secrets are
   // never acceptable, even in development, because they allow trivial brute-force.
+  const jwtSecrets = process.env.JWT_SECRETS;
   const jwtSecret = process.env.JWT_SECRET;
-  if (jwtSecret && jwtSecret.length < 64) {
+  if (jwtSecrets) {
+    try {
+      const parsed = JSON.parse(jwtSecrets);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        console.error('[env-validate] FATAL: JWT_SECRETS must be a non-empty JSON array of {kid, secret} objects');
+        process.exit(1);
+      }
+      for (const entry of parsed) {
+        if (!entry.kid || typeof entry.kid !== 'string') {
+          console.error('[env-validate] FATAL: Each JWT_SECRETS entry must have a string "kid" field');
+          process.exit(1);
+        }
+        if (!entry.secret || typeof entry.secret !== 'string' || entry.secret.length < 64) {
+          console.error(`[env-validate] FATAL: JWT_SECRETS entry "${entry.kid}" must have a "secret" of at least 64 characters`);
+          process.exit(1);
+        }
+      }
+    } catch (err) {
+      if (err.name === 'SyntaxError') {
+        console.error('[env-validate] FATAL: JWT_SECRETS is not valid JSON');
+        process.exit(1);
+      }
+    }
+  } else if (jwtSecret && jwtSecret.length < 64) {
     console.error('[env-validate] FATAL: JWT_SECRET must be at least 64 characters long to prevent brute-force token forgery');
     process.exit(1);
   }
@@ -83,16 +107,21 @@ function validateEnv() {
     process.exit(1);
   }
 
-  // Warn if OTP_SECRET and JWT_SECRET are the same — defeats the purpose of separation
-  if (otpSecret && jwtSecret && otpSecret === jwtSecret) {
-    const msg = 'OTP_SECRET should differ from JWT_SECRET for proper secret isolation';
-    console.warn(`[env-validate] WARN: ${msg}`);
+  // Warn if OTP_SECRET and JWT_SECRET(s) are the same — defeats the purpose of separation
+  const jwtSecretValues = jwtSecrets
+    ? (() => { try { return JSON.parse(jwtSecrets).map((e) => e.secret); } catch { return []; } })()
+    : (jwtSecret ? [jwtSecret] : []);
+  for (const s of jwtSecretValues) {
+    if (otpSecret && s && otpSecret === s) {
+      console.warn('[env-validate] WARN: OTP_SECRET should differ from JWT signing secrets for proper secret isolation');
+      break;
+    }
   }
-
-  // Warn if OAUTH_STATE_SECRET reuses JWT_SECRET — defeats domain separation
-  if (oauthStateSecret && jwtSecret && oauthStateSecret === jwtSecret) {
-    const msg = 'OAUTH_STATE_SECRET should differ from JWT_SECRET for proper secret isolation';
-    console.warn(`[env-validate] WARN: ${msg}`);
+  for (const s of jwtSecretValues) {
+    if (oauthStateSecret && s && oauthStateSecret === s) {
+      console.warn('[env-validate] WARN: OAUTH_STATE_SECRET should differ from JWT signing secrets for proper secret isolation');
+      break;
+    }
   }
 
   // In production, Google OAuth vars are required — without them OAuth login fails at runtime

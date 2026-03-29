@@ -69,15 +69,66 @@ function requireAuth(req, res, next) {
   return _requireAuth(req, res, next);
 }
 const redis = createRedisClient();
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required');
-  process.exit(1);
+// ---------------------------------------------------------------------------
+// JWT Key Rotation Support
+// ---------------------------------------------------------------------------
+// JWT_SECRETS (optional): JSON array of {kid, secret} objects for key rotation.
+//   The FIRST entry is the current signing key; older keys verify existing tokens.
+//   Example: JWT_SECRETS='[{"kid":"v2","secret":"<64+ chars>"},{"kid":"v1","secret":"<old 64+ chars>"}]'
+//
+// JWT_SECRET (required fallback): Single key used when JWT_SECRETS is not set.
+//   Automatically assigned kid "default".
+// ---------------------------------------------------------------------------
+let jwtKeyring = []; // [{kid, secret}] — first entry = signing key
+
+if (process.env.JWT_SECRETS) {
+  try {
+    const parsed = JSON.parse(process.env.JWT_SECRETS);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      console.error('FATAL: JWT_SECRETS must be a non-empty JSON array of {kid, secret} objects');
+      process.exit(1);
+    }
+    for (const entry of parsed) {
+      if (!entry.kid || typeof entry.kid !== 'string') {
+        console.error('FATAL: Each JWT_SECRETS entry must have a string "kid" field');
+        process.exit(1);
+      }
+      if (!entry.secret || typeof entry.secret !== 'string' || entry.secret.length < 64) {
+        console.error(`FATAL: JWT_SECRETS entry "${entry.kid}" must have a "secret" of at least 64 characters`);
+        process.exit(1);
+      }
+    }
+    // Check for duplicate kids
+    const kids = parsed.map((e) => e.kid);
+    if (new Set(kids).size !== kids.length) {
+      console.error('FATAL: JWT_SECRETS contains duplicate "kid" values');
+      process.exit(1);
+    }
+    jwtKeyring = parsed;
+    logger.info({ kids }, '[auth] JWT keyring loaded with %d key(s)', parsed.length);
+  } catch (err) {
+    if (err.name === 'SyntaxError') {
+      console.error('FATAL: JWT_SECRETS is not valid JSON');
+      process.exit(1);
+    }
+    throw err;
+  }
+} else {
+  // Fallback to single JWT_SECRET
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is required');
+    process.exit(1);
+  }
+  if (JWT_SECRET.length < 64) {
+    console.error('FATAL: JWT_SECRET must be at least 64 characters long to prevent brute-force token forgery');
+    process.exit(1);
+  }
+  jwtKeyring = [{ kid: 'default', secret: JWT_SECRET }];
 }
-if (JWT_SECRET.length < 64) {
-  console.error('FATAL: JWT_SECRET must be at least 64 characters long to prevent brute-force token forgery');
-  process.exit(1);
-}
+
+/** Current signing key (first in keyring). */
+const jwtSigningKey = jwtKeyring[0];
 const OTP_SECRET = process.env.OTP_SECRET;
 if (!OTP_SECRET) {
   console.error('FATAL: OTP_SECRET environment variable is required (must differ from JWT_SECRET)');
@@ -223,24 +274,47 @@ async function signToken(payload, expiresInSeconds = 86400) {
     }
   }
   const jti = crypto.randomUUID();
-  return jwt.sign({ ...payload, jti }, JWT_SECRET, {
+  return jwt.sign({ ...payload, jti }, jwtSigningKey.secret, {
     algorithm: 'HS256',
     expiresIn: expiresInSeconds,
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
+    keyid: jwtSigningKey.kid,
   });
 }
 
-function verifyToken(token) {
+function verifyToken(token, opts = {}) {
+  const verifyOpts = {
+    algorithms: ['HS256'],
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+    ...opts,
+  };
+
+  // Try to match by kid from the token header first (O(1) lookup)
   try {
-    return jwt.verify(token, JWT_SECRET, {
-      algorithms: ['HS256'],
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    });
+    const header = JSON.parse(
+      Buffer.from(token.split('.')[0], 'base64url').toString()
+    );
+    if (header.kid) {
+      const entry = jwtKeyring.find((k) => k.kid === header.kid);
+      if (entry) {
+        return jwt.verify(token, entry.secret, verifyOpts);
+      }
+    }
   } catch {
-    return null;
+    // Fall through to brute-force attempt below
   }
+
+  // Legacy tokens without kid, or kid not found — try all keys
+  for (const entry of jwtKeyring) {
+    try {
+      return jwt.verify(token, entry.secret, verifyOpts);
+    } catch {
+      // Try next key
+    }
+  }
+  return null;
 }
 
 async function findAndLinkUser({ phone, email, google_id, apple_id }) {
@@ -1687,14 +1761,8 @@ router.post('/refresh', async (req, res) => {
     // Verify token — allow recently expired tokens within the grace window
     let oldPayload = verifyToken(token);
     if (!oldPayload) {
-      try {
-        oldPayload = jwt.verify(token, JWT_SECRET, {
-          algorithms: ['HS256'],
-          issuer: JWT_ISSUER,
-          audience: JWT_AUDIENCE,
-          clockTolerance: REFRESH_GRACE_SECONDS,
-        });
-      } catch {
+      oldPayload = verifyToken(token, { clockTolerance: REFRESH_GRACE_SECONDS });
+      if (!oldPayload) {
         return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Token cannot be refreshed.' } });
       }
     }
@@ -1760,16 +1828,7 @@ router.post('/logout', async (req, res) => {
       // logout can blacklist tokens that are still refreshable.
       let payload = verifyToken(token);
       if (!payload) {
-        try {
-          payload = jwt.verify(token, JWT_SECRET, {
-            algorithms: ['HS256'],
-            issuer: JWT_ISSUER,
-            audience: JWT_AUDIENCE,
-            clockTolerance: REFRESH_GRACE_SECONDS,
-          });
-        } catch {
-          // Token is fully invalid — nothing to blacklist
-        }
+        payload = verifyToken(token, { clockTolerance: REFRESH_GRACE_SECONDS });
       }
       if (payload && payload.jti) {
         // Blacklist for the remaining lifetime + refresh grace window so

@@ -61,6 +61,7 @@ PORT=3001
 DATABASE_URL=postgresql://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:5432/wingman
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=<64+ char random string>
+JWT_SECRETS=<optional JSON array for key rotation: [{"kid":"v2","secret":"..."},{"kid":"v1","secret":"..."}]>
 OTP_SECRET=<64+ char random string>   # REQUIRED: dedicated OTP HMAC key (must differ from JWT_SECRET)
 OAUTH_STATE_SECRET=<64+ char random string>  # REQUIRED: dedicated OAuth state signing key (must differ from JWT_SECRET)
 LLM_PROVIDER=gemini
