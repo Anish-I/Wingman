@@ -76,6 +76,50 @@ function evictStaleFailedContent() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Pending message ID storage — survives component remount and navigation so
+// retries after navigating away reuse the original message IDs instead of
+// generating new UUIDs, preventing duplicate messages in the conversation.
+// ---------------------------------------------------------------------------
+const _pendingMsgIds = new Map<
+  string,
+  { userMsgId: string; assistantMsgId: string; ts: number }
+>();
+
+/** Store pending message IDs keyed by content so they survive remounts. */
+export function setPendingMsgIds(
+  content: string,
+  userMsgId: string,
+  assistantMsgId: string,
+) {
+  _pendingMsgIds.set(content.trim(), { userMsgId, assistantMsgId, ts: Date.now() });
+}
+
+/** Retrieve stored pending message IDs for content, or null if expired/missing. */
+export function getPendingMsgIds(
+  content: string,
+): { userMsgId: string; assistantMsgId: string } | null {
+  const entry = _pendingMsgIds.get(content.trim());
+  if (!entry) return null;
+  if (Date.now() - entry.ts > IDEM_KEY_TTL) {
+    _pendingMsgIds.delete(content.trim());
+    return null;
+  }
+  return { userMsgId: entry.userMsgId, assistantMsgId: entry.assistantMsgId };
+}
+
+/** Clear pending message IDs after confirmed success or dismissal. */
+export function clearPendingMsgIds(content: string) {
+  _pendingMsgIds.delete(content.trim());
+}
+
+function evictStalePendingMsgIds() {
+  const now = Date.now();
+  for (const [content, entry] of _pendingMsgIds) {
+    if (now - entry.ts > IDEM_KEY_TTL) _pendingMsgIds.delete(content);
+  }
+}
+
 // Hard cap — absolute safety net. No failed/error message should persist
 // beyond this, even if auto-dismiss, navigation cleanup, and the 30-second
 // purge threshold all somehow missed it.
@@ -194,6 +238,7 @@ setInterval(() => {
   _useChatStore.getState().purgeFailedMessages();
   evictStaleIdempotencyKeys();
   evictStaleFailedContent();
+  evictStalePendingMsgIds();
 }, 30_000);
 
 export const useChatStore = createSelectors(_useChatStore);

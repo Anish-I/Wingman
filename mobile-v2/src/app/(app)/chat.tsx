@@ -11,7 +11,7 @@ import { fontScale, useResponsive } from '@/lib/responsive';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { base, blue, layout, purple, radii, semantic, spacing, teal, useThemeColors } from '@/components/ui/tokens';
 import { useSendMessage, CHAT_TIMEOUT_MS } from '@/features/chat/api';
-import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey, trackFailedContent, getFailedContentKey, clearFailedContent } from '@/features/chat/store';
+import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey, trackFailedContent, getFailedContentKey, clearFailedContent, setPendingMsgIds, getPendingMsgIds, clearPendingMsgIds } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
@@ -178,7 +178,10 @@ export default function ChatScreen() {
     // Clear failed-content tracking so a fresh send of the same text isn't
     // deduplicated against the dismissed failure.
     const msg = useChatStore.getState().messages.find(m => m.id === messageId);
-    if (msg) clearFailedContent(msg.content);
+    if (msg) {
+      clearFailedContent(msg.content);
+      clearPendingMsgIds(msg.content);
+    }
     if (pendingUserMsgId.current === messageId) {
       pendingUserMsgId.current = null;
       pendingAssistantMsgId.current = null;
@@ -230,9 +233,16 @@ export default function ChatScreen() {
       abortRef.current?.abort();
     }, CHAT_TIMEOUT_MS + 2_000); // +2s grace over Axios timeout
 
-    // Reuse pending IDs on retry; only generate fresh ones for new messages
+    // Reuse pending IDs on retry; restore from module-level storage if refs
+    // were lost on remount, only generate fresh ones for truly new messages.
     if (!pendingUserMsgId.current) {
-      pendingUserMsgId.current = Crypto.randomUUID();
+      const stored = getPendingMsgIds(msg);
+      if (stored) {
+        pendingUserMsgId.current = stored.userMsgId;
+        pendingAssistantMsgId.current = stored.assistantMsgId;
+      } else {
+        pendingUserMsgId.current = Crypto.randomUUID();
+      }
     }
     if (!pendingAssistantMsgId.current) {
       pendingAssistantMsgId.current = Crypto.randomUUID();
@@ -312,6 +322,7 @@ export default function ChatScreen() {
       pendingIdempotencyKey.current = null;
       deleteIdempotencyKey(userMsgId);
       clearFailedContent(msg);
+      clearPendingMsgIds(msg);
       // Auto-purge any lingering failed messages + error replies from prior attempts
       useChatStore.getState().purgeFailedMessages();
     }
@@ -346,6 +357,8 @@ export default function ChatScreen() {
       // navigation reuses the original key, preventing server-side duplicates
       // when the first attempt partially succeeded (saved but response lost).
       if (idempotencyKey) trackFailedContent(msg, idempotencyKey);
+      // Persist pending IDs at module level so they survive remount/navigation
+      setPendingMsgIds(msg, userMsgId, assistantMsgId);
       // Auto-dismiss failed message after 30 seconds if user doesn't interact
       const timerId = setTimeout(() => {
         autoDismissTimers.current.delete(userMsgId);
