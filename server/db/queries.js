@@ -331,7 +331,7 @@ async function addConnectedApp(userId, appName, appSlug, zapierZapId) {
 
 async function removeConnectedApp(userId, appSlug) {
   const result = await query(
-    "UPDATE connected_apps SET status = 'disconnected' WHERE user_id = $1 AND app_slug = $2 RETURNING *",
+    "DELETE FROM connected_apps WHERE user_id = $1 AND app_slug = $2 RETURNING *",
     [userId, appSlug]
   );
   return result.rows[0];
