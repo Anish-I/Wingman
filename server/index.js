@@ -70,20 +70,33 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', parsed);
 }
 
-// Redirect HTTP to HTTPS in production (requires TRUST_PROXY so
-// X-Forwarded-Proto is reliable — most production setups sit behind a
-// reverse proxy / load balancer that terminates TLS).
-if (process.env.NODE_ENV === 'production') {
+// Redirect HTTP to HTTPS when running behind a TLS-terminating proxy.
+// Enabled automatically in production, or explicitly via FORCE_HTTPS=true.
+// Requires TRUST_PROXY so X-Forwarded-Proto is reliable.
+if (process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true') {
   app.use((req, res, next) => {
     if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
       return next();
     }
-    res.redirect(301, `https://${req.headers.host}${req.url}`);
+    // Skip health/ready endpoints so load-balancer probes over HTTP still work
+    if (req.path === '/health' || req.path === '/ready') {
+      return next();
+    }
+    const host = req.headers.host;
+    if (!host) {
+      return res.status(400).end();
+    }
+    res.redirect(301, `https://${host}${req.url}`);
   });
 }
 
 // Security headers with explicit Content-Security-Policy
+// HSTS tells browsers to always use HTTPS for future requests (1 year, includeSubDomains)
+const isHttpsEnforced = process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true';
 app.use(helmet({
+  hsts: isHttpsEnforced
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
