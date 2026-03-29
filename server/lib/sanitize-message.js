@@ -14,6 +14,10 @@
  * for social-engineering the model itself.
  */
 
+// Unicode bidirectional control characters — RTL override (U+202E) and friends
+// survive NFKC and can reorder visible text, confusing the LLM.
+const BIDI_CONTROL_RE = /[\u200E\u200F\u200B-\u200D\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
 // Patterns that mimic system/role directives or tool-call formatting.
 // We don't strip them (that would alter the user's intent) — we escape
 // them so the LLM sees them as quoted text, not instructions.
@@ -48,7 +52,7 @@ const INJECTION_PATTERNS = [
 function sanitizeUserMessage(text) {
   if (typeof text !== 'string') return '';
 
-  let sanitized = text;
+  let sanitized = text.replace(BIDI_CONTROL_RE, '');
 
   for (const { pattern, replace } of INJECTION_PATTERNS) {
     // Reset lastIndex for stateful regexes (global flag)

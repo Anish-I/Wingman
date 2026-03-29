@@ -6,11 +6,17 @@
  * Allowlisting the character set eliminates the entire class of bypass.
  */
 
+// Unicode bidirectional control characters that survive NFKC normalization.
+// RTL override (U+202E) and friends can reorder visible text, potentially
+// confusing the LLM about instruction ordering in the system prompt.
+const BIDI_CONTROL_RE = /[\u200E\u200F\u200B-\u200D\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
 /** Generic: strip to printable ASCII/common Unicode letters, collapse whitespace. */
 function sanitizeForPrompt(value, maxLength = 100) {
   if (typeof value !== 'string') return '';
   return value
     .normalize('NFKC')                          // fold Unicode lookalikes (ⅰ→i, ﬁ→fi, etc.)
+    .replace(BIDI_CONTROL_RE, '')               // strip bidi overrides that survive NFKC
     .replace(/[^\p{L}\p{N}\s.,!?'"\-()/:;@#&+=%$*~^]/gu, '')  // keep letters, digits, common punctuation
     .replace(/[\r\n\t]+/g, ' ')                  // collapse whitespace
     .replace(/-{2,}/g, '-')                       // collapse dashes — prevents '---' directive boundaries
@@ -27,6 +33,7 @@ function sanitizeName(value, maxLength = 50) {
   if (typeof value !== 'string') return '';
   return value
     .normalize('NFKC')
+    .replace(BIDI_CONTROL_RE, '')
     .replace(/[^\p{L}\s'\-. ]/gu, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
@@ -38,6 +45,7 @@ function sanitizeTimezone(value, maxLength = 40) {
   if (typeof value !== 'string') return '';
   return value
     .normalize('NFKC')
+    .replace(BIDI_CONTROL_RE, '')
     .replace(/[^A-Za-z0-9/_\-+]/g, '')
     .slice(0, maxLength);
 }

@@ -67,9 +67,13 @@ const PSEUDO_TOOLS = [
  * - Collapses consecutive whitespace to prevent visual trickery
  * - Truncates to maxLen to limit payload size
  */
+// Unicode bidirectional control characters that survive NFKC normalization.
+const BIDI_CONTROL_RE = /[\u200E\u200F\u200B-\u200D\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
 function sanitizeTemplateText(text, maxLen = 2000) {
   if (typeof text !== 'string') return '';
   return text
+    .replace(BIDI_CONTROL_RE, '')                       // strip bidi overrides
     .replace(/<\/?[A-Za-z][A-Za-z0-9\-]*[^>]*>/g, '') // strip XML/HTML tags
     .replace(/\s{3,}/g, '  ')                           // collapse excessive whitespace
     .slice(0, maxLen);
@@ -86,6 +90,7 @@ function sanitizeTemplateJSON(value, maxLen = 5000) {
   if (value == null) return '';
   const raw = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return raw
+    .replace(BIDI_CONTROL_RE, '')                       // strip bidi overrides
     .replace(/<\/?[A-Za-z][A-Za-z0-9\-]*[^>]*>/g, '') // strip XML/HTML tags
     .slice(0, maxLen);
 }
