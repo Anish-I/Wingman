@@ -429,8 +429,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many failed login attempts for this account. Try again in 15 minutes.' } });
     }
 
-    let user = await getUserByEmail(normalizedEmail);
-    if (!user) user = await getUserByPhone(`email:${normalizedEmail}`);
+    // Run both lookups in parallel to eliminate timing differences that could
+    // leak whether an email exists under a specific storage strategy.
+    const [emailUser, phoneUser] = await Promise.all([
+      getUserByEmail(normalizedEmail),
+      getUserByPhone(`email:${normalizedEmail}`),
+    ]);
+    let user = emailUser || phoneUser;
 
     // Always run bcrypt so response time is identical whether the account exists
     // or not — prevents timing-oracle account enumeration.
