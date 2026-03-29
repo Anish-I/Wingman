@@ -1718,16 +1718,17 @@ router.post('/refresh', async (req, res) => {
 
     const newToken = await signToken({ userId: oldPayload.userId, phone: oldPayload.phone });
 
-    // Blacklist the old token for its remaining lifetime (if not already expired)
+    // Blacklist the old token so it cannot be reused or refreshed again.
+    // Use remaining lifetime + refresh grace window to cover expired-but-
+    // refreshable tokens (whose natural TTL is already <= 0).
     if (oldPayload.jti) {
-      const ttl = oldPayload.exp - Math.floor(Date.now() / 1000);
-      if (ttl > 0) {
-        const key = `blacklist:${oldPayload.jti}`;
-        await Promise.all([
-          redis.set(key, '1', 'EX', ttl),
-          persistBlacklistEntry(key, '1', ttl),
-        ]);
-      }
+      const naturalTtl = oldPayload.exp - Math.floor(Date.now() / 1000);
+      const ttl = Math.max(naturalTtl, 0) + REFRESH_GRACE_SECONDS;
+      const key = `blacklist:${oldPayload.jti}`;
+      await Promise.all([
+        redis.set(key, '1', 'EX', ttl),
+        persistBlacklistEntry(key, '1', ttl),
+      ]);
     }
 
     setAuthCookie(res, newToken);
@@ -1755,17 +1756,31 @@ router.post('/logout', async (req, res) => {
     }
 
     if (token) {
-      const payload = verifyToken(token);
-      if (payload && payload.jti) {
-        // Blacklist this token for its remaining lifetime
-        const ttl = payload.exp - Math.floor(Date.now() / 1000);
-        if (ttl > 0) {
-          const key = `blacklist:${payload.jti}`;
-          await Promise.all([
-            redis.set(key, '1', 'EX', ttl),
-            persistBlacklistEntry(key, '1', ttl),
-          ]);
+      // Accept expired tokens within the refresh grace window so that
+      // logout can blacklist tokens that are still refreshable.
+      let payload = verifyToken(token);
+      if (!payload) {
+        try {
+          payload = jwt.verify(token, JWT_SECRET, {
+            algorithms: ['HS256'],
+            issuer: JWT_ISSUER,
+            audience: JWT_AUDIENCE,
+            clockTolerance: REFRESH_GRACE_SECONDS,
+          });
+        } catch {
+          // Token is fully invalid — nothing to blacklist
         }
+      }
+      if (payload && payload.jti) {
+        // Blacklist for the remaining lifetime + refresh grace window so
+        // expired-but-refreshable tokens are also covered.
+        const naturalTtl = payload.exp - Math.floor(Date.now() / 1000);
+        const ttl = Math.max(naturalTtl, 0) + REFRESH_GRACE_SECONDS;
+        const key = `blacklist:${payload.jti}`;
+        await Promise.all([
+          redis.set(key, '1', 'EX', ttl),
+          persistBlacklistEntry(key, '1', ttl),
+        ]);
       }
     }
 
