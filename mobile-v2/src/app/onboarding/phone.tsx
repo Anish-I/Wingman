@@ -39,6 +39,7 @@ export default function PhoneScreen() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputs = useRef<TextInput[]>([]);
   const verifyingRef = useRef(false);
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stable ref so the auto-submit effect always calls the latest closure
   // without needing handleVerify in its dependency array.
@@ -50,6 +51,13 @@ export default function PhoneScreen() {
     const id = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
     return () => clearTimeout(id);
   }, [resendCooldown]);
+
+  // Cancel the post-verification navigation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current);
+    };
+  }, []);
 
   // Theme-dependent overrides (static layout in StyleSheet below)
   const themed = {
@@ -166,7 +174,7 @@ export default function PhoneScreen() {
         // Notifications may not be available on web
       }
       setStep('success');
-      setTimeout(() => {
+      navTimerRef.current = setTimeout(() => {
         router.push('/onboarding/connect');
       }, 1500);
     } catch (err: any) {
