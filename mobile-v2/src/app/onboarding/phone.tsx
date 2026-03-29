@@ -57,8 +57,6 @@ export default function PhoneScreen() {
     headerTitle: { color: t.primary },
     headerSubtitle: { color: t.muted },
     phoneRow: [presets.inputField, { paddingHorizontal: spacing.lg }],
-    countryLabel: [styles.countryLabel, { color: t.muted }],
-    divider: [styles.divider, { backgroundColor: surface.border }],
     phoneInput: { color: t.primary },
     otpLabel: { color: t.muted },
     otpHint: { color: t.disabled },
@@ -69,12 +67,20 @@ export default function PhoneScreen() {
   };
 
   async function handleSendCode() {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length < 10) {
-      showAlert('Invalid number', 'Please enter a valid phone number.');
+    const trimmed = phone.trim();
+    let formatted: string;
+    if (trimmed.startsWith('+')) {
+      // International: strip non-digits after the leading '+'
+      formatted = '+' + trimmed.slice(1).replace(/\D/g, '');
+    } else {
+      // No country code provided — default to US (+1)
+      const cleaned = trimmed.replace(/\D/g, '');
+      formatted = `+1${cleaned.slice(-10)}`;
+    }
+    if (!/^\+[1-9]\d{1,14}$/.test(formatted)) {
+      showAlert('Invalid number', 'Please enter a valid phone number with country code (e.g. +1 for US, +44 for UK).');
       return;
     }
-    const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
       const { data } = await client.post('/auth/request-otp', { phone: formatted });
@@ -226,21 +232,15 @@ export default function PhoneScreen() {
           className="w-full"
           style={themed.phoneRow}
         >
-          {/* US-only country indicator (static) */}
-          <Text style={themed.countryLabel}>
-            +1 (US)
-          </Text>
-          {/* Divider */}
-          <View style={themed.divider} />
           <TextInput
             className="flex-1"
             style={[styles.phoneInput, themed.phoneInput]}
-            placeholder="(555) 123-4567"
+            placeholder="+1 (555) 123-4567"
             placeholderTextColor={t.disabled}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
-            maxLength={14}
+            maxLength={20}
           />
         </View>
 
@@ -364,15 +364,6 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   // --- Extracted from themed object ---
   // phoneRow style removed — now uses presets.inputField from tokens
-  countryLabel: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: fontScale(14),
-  },
-  divider: {
-    width: 1,
-    height: 32,
-    marginHorizontal: spacing.md,
-  },
   otpBoxBase: {
     width: 48,
     height: 56,

@@ -54,8 +54,6 @@ export default function LoginScreen() {
     headerTitle: [styles.headerTitle, { color: t.primary }],
     headerSubtitle: [styles.headerSubtitle, { color: t.secondary }],
     phoneInputContainer: [presets.inputField, { paddingHorizontal: spacing.lg }],
-    phoneCountryCode: [styles.phoneCountryCode, { color: t.primary }],
-    phoneDivider: [styles.phoneDivider, { backgroundColor: surface.border }],
     phoneInput: [styles.phoneInput, { color: t.primary }],
     signupText: [styles.signupText, { color: t.muted }],
   };
@@ -75,12 +73,20 @@ export default function LoginScreen() {
   ];
 
   async function handleSendCode() {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length < 10) {
-      showAlert('Invalid number', 'Please enter a valid phone number.');
+    const trimmed = phone.trim();
+    let formatted: string;
+    if (trimmed.startsWith('+')) {
+      // International: strip non-digits after the leading '+'
+      formatted = '+' + trimmed.slice(1).replace(/\D/g, '');
+    } else {
+      // No country code provided — default to US (+1)
+      const cleaned = trimmed.replace(/\D/g, '');
+      formatted = `+1${cleaned.slice(-10)}`;
+    }
+    if (!/^\+[1-9]\d{1,14}$/.test(formatted)) {
+      showAlert('Invalid number', 'Please enter a valid phone number with country code (e.g. +1 for US, +44 for UK).');
       return;
     }
-    const formatted = `+1${cleaned.slice(-10)}`;
     setLoading(true);
     try {
       const { data } = await client.post('/auth/request-otp', { phone: formatted });
@@ -222,17 +228,15 @@ export default function LoginScreen() {
               className="flex-row items-center"
               style={themed.phoneInputContainer}
             >
-              <Text style={themed.phoneCountryCode}>+1</Text>
-              <View style={themed.phoneDivider} />
               <TextInput
                 className="flex-1"
                 style={themed.phoneInput}
-                placeholder="(555) 123-4567"
+                placeholder="+1 (555) 123-4567"
                 placeholderTextColor={t.muted}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
-                maxLength={14}
+                maxLength={20}
                 autoFocus
               />
             </View>
@@ -349,16 +353,6 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: fontScale(15),
-  },
-  // phoneInputContainer style removed — now uses presets.inputField from tokens
-  phoneCountryCode: {
-    fontFamily: 'Sora_700Bold',
-    fontSize: fontScale(16),
-  },
-  phoneDivider: {
-    width: 1,
-    height: 32,
-    marginHorizontal: spacing.md,
   },
   phoneInput: {
     fontFamily: 'Inter_400Regular',
