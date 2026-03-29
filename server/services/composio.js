@@ -16,6 +16,8 @@ const SIDE_EFFECT_ERROR_TTL = 60;  // 1 minute — shorter cache for definitive 
 // the executor is still alive, so the key never expires mid-flight.
 const PENDING_TTL = 30; // seconds — base TTL, refreshed by heartbeat during execution
 const HEARTBEAT_INTERVAL_MS = 10_000; // refresh pending TTL every 10 s
+const POLL_INTERVAL_MS = 500; // interval between polling attempts for in-flight tool results
+const POLL_MAX_MS = PENDING_TTL * 1000; // poll for up to PENDING_TTL (30s) before giving up
 
 // Tool-name patterns that cause irrecoverable side effects (send, post, create, delete, etc.)
 // For these tools, we must NOT remove the idempotency key on failure, because an orphaned
@@ -294,7 +296,8 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
   if (claimed !== 'OK') {
     // Another execution of this exact call is in progress or completed.
     // Poll for the result, but also handle key expiry (null) mid-loop.
-    for (let i = 0; i < 10; i++) {
+    const maxIterations = Math.ceil(POLL_MAX_MS / POLL_INTERVAL_MS);
+    for (let i = 0; i < maxIterations; i++) {
       const cached = await redis.get(idempKey);
       if (cached === null) {
         if (isSideEffecting) {
@@ -308,7 +311,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
         console.log(`[user:${userId}] Idempotent cache hit for ${toolCallBlock.name}`);
         try { return JSON.parse(cached); } catch { return { result: cached }; }
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
     }
 
     const finalVal = await redis.get(idempKey);
