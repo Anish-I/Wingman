@@ -657,11 +657,11 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // Require at least 3 keyword matches to avoid false positives from common verbs/nouns
-  // that appear in many tool descriptions. With broadened stop words, remaining keywords
-  // are domain-specific enough that 3 matches indicate genuine intent.
+  // Require the top tool to have at least 3 keyword matches, and only return
+  // tools that individually score at least 2 to avoid polluting the context
+  // with irrelevant tools that happened to match a single common word.
   if (scored[0].score < 3) return [];
-  return scored.slice(0, limit).map(s => s.tool);
+  return scored.filter(s => s.score >= 2).slice(0, limit).map(s => s.tool);
 }
 
 module.exports = { getTools, invalidateToolsCache, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage, WINGMAN_APPS };
