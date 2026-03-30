@@ -8,7 +8,7 @@ const { provider } = require('../services/messaging');
 const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, mergeWorkflowRunContext, createPendingReply } = require('../db/queries');
 
 const MAX_AGENT_ITERATIONS = 15;
-const WORKFLOW_LOCK_TTL_SECONDS = 30;
+const WORKFLOW_LOCK_TTL_SECONDS = 600;
 const WORKFLOW_LOCK_EXTEND_INTERVAL_MS = 10 * 1000;
 const MAX_RESUME_RETRY_ATTEMPTS = 10;
 
