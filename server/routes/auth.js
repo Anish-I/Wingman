@@ -1100,7 +1100,7 @@ function generatePkce() {
 
 // POST /auth/google/init-state — issue a state token for SPA/mobile Google OAuth flow
 // Client calls this before redirecting to Google, then sends state back with the code.
-router.post('/google/init-state', async (req, res) => {
+router.post('/google/init-state', socialAuthLimiter, async (req, res) => {
   try {
     const nonce = crypto.randomBytes(32).toString('hex');
     const jti = crypto.randomBytes(16).toString('hex');
@@ -1266,7 +1266,7 @@ function isAllowedWebOrigin(origin) {
 }
 
 // GET /auth/google — redirect to Google OAuth consent screen
-router.get('/google', async (req, res, next) => {
+router.get('/google', socialAuthLimiter, async (req, res, next) => {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) {
@@ -1331,7 +1331,7 @@ function buildRedirectUrl(state, params) {
 }
 
 // GET /auth/google/callback — handle Google OAuth redirect
-router.get('/google/callback', async (req, res) => {
+router.get('/google/callback', socialAuthLimiter, async (req, res) => {
   // Verify signed state token — reject if missing, expired, or tampered
   if (!req.query.state) {
     return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing OAuth state parameter.' } });
