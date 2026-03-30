@@ -318,7 +318,8 @@ export default function WorkflowsScreen() {
                 <PipCard expression="thinking" size="small" />
                 <Text className="text-foreground text-lg font-bold" style={{ marginTop: spacing.sm }}>No automations yet</Text>
                 <Text style={[s.mutedText, { marginTop: spacing.xs }]} className="text-sm text-center">
-                  Tell me what to automate, or try a template:
+                  Tap a template below, or hit{' '}
+                  <Text style={{ color: purple[500], fontWeight: '700' }}>+</Text> to describe your own
                 </Text>
               </MotiView>
 
