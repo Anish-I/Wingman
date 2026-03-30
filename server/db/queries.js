@@ -159,7 +159,12 @@ async function mergeUserAccounts(callerUserId, targetUserId, sourceUserId, txQue
   if (!target.google_id && source.google_id) updates.google_id = source.google_id;
   if (!target.apple_id && source.apple_id) updates.apple_id = source.apple_id;
   if (!target.name && source.name) updates.name = source.name;
-  if (!target.pin_hash && source.pin_hash) updates.pin_hash = source.pin_hash;
+  let pinConflict = false;
+  if (!target.pin_hash && source.pin_hash) {
+    updates.pin_hash = source.pin_hash;
+  } else if (target.pin_hash && source.pin_hash) {
+    pinConflict = true;
+  }
   // Prefer a real phone over a synthetic one
   if (source.phone && /^\+[1-9]\d{1,14}$/.test(source.phone)) {
     if (!target.phone || !(/^\+[1-9]\d{1,14}$/.test(target.phone))) {
@@ -191,6 +196,12 @@ async function mergeUserAccounts(callerUserId, targetUserId, sourceUserId, txQue
   // Clear source identity columns to avoid unique constraint violations, then delete
   await txQuery('UPDATE users SET phone = NULL, email = NULL, google_id = NULL, apple_id = NULL WHERE id = $1', [sourceUserId]);
   await txQuery('DELETE FROM users WHERE id = $1', [sourceUserId]);
+
+  const warnings = [];
+  if (pinConflict) {
+    warnings.push('Your previously set PIN was replaced by the PIN from your primary account. Please verify your PIN in settings.');
+  }
+  return { warnings };
 }
 
 async function createUser(phone, name) {

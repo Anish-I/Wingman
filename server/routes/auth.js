@@ -980,12 +980,13 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     }
 
     let user;
+    let mergeWarnings = [];
 
     if (existingPayload && existingPayload.userId) {
       // Caller is already signed in — link phone to their account.
       // Use a transaction with SELECT ... FOR UPDATE to prevent concurrent
       // verify-otp requests from racing on the same merge operation.
-      user = await withTransaction(async (txQuery) => {
+      const txResult = await withTransaction(async (txQuery) => {
         // Advisory lock on the phone number to serialize all concurrent link
         // attempts for the same number. FOR UPDATE alone doesn't help when no
         // row with this phone exists yet — both transactions see zero rows and
@@ -998,23 +999,27 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
         const phoneRes = await txQuery('SELECT * FROM users WHERE phone = $1 FOR UPDATE', [phone]);
         const phoneUser = phoneRes.rows[0] || null;
 
+        let mergeWarnings = [];
         if (phoneUser && authedUser && phoneUser.id !== authedUser.id) {
           // A separate phone-based account exists — merge it into the authenticated account
-          await mergeUserAccounts(authedUser.id, authedUser.id, phoneUser.id, txQuery);
+          const mergeResult = await mergeUserAccounts(authedUser.id, authedUser.id, phoneUser.id, txQuery);
+          if (mergeResult && mergeResult.warnings) mergeWarnings = mergeResult.warnings;
         }
 
         if (authedUser) {
           // Set the real phone on the authenticated account
           const setClauses = ['phone = $1', 'updated_at = NOW()'];
           const setRes = await txQuery(`UPDATE users SET ${setClauses.join(', ')} WHERE id = $2 RETURNING *`, [phone, authedUser.id]);
-          return setRes.rows[0];
+          return { user: setRes.rows[0], mergeWarnings };
         } else {
           // Auth token references a deleted user — fall through to normal flow
-          if (phoneUser) return phoneUser;
+          if (phoneUser) return { user: phoneUser, mergeWarnings: [] };
           const { user: newUser } = await getOrCreateUserByPhone(phone, txQuery);
-          return newUser;
+          return { user: newUser, mergeWarnings: [] };
         }
       });
+      user = txResult.user;
+      mergeWarnings = txResult.mergeWarnings;
     } else {
       // No existing session — normal phone-based login/signup.
       // Wrap in a transaction with the same advisory lock used by the authenticated
@@ -1031,7 +1036,12 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
     const token = await signToken({ userId: user.id, phone: user.phone });
     setAuthCookie(res, token);
 
-    res.json(authResponse(req, token, { id: user.id, phone: user.phone, name: user.name }));
+    const response = authResponse(req, token, { id: user.id, phone: user.phone, name: user.name });
+    if (mergeWarnings.length > 0) {
+      logger.warn({ userId: user.id, warnings: mergeWarnings }, 'Account merge discarded source PIN');
+      response.warnings = mergeWarnings;
+    }
+    res.json(response);
     } finally {
       // Release the distributed lock, but only if we still own it (compare-and-delete).
       // Uses a Lua script for atomicity — prevents releasing a lock that expired and
