@@ -772,6 +772,17 @@ export default function AppsScreen() {
               message={`No apps matching "${search}"`}
               size="small"
             />
+            <Text style={{ color: semantic.textSecondary, fontSize: fontScale.sm, marginTop: spacing.md, textAlign: 'center' }}>
+              Try a different search term or check your spelling
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              onPress={() => setSearch('')}
+              style={{ marginTop: spacing.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, backgroundColor: purple.primary, borderRadius: radii.md }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: fontScale.sm, fontWeight: '600' }}>Clear search</Text>
+            </Pressable>
           </View>
         }
         renderItem={({ item: section }) => (
