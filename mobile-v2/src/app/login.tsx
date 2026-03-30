@@ -105,6 +105,7 @@ export default function LoginScreen() {
 
   function handleCodeChange(text: string, idx: number) {
     const digits = text.replace(/\D/g, '');
+    if (!digits) return; // ignore purely non-numeric input (e.g. pasted letters)
     if (digits.length > 1) {
       // Paste: distribute digits across boxes starting at idx
       const newCode = [...code];
@@ -143,7 +144,7 @@ export default function LoginScreen() {
     if (verifyingRef.current) return;
     verifyingRef.current = true;
     const otp = otpOverride ?? code.join('');
-    if (otp.length !== 6) {
+    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
       verifyingRef.current = false;
       showAlert('Incomplete', 'Please enter all 6 digits.');
       return;
