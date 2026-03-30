@@ -611,19 +611,27 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
   }
 
+  // Build context fingerprint for cache key so responses invalidate when
+  // system prompt inputs change (connected tools, user name, timezone, memory).
+  const memoryContext = getMemoryContext(user);
+  const cacheCtx = {
+    toolNames: tools.map(t => t.function?.name).filter(Boolean).sort().join(','),
+    userName: user.name || '',
+    timezone: user.timezone || '',
+    memory: memoryContext || '',
+  };
+
   // Check semantic cache before doing any LLM work
   let inflight = null;
   if (shouldCache(messageText)) {
-    const cached = await getCachedResponse(messageText, userId);
+    const cached = await getCachedResponse(messageText, userId, cacheCtx);
     if (cached) {
       await safeAppend('assistant', cached);
       return cached;
     }
     // Register in-process coalescing so concurrent requests await this result
-    inflight = registerInflight(messageText, userId);
+    inflight = registerInflight(messageText, userId, cacheCtx);
   }
-
-  const memoryContext = getMemoryContext(user);
   const { systemPrompt } = buildContext(user, tools, memoryContext);
   // Defense-in-depth: strip any history messages with disallowed roles
   // even though redis.js already sanitizes on load, and sanitize user
@@ -1018,7 +1026,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
     await safeAppend('assistant', persistedText);
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId, cacheCtx).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     if (inflight) inflight.resolve(null);
     return finalText;
   }
@@ -1026,7 +1034,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   // Cache the response if eligible
   if (shouldCache(messageText) && finalText) {
-    await setCachedResponse(messageText, finalText, userId);
+    await setCachedResponse(messageText, finalText, userId, cacheCtx);
     // Resolve in-process coalescing so waiting requests get the result
     if (inflight) inflight.resolve(finalText);
   } else if (inflight) {
@@ -1053,7 +1061,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   return finalText;
   } catch (err) {
     // Release stampede lock so other requests aren't blocked for 30s
-    if (shouldCache(messageText)) releaseCacheLock(messageText, userId).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
+    if (shouldCache(messageText)) releaseCacheLock(messageText, userId, cacheCtx).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     // Unblock coalesced in-process waiters
     if (inflight) inflight.resolve(null);
 

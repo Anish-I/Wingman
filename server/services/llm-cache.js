@@ -30,20 +30,36 @@ function detectBucket(text) {
   return null;
 }
 
-function cacheKey(bucket, text, userId) {
-  const hash = crypto.createHash('sha256').update(normalize(text)).digest('hex').slice(0, 16);
-  return `llm:cache:${bucket.name}:u${userId}:${hash}`;
+/**
+ * Build a short fingerprint of context-varying inputs (tools, user metadata,
+ * memory) so cached responses are invalidated when the system prompt would
+ * change — e.g. after connecting a new app or updating user preferences.
+ */
+function contextFingerprint(ctx) {
+  if (!ctx) return '';
+  const h = crypto.createHash('sha256');
+  if (ctx.toolNames) h.update(ctx.toolNames);
+  if (ctx.userName)  h.update(ctx.userName);
+  if (ctx.timezone)  h.update(ctx.timezone);
+  if (ctx.memory)    h.update(ctx.memory);
+  return h.digest('hex').slice(0, 12);
+}
+
+function cacheKey(bucket, text, userId, ctx) {
+  const msgHash = crypto.createHash('sha256').update(normalize(text)).digest('hex').slice(0, 16);
+  const ctxHash = contextFingerprint(ctx);
+  return `llm:cache:${bucket.name}:u${userId}:${msgHash}${ctxHash ? ':' + ctxHash : ''}`;
 }
 
 function shouldCache(messageText) {
   return detectBucket(messageText) !== null;
 }
 
-async function getCachedResponse(messageText, userId) {
+async function getCachedResponse(messageText, userId, ctx) {
   const bucket = detectBucket(messageText);
   if (!bucket) return null;
 
-  const key = cacheKey(bucket, messageText, userId);
+  const key = cacheKey(bucket, messageText, userId, ctx);
   try {
     const cached = await redis.get(key);
     if (cached) {
@@ -90,11 +106,11 @@ async function getCachedResponse(messageText, userId) {
  * Register an in-flight LLM call so concurrent in-process requests coalesce.
  * Returns a resolve/reject pair; caller MUST call resolve(result) or reject(err).
  */
-function registerInflight(messageText, userId) {
+function registerInflight(messageText, userId, ctx) {
   const bucket = detectBucket(messageText);
   if (!bucket) return null;
 
-  const key = cacheKey(bucket, messageText, userId);
+  const key = cacheKey(bucket, messageText, userId, ctx);
   if (_inflight.has(key)) return null; // already registered
 
   let resolve;
@@ -109,11 +125,11 @@ function registerInflight(messageText, userId) {
   };
 }
 
-async function setCachedResponse(messageText, response, userId) {
+async function setCachedResponse(messageText, response, userId, ctx) {
   const bucket = detectBucket(messageText);
   if (!bucket) return;
 
-  const key = cacheKey(bucket, messageText, userId);
+  const key = cacheKey(bucket, messageText, userId, ctx);
   try {
     await redis.set(key, response, 'EX', bucket.ttl);
     // Release stampede lock now that cache is populated
@@ -165,10 +181,10 @@ async function setCachedWorkflowPlan(description, plans, userId) {
   }
 }
 
-async function releaseCacheLock(messageText, userId) {
+async function releaseCacheLock(messageText, userId, ctx) {
   const bucket = detectBucket(messageText);
   if (!bucket) return;
-  const key = cacheKey(bucket, messageText, userId);
+  const key = cacheKey(bucket, messageText, userId, ctx);
   try {
     await redis.del(`${key}:lock`);
   } catch (err) {
