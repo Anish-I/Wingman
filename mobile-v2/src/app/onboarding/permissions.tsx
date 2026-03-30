@@ -13,6 +13,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
 import { entrance, pressStyle, springs, webInteractive, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { completeOnboardingStep } from '@/lib/onboarding-steps';
 
 type PermissionItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -208,7 +209,7 @@ export default function PermissionsScreen() {
       <View style={{ paddingHorizontal: layout.screenPaddingH, paddingBottom: layout.screenPaddingBottom }}>
         <GradientButton
           title="Continue"
-          onPress={() => router.push('/onboarding/phone')}
+          onPress={() => { completeOnboardingStep('permissions'); router.push('/onboarding/phone'); }}
           disabled={!notificationsGranted}
         />
       </View>

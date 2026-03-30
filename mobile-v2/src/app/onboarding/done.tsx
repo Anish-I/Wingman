@@ -12,6 +12,7 @@ import { blue, layout, semantic, spacing, teal, typography, useThemeColors } fro
 import { fontScale } from '@/lib/responsive';
 import { useIsFirstTime } from '@/lib/hooks/use-is-first-time';
 import { popIn, entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { clearOnboardingProgress } from '@/lib/onboarding-steps';
 
 const CONFETTI_COLORS = [semantic.info, semantic.success, '#9B7EC8', '#F5A623', teal[300], blue[500]];
 
@@ -61,6 +62,7 @@ export default function DoneScreen() {
 
   function handleStart() {
     setIsFirstTime(false);
+    clearOnboardingProgress();
     router.replace('/(app)/chat');
   }
 

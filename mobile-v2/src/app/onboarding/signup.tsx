@@ -20,6 +20,7 @@ import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { setItem, removeItem, getItem } from '@/lib/storage';
 import { entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { completeOnboardingStep } from '@/lib/onboarding-steps';
 
 /** Generate a cryptographically random hex string for OAuth CSRF protection. */
 function generateOAuthState(): string {
@@ -119,6 +120,7 @@ export default function SignupScreen() {
         return;
       }
       signIn(data.token);
+      completeOnboardingStep('signup');
       router.push('/onboarding/permissions');
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Sign-up failed. Please try again.';
@@ -141,6 +143,7 @@ export default function SignupScreen() {
       // Validate token is a well-formed JWT (three base64url segments)
       if (token && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
         signIn(token);
+        completeOnboardingStep('signup');
         router.push('/onboarding/permissions');
         return true;
       }

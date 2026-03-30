@@ -16,6 +16,7 @@ import { signIn } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { springs, useReducedMotion } from '@/lib/motion';
+import { completeOnboardingStep } from '@/lib/onboarding-steps';
 
 function showAlert(title: string, message: string) {
   if (Platform.OS === 'web') {
@@ -174,6 +175,7 @@ export default function PhoneScreen() {
         // Notifications may not be available on web
       }
       setStep('success');
+      completeOnboardingStep('phone');
       navTimerRef.current = setTimeout(() => {
         router.push('/onboarding/connect');
       }, 1500);

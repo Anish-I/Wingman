@@ -11,6 +11,7 @@ import GradientButton from '@/components/wingman/gradient-button';
 import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import { popIn, entrance, gentleFloat, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
+import { completeOnboardingStep } from '@/lib/onboarding-steps';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function WelcomeScreen() {
         <GradientButton
           title="Nice to meet you!"
           showArrow
-          onPress={() => router.push('/onboarding/features')}
+          onPress={() => { completeOnboardingStep('welcome'); router.push('/onboarding/features'); }}
         />
       </View>
     </SafeAreaView>

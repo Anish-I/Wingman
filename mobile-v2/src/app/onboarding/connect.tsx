@@ -9,6 +9,7 @@ import SectionLabel from '@/components/wingman/section-label';
 import { AppIcon, type IconFamily } from '@/components/ui/app-icon';
 import { base, layout, semantic, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { fontScale } from '@/lib/responsive';
+import { completeOnboardingStep } from '@/lib/onboarding-steps';
 
 interface OnboardingApp {
   slug: string;
@@ -137,7 +138,7 @@ export default function ConnectScreen() {
           <GradientButton
             title="Continue"
             icon="arrow-forward"
-            onPress={() => router.push('/onboarding/done')}
+            onPress={() => { completeOnboardingStep('connect'); router.push('/onboarding/done'); }}
           />
         </View>
       </View>
