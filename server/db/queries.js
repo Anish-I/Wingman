@@ -610,11 +610,34 @@ async function claimWorkflowRunForResume(runId) {
 }
 
 async function getLastWorkflowRunContext(workflowId) {
+  // Read canonical context from the workflows table.  This is atomically
+  // merged at each run's completion so concurrent runs never overwrite each
+  // other's changes.
   const result = await query(
-    "SELECT context FROM workflow_runs WHERE workflow_id = $1 AND status = 'completed' ORDER BY completed_at DESC LIMIT 1",
+    'SELECT run_context FROM workflows WHERE id = $1',
     [workflowId]
   );
-  return result.rows[0]?.context || {};
+  return result.rows[0]?.run_context || {};
+}
+
+/**
+ * Atomically merge a context delta into the workflow's canonical run_context.
+ * Uses an advisory lock on the workflow id so two concurrent completions
+ * serialize their merges instead of clobbering each other.
+ */
+async function mergeWorkflowRunContext(workflowId, contextDelta) {
+  if (!contextDelta || Object.keys(contextDelta).length === 0) return;
+  await withTransaction(async (txQuery) => {
+    // Advisory lock keyed on workflow_id (integer) — serialises concurrent merges.
+    await txQuery('SELECT pg_advisory_xact_lock($1)', [workflowId]);
+    const up = new ParamCollector();
+    const patchRef = up.add(JSON.stringify(contextDelta));
+    const idRef = up.add(workflowId);
+    await txQuery(
+      `UPDATE workflows SET run_context = COALESCE(run_context, '{}'::jsonb) || ${patchRef}::jsonb WHERE id = ${idRef}`,
+      up.values
+    );
+  });
 }
 
 // --- Template queries ---
@@ -795,6 +818,7 @@ module.exports = {
   getWorkflowRun,
   claimWorkflowRunForResume,
   getLastWorkflowRunContext,
+  mergeWorkflowRunContext,
   createTemplate,
   searchTemplates,
   getTemplateById,

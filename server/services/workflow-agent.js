@@ -5,7 +5,7 @@ const { callLLM } = require('./llm');
 const { executeTool, getTools, selectToolsForMessage, getConnectionStatus, getConnectionLink, appFromToolName } = require('./composio');
 const { validateToolArgs } = require('../lib/validate-tool-args');
 const { provider } = require('../services/messaging');
-const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, createPendingReply } = require('../db/queries');
+const { getUserById, getWorkflowById, createWorkflowRun, updateWorkflowRun, updateWorkflowRunMessages, appendWorkflowRunState, loadWorkflowRunEvents, getLastWorkflowRunContext, mergeWorkflowRunContext, createPendingReply } = require('../db/queries');
 
 const MAX_AGENT_ITERATIONS = 15;
 const WORKFLOW_LOCK_TTL_SECONDS = 30;
@@ -282,6 +282,10 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
   const stepLog = [];
   const runContext = { ...(priorContext || {}) };
 
+  // Accumulate ALL context changes made during this run so we can atomically
+  // merge them into the workflow's canonical run_context at completion.
+  const runContextDelta = {};
+
   // Track how much has already been persisted so we only append deltas
   let persistedMsgCount = 0;
   let persistedLogCount = 0;
@@ -445,6 +449,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
         } else if (block.name === 'UPDATE_CONTEXT') {
           runContext[block.input.key] = block.input.value;
           pendingContextPatch[block.input.key] = block.input.value;
+          runContextDelta[block.input.key] = block.input.value;
           result = { success: true, key: block.input.key };
         } else if (block.name === 'SPAWN_WORKFLOW') {
           // Create a new workflow via the planner (lazy require to avoid circular)
@@ -520,6 +525,13 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
     result: { summary: finalText, steps: stepLog.length, ...(exhausted ? { error: 'max_iterations_exceeded' } : {}) },
   });
 
+  // Atomically merge this run's context changes into the workflow's canonical
+  // run_context.  Uses an advisory lock so concurrent completions serialize
+  // their merges instead of overwriting each other's snapshot.
+  if (Object.keys(runContextDelta).length > 0) {
+    await mergeWorkflowRunContext(workflowId, runContextDelta);
+  }
+
     if (exhausted) {
       console.warn(`[workflow-agent] Workflow ${workflowId} run ${run.id} exceeded ${MAX_AGENT_ITERATIONS} iterations — marked as failed`);
     }
@@ -577,6 +589,7 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
   const messages = savedMessages;
   const stepLog = savedStepLog;
   const runContext = { ...priorContext };
+  const runContextDelta = {};
 
   // Everything already in DB is persisted; track from current length
   let persistedMsgCount = messages.length;
@@ -735,6 +748,7 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
         } else if (block.name === 'UPDATE_CONTEXT') {
           runContext[block.input.key] = block.input.value;
           pendingContextPatch[block.input.key] = block.input.value;
+          runContextDelta[block.input.key] = block.input.value;
           result = { success: true, key: block.input.key };
         } else if (block.name === 'SPAWN_WORKFLOW') {
           const { planAndCreateWorkflows } = require('./workflow-planner');
@@ -798,6 +812,11 @@ async function resumeWorkflowRun(runId, replyText, { retryAttempt = 0 } = {}) {
     completed_at: new Date(),
     result: { summary: finalText, steps: stepLog.length, ...(exhausted ? { error: 'max_iterations_exceeded' } : {}) },
   });
+
+  // Atomically merge this run's context delta into the workflow's canonical context
+  if (Object.keys(runContextDelta).length > 0) {
+    await mergeWorkflowRunContext(run.workflow_id, runContextDelta);
+  }
 
     if (exhausted) {
       console.warn(`[workflow-agent] Resumed run ${runId} exceeded ${MAX_AGENT_ITERATIONS} iterations — marked as failed`);

@@ -91,6 +91,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
 
 ALTER TABLE workflows ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]';
 ALTER TABLE workflows ADD COLUMN IF NOT EXISTS variables JSONB DEFAULT '{}';
+-- Canonical workflow context: atomically merged at run completion so concurrent
+-- runs don't overwrite each other's changes.
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS run_context JSONB DEFAULT '{}';
 
 ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 -- Backfill user_id from parent workflows for any existing rows
