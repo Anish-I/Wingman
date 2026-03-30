@@ -119,6 +119,7 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [greeting] = useState(() => PIP_GREETINGS[Math.floor(Math.random() * PIP_GREETINGS.length)]);
   const listRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
   const sendMutation = useSendMessage();
 
   // Mark history as loaded on mount (no server-side history API yet — the
@@ -657,6 +658,21 @@ export default function ChatScreen() {
                 </Text>
               </MotiView>
 
+              {/* Skip to input — visible only on keyboard focus (web) */}
+              {Platform.OS === 'web' && (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Skip to message input"
+                  onPress={() => inputRef.current?.focus()}
+                  style={({ focused }: any) => [
+                    styles.skipLink,
+                    focused ? styles.skipLinkVisible : styles.skipLinkHidden,
+                  ]}
+                >
+                  <Text style={styles.skipLinkText}>Skip to input</Text>
+                </Pressable>
+              )}
+
               {/* Prompt suggestions */}
               <MotiView
                 {...maybeReduce(entrance(0, delays.slow * 2 + delays.normal), reducedMotion)}
@@ -742,6 +758,7 @@ export default function ChatScreen() {
             style={s.inputBar}
           >
             <TextInput
+              ref={inputRef}
               className="flex-1 text-[15px]"
               style={[s.textInputColor, { paddingVertical: spacing.xsPlus }]}
               value={input}
@@ -787,6 +804,30 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  // --- Skip link for keyboard navigation (web) ---
+  skipLink: {
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.md,
+    backgroundColor: purple[500],
+    zIndex: 10,
+  },
+  skipLinkVisible: {
+    opacity: 1,
+    position: 'relative' as const,
+  },
+  skipLinkHidden: {
+    opacity: 0,
+    position: 'absolute' as const,
+    top: -9999,
+    left: -9999,
+  },
+  skipLinkText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
   // --- Extracted from theme-dependent useMemo (static layout) ---
   safeArea: {
     flex: 1,
