@@ -6,6 +6,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { redis } = require('../services/redis');
 const { getConnectionStatus, getConnectionLink, invalidateToolsCache, WINGMAN_APPS } = require('../services/composio');
 const { fetchWithTimeout } = require('../lib/fetch-with-timeout');
+const { getUserById } = require('../db/queries');
 
 const router = express.Router();
 
@@ -225,6 +226,16 @@ router.get('/callback', async (req, res) => {
       return res.status(400).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'Invalid or expired OAuth state token.' } });
     }
     const { userId, app: appName } = payload;
+
+    // Verify the user still exists — they may have been deleted between
+    // state generation and callback, and a compromised token shouldn't
+    // trigger cache invalidations for a non-existent user.
+    const user = await getUserById(userId);
+    if (!user) {
+      logger.warn({ userId }, '[connect] OAuth callback for non-existent user');
+      return res.status(400).json({ error: { code: 'USER_NOT_FOUND', message: 'User account no longer exists.' } });
+    }
+
     const sanitizedApp = (typeof appName === 'string' && isValidAppName(appName.toLowerCase()))
       ? appName.toLowerCase()
       : '';
