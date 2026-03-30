@@ -67,7 +67,7 @@ async function runWorkflow(workflowId, userId) {
     const workflow = result.rows[0];
     if (!workflow) throw new Error('Workflow not found');
 
-    const run = await createWorkflowRun(workflowId);
+    const run = await createWorkflowRun(workflowId, userId);
     await updateWorkflowRun(run.id, { status: 'running', started_at: new Date() });
 
     try {

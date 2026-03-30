@@ -242,7 +242,7 @@ async function executeWorkflowAgent(workflowId, userId, { triggerData, runId: pr
 
     const run = preCreatedRunId
       ? { id: preCreatedRunId }
-      : await createWorkflowRun(workflowId);
+      : await createWorkflowRun(workflowId, userId);
     await updateWorkflowRun(run.id, { status: 'running', started_at: new Date() });
 
     const priorContext = await getLastWorkflowRunContext(workflowId);

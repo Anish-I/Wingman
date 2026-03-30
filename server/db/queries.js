@@ -137,11 +137,13 @@ async function mergeUserAccounts(callerUserId, targetUserId, sourceUserId, txQue
   // workflow_pending_replies has a CASCADE FK to workflow_runs — deleting
   // runs first would cascade-delete the pending replies we need to keep.
   await txQuery('UPDATE workflow_pending_replies SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
-  // workflow_runs and workflow_run_events have no user_id column; they are
-  // linked to users through workflow_id → workflows(user_id).  Moving
-  // workflows above reassociates them with the target user.  Explicitly
-  // delete any stray records still tied to the source user's workflows so
-  // they are not silently cascade-deleted when the source user row is removed.
+  // Reassign workflow_runs that have a direct user_id FK to the target user.
+  await txQuery('UPDATE workflow_runs SET user_id = $1 WHERE user_id = $2', [targetUserId, sourceUserId]);
+  // workflow_run_events have no user_id column; they are linked to users
+  // through run_id → workflow_runs.  Moving workflows and runs above
+  // reassociates them with the target user.  Explicitly delete any stray
+  // records still tied to the source user's workflows so they are not
+  // silently cascade-deleted when the source user row is removed.
   await txQuery(
     `DELETE FROM workflow_run_events WHERE run_id IN (
        SELECT wr.id FROM workflow_runs wr
@@ -422,10 +424,10 @@ async function cancelWorkflow(workflowId, userId) {
   return result.rows[0];
 }
 
-async function createWorkflowRun(workflowId) {
+async function createWorkflowRun(workflowId, userId) {
   const result = await query(
-    "INSERT INTO workflow_runs (workflow_id, status) VALUES ($1, 'pending') RETURNING *",
-    [workflowId]
+    "INSERT INTO workflow_runs (workflow_id, user_id, status) VALUES ($1, $2, 'pending') RETURNING *",
+    [workflowId, userId]
   );
   return result.rows[0];
 }

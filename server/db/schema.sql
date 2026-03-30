@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS workflows (
 CREATE TABLE IF NOT EXISTS workflow_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pending',
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
@@ -91,6 +92,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
 ALTER TABLE workflows ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]';
 ALTER TABLE workflows ADD COLUMN IF NOT EXISTS variables JSONB DEFAULT '{}';
 
+ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+-- Backfill user_id from parent workflows for any existing rows
+UPDATE workflow_runs SET user_id = w.user_id FROM workflows w WHERE workflow_runs.workflow_id = w.id AND workflow_runs.user_id IS NULL;
 ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS messages JSONB DEFAULT '[]';
 ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS step_log JSONB DEFAULT '[]';
 ALTER TABLE workflow_runs ADD COLUMN IF NOT EXISTS context JSONB DEFAULT '{}';
@@ -163,6 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_id ON workflow_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_pending_replies_user_id ON workflow_pending_replies(user_id);
 
 -- Pending reminders: covers getPendingReminders() WHERE fire_at <= NOW() AND fired = false
