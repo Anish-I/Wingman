@@ -1,6 +1,33 @@
 import { create } from 'zustand';
 import type { Message } from '@/types';
 import { createSelectors } from '@/lib/utils';
+import { getItem, setItem, removeItem } from '@/lib/storage';
+
+// ---------------------------------------------------------------------------
+// MMKV persistence — persist settled messages so they survive app restarts.
+// ---------------------------------------------------------------------------
+const CHAT_STORAGE_KEY = 'wingman_chat_messages';
+const MAX_PERSISTED_MESSAGES = 200;
+
+/** Filter messages worth persisting (exclude transient sending/failed/error). */
+function persistableMessages(msgs: Message[]): Message[] {
+  return msgs.filter(
+    (m) => m.status !== 'sending' && m.status !== 'failed' && !m.isError,
+  );
+}
+
+function persistMessages(msgs: Message[]) {
+  const toPersist = persistableMessages(msgs).slice(-MAX_PERSISTED_MESSAGES);
+  setItem(CHAT_STORAGE_KEY, toPersist);
+}
+
+/** Hydrate chat store from MMKV. Call after initStorage() completes. */
+export function hydrateChat() {
+  const persisted = getItem<Message[]>(CHAT_STORAGE_KEY);
+  if (persisted && persisted.length > 0) {
+    _useChatStore.setState({ messages: persisted });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Module-level idempotency key storage — survives component remount and
@@ -227,8 +254,20 @@ const _useChatStore = create<ChatState>((set) => ({
     }),
   setLoading: (loading) => set({ loading }),
   setHistoryLoading: (historyLoading) => set({ historyLoading }),
-  clearMessages: () => set({ messages: [] }),
+  clearMessages: () => {
+    removeItem(CHAT_STORAGE_KEY);
+    return set({ messages: [] });
+  },
 }));
+
+// Persist settled messages to MMKV whenever the messages array changes.
+_useChatStore.subscribe(
+  (state, prev) => {
+    if (state.messages !== prev.messages) {
+      persistMessages(state.messages);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Background purge — runs every 30s regardless of which screen is focused,

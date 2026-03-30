@@ -10,6 +10,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useThemeConfig } from '@/components/ui/use-theme-config';
 import { useThemeColors } from '@/components/ui/tokens';
 import { hydrateAuth, useAuthStore as _useAuthStore } from '@/features/auth/use-auth-store';
+import { hydrateChat } from '@/features/chat/store';
 import { APIProvider } from '@/lib/api';
 import { loadSelectedTheme } from '@/lib/hooks/use-selected-theme';
 import { initStorage } from '@/lib/storage';
@@ -41,6 +42,11 @@ export default function RootLayout() {
         storageReady = false;
       }
       if (storageReady) {
+        try {
+          hydrateChat();
+        } catch (error) {
+          console.error('[bootstrap] hydrateChat failed:', error);
+        }
         try {
           await hydrateAuth();
         } catch (error) {
