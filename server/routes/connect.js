@@ -18,14 +18,7 @@ function computeStateHmac(state) {
   return crypto.createHmac('sha256', OTP_SECRET).update(state).digest('hex');
 }
 
-const OAUTH_COOKIE_NAME = 'oauth_state_hmac';
-const OAUTH_COOKIE_OPTS = {
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.COOKIE_SECURE !== 'false',
-  maxAge: 10 * 60 * 1000, // 10 minutes, matches state JWT expiry
-  path: '/connect/callback',
-};
+const OAUTH_HMAC_TTL = 600; // 10 minutes, matches state JWT expiry
 
 // Generate a signed, time-limited state token for OAuth callbacks.
 // Includes a random nonce stored in Redis to tie the token to a server-side session (CSRF protection).
@@ -188,7 +181,10 @@ router.get('/initiate', async (req, res) => {
     }
     const state = await generateOAuthState(userId, app);
     const url = await getConnectionLink(userId, app, state);
-    res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
+    // Store HMAC in Redis instead of a cookie so the flow works in private
+    // browsing or when the callback lands in a different browser/tab.
+    const hmac = computeStateHmac(state);
+    await redis.set(`oauth_hmac:${hmac}`, '1', 'EX', OAUTH_HMAC_TTL);
     res.redirect(url);
   } catch (err) {
     logger.error({ err: err.message }, 'Connection initiate error');
@@ -203,16 +199,15 @@ router.get('/callback', async (req, res) => {
     if (!state) {
       return res.status(400).json({ error: { code: 'MISSING_STATE', message: 'Missing state parameter.' } });
     }
-    // Verify the callback is from the same browser that initiated the flow (IDOR fix)
-    const cookieHmac = req.cookies && req.cookies[OAUTH_COOKIE_NAME];
+    // Verify the state was initiated by our server by checking the HMAC in Redis.
+    // Stored in Redis (not a cookie) so the flow works in private browsing or
+    // when the callback lands in a different browser/tab.
     const expectedHmac = computeStateHmac(state);
-    const cookieBuf = cookieHmac ? Buffer.from(cookieHmac, 'utf8') : null;
-    const expectedBuf = Buffer.from(expectedHmac, 'utf8');
-    if (!cookieBuf || cookieBuf.length !== expectedBuf.length ||
-        !crypto.timingSafeEqual(cookieBuf, expectedBuf)) {
+    const hmacKey = `oauth_hmac:${expectedHmac}`;
+    const hmacExists = await redis.call('GETDEL', hmacKey);
+    if (!hmacExists) {
       return res.status(403).json({ error: { code: 'OAUTH_SESSION_MISMATCH', message: 'OAuth session mismatch. Please retry the connection from your app.' } });
     }
-    res.clearCookie(OAUTH_COOKIE_NAME, { path: '/connect/callback' });
 
     // verifyOAuthState atomically consumes the nonce, invalidates the tools
     // cache, AND sets a cooldown (preventing stale re-population) in a single
@@ -304,7 +299,8 @@ router.get('/:app', requireAuth, async (req, res) => {
     }
     const state = await generateOAuthState(req.user.id, app);
     const url = await getConnectionLink(req.user.id, app, state);
-    res.cookie(OAUTH_COOKIE_NAME, computeStateHmac(state), OAUTH_COOKIE_OPTS);
+    const hmac = computeStateHmac(state);
+    await redis.set(`oauth_hmac:${hmac}`, '1', 'EX', OAUTH_HMAC_TTL);
     res.redirect(url);
   } catch (err) {
     logger.error({ err: err.message }, 'Connection link error');
