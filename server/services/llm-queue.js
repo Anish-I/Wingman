@@ -11,12 +11,12 @@ function drain() {
     const entry = waiting.shift();
     if (entry.cancelled) continue;
     clearTimeout(entry.timer);
+    running++;
     execute(entry.fn, entry.resolve, entry.reject);
   }
 }
 
 function execute(fn, resolve, reject) {
-  running++;
   console.log(`[llm-queue] depth: ${waiting.length}, processing: ${running}`);
   fn()
     .then(resolve, reject)
@@ -29,6 +29,7 @@ function execute(fn, resolve, reject) {
 function queueLLMCall(fn, { signal } = {}) {
   return new Promise((resolve, reject) => {
     if (running < MAX_CONCURRENCY) {
+      running++;
       execute(fn, resolve, reject);
     } else if (waiting.length >= MAX_QUEUE_DEPTH) {
       const err = new Error('Server is busy, please try again shortly.');
