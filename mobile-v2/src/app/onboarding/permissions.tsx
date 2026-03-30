@@ -80,7 +80,12 @@ export default function PermissionsScreen() {
 
   // Check existing notification permission on mount
   useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.Notification?.permission === 'granted') {
+        setNotificationsGranted(true);
+      }
+      return;
+    }
     Notifications.getPermissionsAsync().then(({ status }) => {
       if (status === 'granted') {
         setNotificationsGranted(true);
@@ -90,7 +95,12 @@ export default function PermissionsScreen() {
 
   async function handleAllowNotifications() {
     if (Platform.OS === 'web') {
-      setNotificationsGranted(true);
+      try {
+        const result = await window.Notification.requestPermission();
+        setNotificationsGranted(result === 'granted');
+      } catch {
+        // Browser doesn't support Notification API — leave as not granted
+      }
       return;
     }
     try {
@@ -199,6 +209,7 @@ export default function PermissionsScreen() {
         <GradientButton
           title="Continue"
           onPress={() => router.push('/onboarding/phone')}
+          disabled={!notificationsGranted}
         />
       </View>
     </SafeAreaView>
