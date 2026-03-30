@@ -97,7 +97,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       const messageText = parsed.body;
       const msgId = parsed.messageId;
 
-      if (!phone || !messageText) {
+      if (!phone || !messageText || !messageText.trim()) {
         return res.status(400).json({ error: { code: 'WEBHOOK_VALIDATION_ERROR', message: 'Missing phone or message text' } });
       }
 
@@ -110,11 +110,11 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       }
 
       // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
-      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
+      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText.trim(), Date.now());
       if (!isNew) return res.status(200).send('<Response></Response>');
       dedupKey = computeDedupKey(msgId, phone, messageText);
 
-      await handleIncomingSMS(phone, messageText, res, true);
+      await handleIncomingSMS(phone, messageText.trim(), res, true);
     } else {
       // --- Telnyx path ---
       // Use a Telnyx-specific provider for validation regardless of startup
@@ -166,7 +166,7 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       const phone = payload?.from?.phone_number;
       const messageText = payload?.text;
 
-      if (!phone || !messageText) {
+      if (!phone || !messageText || !messageText.trim()) {
         return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Missing phone or text' } });
       }
 
@@ -179,11 +179,11 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
       }
 
       // Atomic dedup + enqueue: eliminates TOCTOU gap between dedup check and enqueue
-      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText, Date.now());
+      const isNew = await deduplicateAndEnqueue(msgId, phone, messageText.trim(), Date.now());
       if (!isNew) return res.sendStatus(200);
       dedupKey = computeDedupKey(msgId, phone, messageText);
 
-      await handleIncomingSMS(phone, messageText, res, false);
+      await handleIncomingSMS(phone, messageText.trim(), res, false);
     }
   } catch (err) {
     const isRetriable = err.code === 'ECONNREFUSED'
