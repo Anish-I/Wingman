@@ -621,21 +621,52 @@ async function getLastWorkflowRunContext(workflowId) {
 }
 
 /**
+ * Recursively deep-merge `source` into `target`, returning a new object.
+ * Arrays and non-plain-object values in source overwrite target; plain objects
+ * are merged recursively so concurrent runs don't clobber each other's nested keys.
+ */
+function deepMergeContext(target, source) {
+  const out = { ...target };
+  for (const key of Object.keys(source)) {
+    const sv = source[key];
+    const tv = target[key];
+    if (
+      sv !== null && typeof sv === 'object' && !Array.isArray(sv) &&
+      tv !== null && typeof tv === 'object' && !Array.isArray(tv)
+    ) {
+      out[key] = deepMergeContext(tv, sv);
+    } else {
+      out[key] = sv;
+    }
+  }
+  return out;
+}
+
+/**
  * Atomically merge a context delta into the workflow's canonical run_context.
  * Uses an advisory lock on the workflow id so two concurrent completions
  * serialize their merges instead of clobbering each other.
+ *
+ * Performs a deep merge (not PostgreSQL's shallow || operator) so nested
+ * object keys from one run are preserved when another run writes to a
+ * different nested key under the same top-level key.
  */
 async function mergeWorkflowRunContext(workflowId, contextDelta) {
   if (!contextDelta || Object.keys(contextDelta).length === 0) return;
   await withTransaction(async (txQuery) => {
     // Advisory lock keyed on workflow_id (integer) — serialises concurrent merges.
     await txQuery('SELECT pg_advisory_xact_lock($1)', [workflowId]);
-    const up = new ParamCollector();
-    const patchRef = up.add(JSON.stringify(contextDelta));
-    const idRef = up.add(workflowId);
+    // Re-read the current context inside the lock so the merge is based on
+    // the latest committed state, not a potentially stale snapshot.
+    const { rows } = await txQuery(
+      'SELECT run_context FROM workflows WHERE id = $1',
+      [workflowId]
+    );
+    const current = rows[0]?.run_context || {};
+    const merged = deepMergeContext(current, contextDelta);
     await txQuery(
-      `UPDATE workflows SET run_context = COALESCE(run_context, '{}'::jsonb) || ${patchRef}::jsonb WHERE id = ${idRef}`,
-      up.values
+      'UPDATE workflows SET run_context = $1::jsonb WHERE id = $2',
+      [JSON.stringify(merged), workflowId]
     );
   });
 }
