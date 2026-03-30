@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
@@ -11,14 +11,9 @@ import { fontScale } from '@/lib/responsive';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
 import { client } from '@/lib/api/client';
 
-/** Show a toast on web (FlashMessage) or native Alert */
+/** Show a non-blocking toast notification on all platforms */
 function showAlert(title: string, message: string) {
-  if (Platform.OS === 'web') {
-    showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
-  }
-  else {
-    Alert.alert(title, message);
-  }
+  showMessage({ message: title, description: message, type: 'danger', duration: 3000 });
 }
 
 export default function LoginScreen() {
