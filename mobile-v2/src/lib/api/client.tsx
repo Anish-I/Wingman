@@ -98,8 +98,11 @@ client.interceptors.request.use(async (config) => {
     // Stamp request with the token it was sent with so the 401 handler
     // can tell whether the request belongs to the current session.
     (config as any).__requestToken = token;
-  } catch {
-    // Storage not yet initialized
+  } catch (err) {
+    // Log unexpected interceptor errors instead of silently swallowing them.
+    // getToken() is safe to call before storage init (returns null), so
+    // errors here indicate a real problem worth surfacing.
+    console.warn('[api] request interceptor error:', err);
   }
   return config;
 });

@@ -48,16 +48,19 @@ export function getStorage(): ReturnType<typeof createMMKV> {
 }
 
 export function getItem<T>(key: string): T | null {
-  const value = getStorage().getString(key);
+  if (!storage) return null;
+  const value = storage.getString(key);
   return value ? JSON.parse(value) || null : null;
 }
 
 export function setItem<T>(key: string, value: T): void {
-  getStorage().set(key, JSON.stringify(value));
+  if (!storage) return;
+  storage.set(key, JSON.stringify(value));
 }
 
 export function removeItem(key: string): void {
-  getStorage().remove(key);
+  if (!storage) return;
+  storage.remove(key);
 }
 
 export { storage };
