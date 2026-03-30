@@ -878,7 +878,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
             // Best-effort: wait briefly for late completion so we can give a definitive answer
             const late = await Promise.race([
               err.completionPromise,
-              new Promise(resolve => setTimeout(() => resolve(null), 2000)),
+              new Promise(resolve => setTimeout(() => resolve(null), 8000)),
             ]);
             if (late && late.successful !== false) {
               result = late;
