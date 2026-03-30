@@ -638,7 +638,7 @@ function selectToolsForMessage(tools, message, limit = 25) {
   if (tools.length <= limit) return tools;
 
   // Only consider meaningful words: 4+ chars, not pure numbers, not stop words
-  const STOP = new Set(['what', 'when', 'where', 'which', 'this', 'that', 'with', 'from', 'have', 'will', 'your', 'they', 'them', 'their', 'been', 'were', 'want', 'need', 'help', 'does', 'make', 'some', 'more', 'also', 'into', 'than', 'then', 'just', 'like', 'tell', 'show', 'give', 'know', 'much', 'many', 'each', 'such']);
+  const STOP = new Set(['what', 'when', 'where', 'which', 'this', 'that', 'with', 'from', 'have', 'will', 'your', 'they', 'them', 'their', 'been', 'were', 'want', 'need', 'help', 'does', 'make', 'some', 'more', 'also', 'into', 'than', 'then', 'just', 'like', 'tell', 'show', 'give', 'know', 'much', 'many', 'each', 'such', 'send', 'check', 'open', 'close', 'list', 'read', 'find', 'look', 'move', 'copy', 'edit', 'view', 'call', 'link', 'save', 'load', 'pull', 'push', 'name', 'info', 'data', 'file', 'item', 'type', 'text', 'user', 'time', 'date']);
   const words = new Set(
     (message || '').toLowerCase().match(/\w+/g)
       ?.filter(w => w.length >= 4 && !/^\d+$/.test(w) && !STOP.has(w))
@@ -657,10 +657,10 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // Require at least 2 keyword matches to avoid false positives on conversational messages.
-  // A single incidental word match (e.g. "secret" → anonyflow) should not trigger tool use.
-  // Real action requests ("send email", "check gmail", "create github issue") score ≥2.
-  if (scored[0].score < 2) return [];
+  // Require at least 3 keyword matches to avoid false positives from common verbs/nouns
+  // that appear in many tool descriptions. With broadened stop words, remaining keywords
+  // are domain-specific enough that 3 matches indicate genuine intent.
+  if (scored[0].score < 3) return [];
   return scored.slice(0, limit).map(s => s.tool);
 }
 
