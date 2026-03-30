@@ -149,9 +149,11 @@ router.get('/initiate', async (req, res) => {
     if (!sessionBind) {
       return res.status(400).json({ error: { code: 'MISSING_SESSION_BIND', message: 'Missing sessionBind parameter.' } });
     }
-    // Atomically fetch and delete — prevents concurrent requests from reusing the same token
+    // Fetch the token without deleting — deletion is deferred until after
+    // getConnectionLink() succeeds so a Composio API failure doesn't consume
+    // the one-time token, forcing the user to restart the entire OAuth flow.
     const key = `connect_token:${connectToken}`;
-    const stored = await redis.call('GETDEL', key);
+    const stored = await redis.get(key);
     if (!stored) {
       return res.status(401).json({ error: { code: 'INVALID_CONNECT_TOKEN', message: 'Invalid or expired connect token.' } });
     }
@@ -160,6 +162,7 @@ router.get('/initiate', async (req, res) => {
       parsed = JSON.parse(stored);
     } catch {
       logger.error('Corrupt connect_token payload in Redis');
+      await redis.del(key);
       return res.status(500).json({ error: { code: 'CONNECTION_LINK_ERROR', message: 'Failed to process connect token.' } });
     }
     const { userId, app, sessionBind: storedSessionBind } = parsed;
@@ -182,6 +185,9 @@ router.get('/initiate', async (req, res) => {
     }
     const state = await generateOAuthState(userId, app);
     const url = await getConnectionLink(userId, app, state);
+    // Only now consume the token — getConnectionLink() succeeded, so the
+    // redirect will happen and the token should not be reusable.
+    await redis.del(key);
     // Store HMAC in Redis instead of a cookie so the flow works in private
     // browsing or when the callback lands in a different browser/tab.
     const hmac = computeStateHmac(state);
