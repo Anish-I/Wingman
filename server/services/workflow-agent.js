@@ -199,8 +199,8 @@ async function withWorkflowExecutionLock(workflowId, onLocked, fn) {
       // Lua release failed after retries — set a short TTL so the lock
       // auto-expires instead of being held forever.
       try {
-        await redis.expire(lockKey, 30);
-        console.warn(`[workflow-agent] Set 30s fallback TTL on ${lockKey} after release failure`);
+        await redis.expire(lockKey, WORKFLOW_LOCK_TTL_SECONDS);
+        console.warn(`[workflow-agent] Set ${WORKFLOW_LOCK_TTL_SECONDS}s fallback TTL on ${lockKey} after release failure`);
       } catch (expErr) {
         logger.error({ err: expErr.message }, `[workflow-agent] Failed to set fallback TTL on ${lockKey}`);
       }
