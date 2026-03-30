@@ -489,8 +489,8 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // and the Redis write happen in the same microtask, closing the TOCTOU window
   // where the lock could be released between the check and the actual write.
   let appendChain = Promise.resolve();
-  const safeAppend = (role, text) => {
-    if (lockHolder.released || abortController.aborted) {
+  const safeAppend = (role, text, { bypassAbort = false } = {}) => {
+    if (lockHolder.released || (!bypassAbort && abortController.aborted)) {
       console.warn(`[user:${userId}] Lock released or aborted — skipping appendMessage(${role})`);
       return Promise.resolve();
     }
@@ -500,7 +500,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       // Re-check after preceding append completes — the lock may have been
       // released or TTL-expired while the previous write was in flight,
       // or the outer timeout may have fired (setting abortController.aborted).
-      if (lockHolder.released || abortController.aborted) {
+      if (lockHolder.released || (!bypassAbort && abortController.aborted)) {
         console.warn(`[user:${userId}] Lock released or aborted (chain) — skipping appendMessage(${role})`);
         return;
       }
@@ -1025,7 +1025,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // block), so safeAppend is safe here even after abort.
   if (abortController.aborted) {
     console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
-    await safeAppend('assistant', persistedText);
+    await safeAppend('assistant', persistedText, { bypassAbort: true });
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId, cacheCtx).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     if (inflight) inflight.resolve(null);
     return finalText;
@@ -1071,27 +1071,24 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // the finally block releases the lock.
     if (err.name === 'AbortError') {
       console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
-      await safeAppend('assistant', "Sorry, that took too long. Please try again.");
+      await safeAppend('assistant', "Sorry, that took too long. Please try again.", { bypassAbort: true });
       return "Sorry, that took too long. Please try again.";
     }
     // Friendly message for rate limit errors
     if (err.message && /rate limit|busy|too many/i.test(err.message)) {
       const rateLimitMsg = "One sec — juggling a few things. Try again in a moment.";
-      await safeAppend('assistant', rateLimitMsg)
-        .catch(e => logger.error({ err: e.message }, `[user:${userId}] Rate-limit history persist failed`));
+      await safeAppend('assistant', rateLimitMsg, { bypassAbort: true });
       return rateLimitMsg;
     }
     if (err.message && /timed? ?out|abort/i.test(err.message)) {
-      await safeAppend('assistant', "Sorry, that took too long. Please try again.")
-        .catch(e => logger.error({ err: e.message }, `[user:${userId}] Timeout history persist failed`));
+      await safeAppend('assistant', "Sorry, that took too long. Please try again.", { bypassAbort: true });
       return "Sorry, that took too long. Please try again.";
     }
     // Any other LLM/service failure — persist error response so the user's
     // message doesn't appear unanswered on retry or app restart.
     logger.error({ err: err.message }, `[user:${userId}] Unhandled LLM error`);
     const errorMsg = "Something went wrong on my end. Please try again.";
-    await safeAppend('assistant', errorMsg)
-      .catch(e => logger.error({ err: e.message }, `[user:${userId}] Error history persist failed`));
+    await safeAppend('assistant', errorMsg, { bypassAbort: true });
     return errorMsg;
   } finally {
     // Always drain in-flight appends regardless of who set `released`.
