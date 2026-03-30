@@ -1,7 +1,7 @@
 import type { PressableProps } from 'react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { useReducedMotion } from '@/lib/motion';
+import { useReducedMotion, webInteractive } from '@/lib/motion';
 import { useCallback } from 'react';
 import {
   I18nManager,
@@ -52,6 +52,7 @@ export function Root({
       className={`flex-row items-center ${className} ${
         disabled ? 'opacity-50' : ''
       }`}
+      style={webInteractive(disabled)}
       accessibilityState={{ checked }}
       disabled={disabled}
       {...props}

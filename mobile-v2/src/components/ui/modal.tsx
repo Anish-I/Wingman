@@ -39,6 +39,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
+import { webInteractive } from '@/lib/motion';
 import { spacing, useThemeColors } from './tokens';
 import { Text } from './text';
 
@@ -258,7 +259,7 @@ function CloseButton({ close }: { close: () => void }) {
     <Pressable
       onPress={close}
       className="absolute size-6 items-center justify-center"
-      style={{ top: spacing.md, right: spacing.md }}
+      style={[{ top: spacing.md, right: spacing.md }, webInteractive()]}
       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
       accessibilityLabel="close modal"
       accessibilityRole="button"

@@ -9,6 +9,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import * as React from 'react';
 import { Platform, Pressable, View } from 'react-native';
+import { webInteractive } from '@/lib/motion';
 import Svg, { Path } from 'react-native-svg';
 import { tv } from 'tailwind-variants';
 
@@ -120,7 +121,7 @@ const Option = React.memo(
     return (
       <Pressable
         className="flex-row items-center border-b border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800"
-        style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}
+        style={[{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, webInteractive()]}
         {...props}
       >
         <Text className="flex-1 dark:text-neutral-100">{label}</Text>
@@ -193,7 +194,7 @@ export function Select(props: SelectProps) {
         )}
         <Pressable
           className={styles.input()}
-          style={{ padding: spacing.md }}
+          style={[{ padding: spacing.md }, webInteractive(disabled)]}
           disabled={disabled}
           onPress={modal.present}
           testID={testID ? `${testID}-trigger` : undefined}

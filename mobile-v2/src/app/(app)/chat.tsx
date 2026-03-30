@@ -554,7 +554,7 @@ export default function ChatScreen() {
                       accessibilityLabel="Retry sending message"
                       onPress={() => retry(item.id)}
                       hitSlop={12}
-                      style={styles.retryButton}
+                      style={[styles.retryButton, webInteractive()]}
                     >
                       <Ionicons name="refresh-outline" size={13} color={purple[400]} />
                       <Text style={styles.retryText}>Retry</Text>
@@ -569,7 +569,7 @@ export default function ChatScreen() {
                         clearPendingForMessage(item.id);
                       }}
                       hitSlop={12}
-                      style={styles.retryButton}
+                      style={[styles.retryButton, webInteractive()]}
                     >
                       <Ionicons name="close-outline" size={13} color={t.muted} />
                       <Text style={[styles.retryText, { color: t.muted }]}>Dismiss</Text>
@@ -718,6 +718,7 @@ export default function ChatScreen() {
                 styles.cancelButton,
                 { backgroundColor: surface.section },
                 pressed && { opacity: 0.7 },
+                webInteractive(),
               ]}
             >
               <Ionicons name="close-circle-outline" size={16} color={semantic.error} />
