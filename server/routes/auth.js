@@ -260,6 +260,16 @@ const socialAuthLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many authentication attempts, please try again later.' } },
 });
 
+// Rate limit token refresh: 30 per 15 minutes per IP (allows burst from multiple
+// in-flight requests while preventing abuse of the grace-window refresh flow)
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many refresh attempts, please try again later.' } },
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -1744,7 +1754,7 @@ router.delete('/account', requireAuth, async (req, res) => {
 // silently extend sessions without forcing re-authentication.
 const REFRESH_GRACE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
     // Extract token
     let token = null;
