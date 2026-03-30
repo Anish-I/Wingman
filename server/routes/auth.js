@@ -1143,19 +1143,7 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
     if (!nonce) {
       return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state missing nonce.' } });
     }
-    // Blacklist the state JWT itself so it cannot be replayed even while structurally valid
-    if (statePayload.jti) {
-      const ttl = statePayload.exp ? Math.max(statePayload.exp - Math.floor(Date.now() / 1000), 1) : 300;
-      await redis.set(`oauth_state_used:${statePayload.jti}`, '1', 'EX', ttl);
-    }
-    const nonceKey = `oauth_nonce:${nonce}`;
-    const nonceExists = await redis.call('GETDEL', nonceKey);
-    if (!nonceExists) {
-      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state nonce expired or already used. Please restart the login flow.' } });
-    }
-
-    // In production, NEVER accept redirect_uri from the client — use server config only.
-    // In development, allow client-provided redirect_uri but validate full path against allowlist.
+    // Validate redirect_uri BEFORE consuming the nonce to prevent DoS via invalid redirect URIs
     const defaultRedirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
     let finalRedirectUri;
 
@@ -1173,6 +1161,17 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
       } else {
         finalRedirectUri = defaultRedirectUri;
       }
+    }
+
+    // Blacklist the state JWT itself so it cannot be replayed even while structurally valid
+    if (statePayload.jti) {
+      const ttl = statePayload.exp ? Math.max(statePayload.exp - Math.floor(Date.now() / 1000), 1) : 300;
+      await redis.set(`oauth_state_used:${statePayload.jti}`, '1', 'EX', ttl);
+    }
+    const nonceKey = `oauth_nonce:${nonce}`;
+    const nonceExists = await redis.call('GETDEL', nonceKey);
+    if (!nonceExists) {
+      return res.status(403).json({ error: { code: 'INVALID_OAUTH_STATE', message: 'OAuth state nonce expired or already used. Please restart the login flow.' } });
     }
 
     // Exchange the authorization code for tokens with Google
