@@ -67,11 +67,10 @@ export default function WorkflowsScreen() {
     togglingSwitch: styles.togglingSwitch,
   };
 
-  // Trap keyboard focus within the modal on web
+  // Trap keyboard focus within the modal on web and handle Escape to close
   useEffect(() => {
     if (Platform.OS !== 'web' || !modalVisible) return;
     const el = modalContentRef.current as unknown as HTMLElement | null;
-    if (!el) return;
 
     function getFocusable(root: HTMLElement): HTMLElement[] {
       return Array.from(
@@ -86,9 +85,9 @@ export default function WorkflowsScreen() {
         setModalVisible(false);
         return;
       }
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab' || !el) return;
 
-      const focusable = getFocusable(el!);
+      const focusable = getFocusable(el);
       if (focusable.length === 0) {
         e.preventDefault();
         return;
@@ -98,7 +97,7 @@ export default function WorkflowsScreen() {
       const last = focusable[focusable.length - 1];
       const active = document.activeElement;
 
-      if (!el!.contains(active)) {
+      if (!el.contains(active)) {
         e.preventDefault();
         (e.shiftKey ? last : first).focus();
         return;
