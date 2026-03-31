@@ -65,7 +65,7 @@ function deriveIdempotencyKey(req) {
   if (header && typeof header === 'string' && header.length > 0 && header.length <= 128) {
     return header;
   }
-  return crypto.createHash('sha256').update(req.body.message.trim()).digest('hex').slice(0, 32);
+  return crypto.createHash('sha256').update(req.body.message.trim()).digest('hex');
 }
 
 // --- Workflow action input sanitization ---
@@ -152,7 +152,7 @@ router.post('/chat', requireAuth, chatLimiter, async (req, res) => {
     // Before claiming, check the content-hash alias — catches re-sends where
     // the client generated a new idempotency key (e.g. after navigation cleared
     // the original key) but the first attempt already succeeded server-side.
-    const contentHash = crypto.createHash('sha256').update(message.trim()).digest('hex').slice(0, 32);
+    const contentHash = crypto.createHash('sha256').update(message.trim()).digest('hex');
     const contentHashKey = IDEM_PREFIX + req.user.id + ':' + contentHash;
     if (contentHashKey !== redisKey) {
       try {

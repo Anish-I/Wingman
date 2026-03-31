@@ -218,24 +218,22 @@ async function cleanupStaleConversations() {
  * Returns false if the message was already seen (caller should skip it).
  *
  * When msgId is provided, dedup is based on the provider message ID.
- * When msgId is absent, dedup falls back to a hash of phone + content + 5-second
- * time bucket.  This catches rapid webhook retries while allowing the same text
- * to be sent again after the bucket expires.
+ * When msgId is absent, dedup falls back to a hash of phone + content.
+ * The Redis key TTL alone defines the dedup window, avoiding boundary
+ * issues that arise from time-bucketed keys.
  */
 async function deduplicateMessage(msgId, phone, messageText) {
   let dedupKey;
   if (msgId) {
     dedupKey = `sms:dedup:${msgId}`;
   } else {
-    // Content-based fallback: keyed by phone + content + 5-second time bucket.
-    // The short bucket catches rapid webhook retries (sub-second to a few
-    // seconds apart) while allowing a user to legitimately send the same text
-    // again moments later.  Providers that supply a message ID (e.g. Twilio's
-    // MessageSid) use the branch above, where the 300s TTL covers their full
-    // retry schedule — so the short bucket here only affects ID-less webhooks.
+    // Content-based fallback: keyed by phone + content (no time bucket).
+    // The Redis TTL alone defines the dedup window — this avoids boundary
+    // issues where messages straddling a bucket edge get different keys.
+    // Providers that supply a message ID (e.g. Twilio's MessageSid) use the
+    // branch above; this path only affects ID-less webhooks.
     const crypto = require('crypto');
-    const bucket = Math.floor(Date.now() / 5000);
-    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex');
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex');
     dedupKey = `sms:dedup:content:${hash}`;
   }
   const result = await redis.set(dedupKey, '1', 'NX', 'EX', 10);
@@ -279,8 +277,7 @@ async function deduplicateAndEnqueue(msgId, phone, messageText, timestamp) {
     dedupTTL = 300; // 5 min — covers provider retry schedules (Twilio: 60s, 3m, 5m)
   } else {
     const crypto = require('crypto');
-    const bucket = Math.floor(Date.now() / 5000);
-    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex');
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}`).digest('hex');
     dedupKey = `sms:dedup:content:${hash}`;
     dedupTTL = 10; // short TTL — only catch rapid retries, not legitimate duplicate messages
   }
