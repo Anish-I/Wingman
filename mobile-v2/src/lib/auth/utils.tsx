@@ -51,7 +51,8 @@ export const getToken = (): TokenType | null => {
   }
   try {
     return SecureStore.getItem(TOKEN) ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[auth] Failed to read token from SecureStore:', err);
     return null;
   }
 };

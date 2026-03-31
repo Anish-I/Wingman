@@ -99,10 +99,9 @@ client.interceptors.request.use(async (config) => {
     // can tell whether the request belongs to the current session.
     (config as any).__requestToken = token;
   } catch (err) {
-    // Log unexpected interceptor errors instead of silently swallowing them.
-    // getToken() is safe to call before storage init (returns null), so
-    // errors here indicate a real problem worth surfacing.
-    console.warn('[api] request interceptor error:', err);
+    // Surface unexpected interceptor errors so storage-init failures and
+    // other auth issues are diagnosable instead of silently producing 401s.
+    console.error('[api] request interceptor error — Authorization header was not set:', err);
   }
   return config;
 });
