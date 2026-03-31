@@ -17,6 +17,7 @@ import PipCard from '@/components/wingman/pip-card';
 import ProgressBar from '@/components/wingman/progress-bar';
 import SectionLabel from '@/components/wingman/section-label';
 import { signIn } from '@/features/auth/use-auth-store';
+import { isValidAuthToken } from '@/lib/auth/utils';
 import { client } from '@/lib/api/client';
 import { setItem, removeItem, getItem } from '@/lib/storage';
 import { entrance, delays, useReducedMotion, maybeReduce } from '@/lib/motion';
@@ -114,8 +115,8 @@ export default function SignupScreen() {
     setSignupLoading(true);
     try {
       const { data } = await client.post('/auth/signup', { email, password });
-      // Validate token is a well-formed JWT (three base64url segments)
-      if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
+      // Validate token structure and required claims (exp, userId)
+      if (!isValidAuthToken(data.token)) {
         showAlert('Sign-Up Failed', 'Authentication token was not generated. Please try again.');
         return;
       }
@@ -140,8 +141,8 @@ export default function SignupScreen() {
     try {
       const res = await client.post('/auth/exchange-code', { code });
       const { token } = res.data;
-      // Validate token is a well-formed JWT (three base64url segments)
-      if (token && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
+      // Validate token structure and required claims (exp, userId)
+      if (isValidAuthToken(token)) {
         signIn(token);
         completeOnboardingStep('signup');
         router.push('/onboarding/permissions');

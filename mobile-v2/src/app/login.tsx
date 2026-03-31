@@ -9,6 +9,7 @@ import { Button, FocusAwareStatusBar } from '@/components/ui';
 import { layout, presets, purple, radii, spacing, typography, useThemeColors } from '@/components/ui/tokens';
 import { fontScale } from '@/lib/responsive';
 import { signIn, useAuthStore } from '@/features/auth/use-auth-store';
+import { isValidAuthToken } from '@/lib/auth/utils';
 import { client } from '@/lib/api/client';
 
 /** Show a non-blocking toast notification on all platforms */
@@ -147,8 +148,8 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const { data } = await client.post('/auth/verify-otp', { phone: e164Phone, code: otp, otp_request_id: otpRequestId });
-      // Validate token is a well-formed JWT (three base64url segments)
-      if (!data.token || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token)) {
+      // Validate token structure and required claims (exp, userId)
+      if (!isValidAuthToken(data.token)) {
         showAlert('Sign-In Failed', 'No valid authentication token received. Please try again.');
         setCode(['', '', '', '', '', '']);
         setActiveIdx(0);
