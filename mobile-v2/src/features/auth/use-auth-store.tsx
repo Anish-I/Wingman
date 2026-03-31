@@ -48,16 +48,21 @@ if (Platform.OS === 'web' && typeof addEventListener === 'function') {
 }
 
 const WEB_RETRY_INTERVAL_MS = 30_000;
+const WEB_RETRY_MAX_TICKS = 20; // Stop after ~10 minutes to avoid leaking resources
+let webRetryTicks = 0;
 
 /**
  * Start a periodic retry loop on web for tokens that exhausted their initial
- * retry attempts.  The loop auto-stops when the pending list is drained.
+ * retry attempts.  The loop auto-stops when the pending list is drained or
+ * after WEB_RETRY_MAX_TICKS iterations to prevent indefinite resource usage.
  */
 function startWebRetryLoop(): void {
   if (Platform.OS !== 'web' || webRetryTimer) return;
+  webRetryTicks = 0;
   webRetryTimer = setInterval(async () => {
+    webRetryTicks++;
     const pending = [...webPendingBlacklist];
-    if (pending.length === 0) {
+    if (pending.length === 0 || webRetryTicks > WEB_RETRY_MAX_TICKS) {
       clearInterval(webRetryTimer!);
       webRetryTimer = null;
       return;
