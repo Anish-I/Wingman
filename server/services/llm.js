@@ -67,7 +67,7 @@ const LLM_CALL_TIMEOUT = parseInt(process.env.LLM_CALL_TIMEOUT || '30000', 10);
 // Decreasing timeouts per fallback level so total wait stays reasonable
 const FALLBACK_TIMEOUT_MULTIPLIERS = [1, 0.5, 0.33];
 
-console.log(`[llm] Provider chain: ${providers.map(p => p.name).join(' → ')} | Primary model: ${MODEL_DEFAULT}`);
+logger.info(`[llm] Provider chain ready (${providers.length} provider(s)) | Primary model: ${MODEL_DEFAULT}`);
 
 function toOpenAITools(anthropicTools) {
   return anthropicTools.map((tool) => ({
@@ -164,7 +164,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
         try {
           const multiplier = FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)];
           const providerTimeout = Math.round(LLM_CALL_TIMEOUT * multiplier);
-          logger.debug(`[llm] ${provider.name} attempt ${attempt}/${MAX_RETRIES} timeout=${providerTimeout}ms`);
+          logger.debug(`[llm] provider-${i} attempt ${attempt}/${MAX_RETRIES} timeout=${providerTimeout}ms`);
           const response = await provider.client.chat.completions.create(params, {
             signal: AbortSignal.timeout(providerTimeout),
           });
@@ -193,12 +193,12 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
 
           // If the LLM tried to call tools but all had malformed JSON, surface a clear message
           if (message.tool_calls?.length > 0 && toolUseBlocks.length === 0 && !text) {
-            logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from ${provider.name} had malformed JSON arguments`);
+            logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from provider-${i} had malformed JSON arguments`);
             return { text: "I tried to perform an action but encountered a formatting issue. Let me try again — could you repeat your request?", toolUseBlocks: [], stopReason: 'malformed_tool_args', usage: response.usage };
           }
 
           if (i > 0) {
-            console.log(`[llm] Fell back to ${provider.name} (was: ${providers[0].name})`);
+            logger.info(`[llm] Fell back to provider-${i} (primary unavailable)`);
           }
 
           return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
@@ -207,19 +207,19 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           // Timeout errors: don't retry, fall back to next provider immediately
           const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
           if (isTimeout) {
-            console.warn(`[llm] ${provider.name} timed out after ${Math.round(LLM_CALL_TIMEOUT * FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)])}ms, skipping retries`);
+            logger.warn(`[llm] provider-${i} timed out after ${Math.round(LLM_CALL_TIMEOUT * FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)])}ms, skipping retries`);
             break;
           }
           // Auth errors (401/403) and bad input (400/422): don't retry same provider, fall back
           if ([400, 401, 403, 422].includes(err.status)) {
-            console.warn(`[llm] ${provider.name} returned ${err.status}, skipping retries`);
+            logger.warn(`[llm] provider-${i} returned ${err.status}, skipping retries`);
             break;
           }
           const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status;
           if (isRetryable && attempt < MAX_RETRIES) {
             const reason = err.status || 'connection error';
             const delay = Math.pow(2, attempt - 1) * 1000;
-            console.warn(`[llm] ${provider.name} ${reason} on attempt ${attempt}, retrying in ${delay}ms`);
+            logger.warn(`[llm] provider-${i} ${reason} on attempt ${attempt}, retrying in ${delay}ms`);
             await new Promise(r => setTimeout(r, delay));
             continue;
           }
@@ -247,13 +247,13 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       } else {
         // Truly non-recoverable (e.g. 404 endpoint not found, 409, etc.)
         errorType = 'non-recoverable';
-        providerErrors.push({ provider: provider.name, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
+        providerErrors.push({ provider: `provider-${i}`, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
         logger.error({ err: lastErr?.message || String(lastErr), providerErrors }, '[llm] Call failed (non-recoverable)');
         throw new Error('Failed to process your message. Please try again.');
       }
 
-      providerErrors.push({ provider: provider.name, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
-      console.log(`[llm] ${provider.name} failed (${errorType}: ${status || 'no status'}), falling back to ${providers[i + 1]?.name || 'none'}`);
+      providerErrors.push({ provider: `provider-${i}`, status: status || null, message: lastErr?.message || String(lastErr), type: errorType });
+      logger.info(`[llm] provider-${i} failed (${errorType}: ${status || 'no status'}), falling back to next provider`);
     }
 
     // All providers exhausted — retry primary once if failures were transient
@@ -265,7 +265,7 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       const retryParams = { model, max_tokens: MAX_TOKENS, messages: openAIMessages };
       if (openAITools) { retryParams.tools = openAITools; retryParams.tool_choice = 'auto'; }
       try {
-        console.log(`[llm] All providers failed transiently, retrying primary (${primary.name})`);
+        logger.info('[llm] All providers failed transiently, retrying primary');
         const response = await primary.client.chat.completions.create(retryParams, {
           signal: AbortSignal.timeout(LLM_CALL_TIMEOUT),
         });
@@ -293,19 +293,19 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
 
         // If the LLM tried to call tools but all had malformed JSON, surface a clear message
         if (message.tool_calls?.length > 0 && toolUseBlocks.length === 0 && !text) {
-          logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from ${primary.name} retry had malformed JSON arguments`);
+          logger.warn(`[llm] All ${message.tool_calls.length} tool_call(s) from primary retry had malformed JSON arguments`);
           return { text: "I tried to perform an action but encountered a formatting issue. Let me try again — could you repeat your request?", toolUseBlocks: [], stopReason: 'malformed_tool_args', usage: response.usage };
         }
 
-        console.log(`[llm] Primary retry (${primary.name}) succeeded`);
+        logger.info('[llm] Primary retry succeeded');
         return { text, toolUseBlocks, stopReason: choice.finish_reason, usage: response.usage };
       } catch (retryErr) {
-        providerErrors.push({ provider: primary.name, status: retryErr?.status || null, message: retryErr?.message || String(retryErr), type: 'primary-retry' });
+        providerErrors.push({ provider: 'provider-0', status: retryErr?.status || null, message: retryErr?.message || String(retryErr), type: 'primary-retry' });
       }
     }
 
     // All providers exhausted — log the full error chain for diagnostics
-    logger.error({ providerErrors }, `[llm] All ${providerErrors.length} providers failed: ${providerErrors.map(e => `${e.provider}(${e.type}: ${e.status || 'no status'} — ${e.message})`).join(', ')}`);
+    logger.error({ providerErrors }, `[llm] All ${providerErrors.length} providers failed`);
     throw new Error("One moment — I'm a bit busy. Try again in a few seconds.");
   }, { signal });
 }
