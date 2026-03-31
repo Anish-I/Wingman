@@ -3,9 +3,20 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const ENCRYPTION_KEY_ALIAS = 'mmkv_encryption_key';
+const SECURE_STORE_TIMEOUT_MS = 5_000;
 
 let storage: ReturnType<typeof createMMKV> | null = null;
 let initPromise: Promise<void> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`[storage] ${label} timed out after ${ms}ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 export async function initStorage(): Promise<void> {
   if (storage) return;
@@ -18,14 +29,22 @@ export async function initStorage(): Promise<void> {
     }
 
     try {
-      let encryptionKey = await SecureStore.getItemAsync(ENCRYPTION_KEY_ALIAS);
+      let encryptionKey = await withTimeout(
+        SecureStore.getItemAsync(ENCRYPTION_KEY_ALIAS),
+        SECURE_STORE_TIMEOUT_MS,
+        'SecureStore.getItemAsync',
+      );
       if (!encryptionKey) {
         const bytes = new Uint8Array(32);
         crypto.getRandomValues(bytes);
         encryptionKey = Array.from(bytes)
           .map((b) => b.toString(16).padStart(2, '0'))
           .join('');
-        await SecureStore.setItemAsync(ENCRYPTION_KEY_ALIAS, encryptionKey);
+        await withTimeout(
+          SecureStore.setItemAsync(ENCRYPTION_KEY_ALIAS, encryptionKey),
+          SECURE_STORE_TIMEOUT_MS,
+          'SecureStore.setItemAsync',
+        );
       }
 
       storage = createMMKV({ id: 'wingman-storage', encryptionKey });
