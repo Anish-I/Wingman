@@ -176,7 +176,8 @@ function isWebClient(req) {
 
 /** Build the auth response body.  Web clients receive no token (httpOnly cookie only). */
 function authResponse(req, token, user) {
-  const base = { success: true, user };
+  const safeUser = { ...user, name: user.name || '' };
+  const base = { success: true, user: safeUser };
   if (isWebClient(req)) return base;
   return { ...base, token };
 }
@@ -1228,7 +1229,7 @@ router.post('/google', socialAuthLimiter, async (req, res) => {
     let user = await findAndLinkUser({ email: googleEmail, google_id: googleUser.id });
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
-      user = await createUser(googlePhone, googleUser.name || googleUser.email);
+      user = await createUser(googlePhone, googleUser.name || googleUser.email || 'User');
       try {
         const linked = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id });
         if (linked) user = linked;
@@ -1452,7 +1453,7 @@ router.get('/google/callback', socialAuthLimiter, async (req, res) => {
     let user = await findAndLinkUser({ email: googleEmail, google_id: googleUser.id });
     if (!user) {
       const googlePhone = `google:${googleUser.id}`;
-      user = await createUser(googlePhone, googleUser.name || googleUser.email);
+      user = await createUser(googlePhone, googleUser.name || googleUser.email || 'User');
       try {
         const linked = await linkUserIdentity(user.id, { email: googleEmail, google_id: googleUser.id });
         if (linked) user = linked;
@@ -1539,7 +1540,7 @@ router.post('/social', socialAuthLimiter, async (req, res) => {
         return res.status(401).json({ error: { code: 'INVALID_GOOGLE_TOKEN', message: 'Invalid Google token.' } });
       }
       socialId = payload.sub;
-      socialName = payload.name || payload.email;
+      socialName = payload.name || payload.email || 'User';
       socialEmail = payload.email;
     } else if (authProvider === 'apple') {
       // Reject immediately if Apple audience is not configured — without this,
