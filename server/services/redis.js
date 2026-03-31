@@ -235,7 +235,7 @@ async function deduplicateMessage(msgId, phone, messageText) {
     // retry schedule — so the short bucket here only affects ID-less webhooks.
     const crypto = require('crypto');
     const bucket = Math.floor(Date.now() / 5000);
-    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex').slice(0, 16);
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex');
     dedupKey = `sms:dedup:content:${hash}`;
   }
   const result = await redis.set(dedupKey, '1', 'NX', 'EX', 10);
@@ -280,7 +280,7 @@ async function deduplicateAndEnqueue(msgId, phone, messageText, timestamp) {
   } else {
     const crypto = require('crypto');
     const bucket = Math.floor(Date.now() / 5000);
-    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex').slice(0, 16);
+    const hash = crypto.createHash('sha256').update(`${phone}:${messageText}:${bucket}`).digest('hex');
     dedupKey = `sms:dedup:content:${hash}`;
     dedupTTL = 10; // short TTL — only catch rapid retries, not legitimate duplicate messages
   }
