@@ -313,16 +313,35 @@ function verifyToken(token, opts = {}) {
         return jwt.verify(token, entry.secret, verifyOpts);
       }
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      console.warn('[auth] JWT expired (kid lookup):', err.expiredAt);
+      return null;
+    }
+    if (err instanceof jwt.JsonWebTokenError) {
+      console.warn('[auth] JWT verification failed (kid lookup):', err.message);
+      return null;
+    }
+    console.error('[auth] Unexpected error during JWT kid lookup:', err);
     // Fall through to brute-force attempt below
   }
 
   // Legacy tokens without kid, or kid not found — try all keys
+  let lastErr = null;
   for (const entry of jwtKeyring) {
     try {
       return jwt.verify(token, entry.secret, verifyOpts);
-    } catch {
-      // Try next key
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (lastErr) {
+    if (lastErr instanceof jwt.TokenExpiredError) {
+      console.warn('[auth] JWT expired:', lastErr.expiredAt);
+    } else if (lastErr instanceof jwt.JsonWebTokenError) {
+      console.warn('[auth] JWT verification failed:', lastErr.message);
+    } else {
+      console.error('[auth] Unexpected error during JWT verification:', lastErr);
     }
   }
   return null;
