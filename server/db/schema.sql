@@ -171,6 +171,7 @@ CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_hist
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_id ON workflow_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status) WHERE status IN ('waiting', 'delayed');
 CREATE INDEX IF NOT EXISTS idx_workflow_pending_replies_user_id ON workflow_pending_replies(user_id);
 
 -- Pending reminders: covers getPendingReminders() WHERE fire_at <= NOW() AND fired = false
