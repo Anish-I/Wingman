@@ -20,9 +20,12 @@ export const useWorkflows = createQuery<WorkflowsResponse>({
   fetcher: async () => {
     // Let errors propagate so the UI can detect fetch failures
     // instead of silently returning empty data.
-    const { data } = await client.get<WorkflowsResponse>('/api/workflows');
+    const { data } = await client.get<WorkflowsResponse>('/api/workflows', {
+      timeout: 6_000,
+    });
     return data;
   },
+  retry: 0,
 });
 
 export const useCreateWorkflow = createMutation<WorkflowResponse, { name: string; description: string; trigger_type: string; actions: unknown[] }>({
