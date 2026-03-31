@@ -917,7 +917,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
       if (storedRaw) {
         await redis.set(otpKey, storedRaw, 'EX', OTP_TTL);
       }
-      return res.status(403).json({ error: { code: 'REQUEST_ID_MISMATCH', message: 'OTP request binding failed. Please request a new code.' } });
+      return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
     }
 
     // Distributed lock on the phone number to serialize all post-OTP operations
@@ -976,7 +976,7 @@ router.post('/verify-otp', otpVerifyGlobalLimiter, otpVerifyLimiter, async (req,
         if (storedRaw) {
           await redis.set(otpKey, storedRaw, 'EX', OTP_TTL);
         }
-        return res.status(403).json({ error: { code: 'SESSION_MISMATCH', message: 'OTP was not requested by this account. Please request a new code.' } });
+        return res.status(401).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP.' } });
       }
     }
 
