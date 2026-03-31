@@ -350,11 +350,22 @@ async function removeConnectedApp(userId, appSlug) {
   return result.rows[0];
 }
 
-async function addConversationMessage(userId, role, content) {
+async function addConversationMessage(userId, role, content, messageId = null) {
   const result = await query(
-    'INSERT INTO conversation_history (user_id, role, content) VALUES ($1, $2, $3) RETURNING *',
-    [userId, role, content]
+    `INSERT INTO conversation_history (user_id, role, content, message_id)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (message_id) WHERE message_id IS NOT NULL DO NOTHING
+     RETURNING *`,
+    [userId, role, content, messageId]
   );
+  // ON CONFLICT DO NOTHING returns no rows; fetch the existing row if so
+  if (result.rows.length === 0 && messageId) {
+    const existing = await query(
+      'SELECT * FROM conversation_history WHERE message_id = $1',
+      [messageId]
+    );
+    return existing.rows[0];
+  }
   return result.rows[0];
 }
 

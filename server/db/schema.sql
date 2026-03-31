@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS conversation_history (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role       VARCHAR(50) NOT NULL,
   content    TEXT NOT NULL,
+  message_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -169,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 -- idx_connected_apps_user_id removed: redundant with UNIQUE(user_id, app_slug)
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_history_message_id ON conversation_history(message_id) WHERE message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_id ON workflow_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status) WHERE status IN ('waiting', 'delayed');
