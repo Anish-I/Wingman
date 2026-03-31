@@ -126,6 +126,7 @@ export default function SettingsScreen() {
   const currentTheme = (prefs.theme as string) || 'Dark';
   const currentLanguage = (prefs.language as string) || 'English';
   const notificationsEnabled = prefs.notifications !== false;
+  const smsOptInEnabled = prefs.smsOptIn !== false;
 
   const THEME_OPTIONS = ['Dark', 'Light', 'System'];
   const LANGUAGE_OPTIONS = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Japanese', 'Chinese'];
@@ -169,6 +170,10 @@ export default function SettingsScreen() {
 
   function handleToggleNotifications() {
     persistPrefs({ notifications: !notificationsEnabled });
+  }
+
+  function handleToggleSmsOptIn() {
+    persistPrefs({ smsOptIn: !smsOptInEnabled });
   }
 
   function handleLogout() {
@@ -274,6 +279,7 @@ export default function SettingsScreen() {
           <Text className="text-[14px] font-bold uppercase tracking-widest" style={[sectionLabel, { marginBottom: spacing.sm, marginLeft: spacing.xs }]}>Preferences</Text>
           <View className="rounded-2xl overflow-hidden" style={sectionBorder}>
             <SettingsRow icon="notifications-outline" iconColor="#F5A623" label="Notifications" value={notificationsEnabled ? 'On' : 'Off'} onPress={handleToggleNotifications} isFirst />
+            <SettingsRow icon="chatbubble-outline" iconColor="#6EC6B8" label="SMS Messages" value={smsOptInEnabled ? 'On' : 'Off'} onPress={handleToggleSmsOptIn} />
             <SettingsRow icon="moon-outline" iconColor="#9B7EC8" label="Theme" value={currentTheme} onPress={handleSelectTheme} />
             <SettingsRow icon="language-outline" iconColor={semantic.info} label="Language" value={currentLanguage} onPress={handleSelectLanguage} isLast />
           </View>
