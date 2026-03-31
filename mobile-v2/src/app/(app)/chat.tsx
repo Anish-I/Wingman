@@ -461,10 +461,22 @@ export default function ChatScreen() {
     return () => sub.remove();
   }, []);
 
+  const prevMessageCount = useRef(messages.length);
+  const needsScroll = useRef(false);
+
   useEffect(() => {
-    if (messages.length)
-      listRef.current?.scrollToEnd({ animated: true });
+    if (messages.length > prevMessageCount.current) {
+      needsScroll.current = true;
+    }
+    prevMessageCount.current = messages.length;
   }, [messages]);
+
+  const handleContentSizeChange = useCallback(() => {
+    if (needsScroll.current) {
+      needsScroll.current = false;
+      listRef.current?.scrollToEnd({ animated: true });
+    }
+  }, []);
 
   const examplePrompts = [
     { text: 'Schedule a meeting', icon: 'calendar-outline' as const, color: '#F5A623' },
@@ -631,6 +643,7 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={m => m.id}
           renderItem={renderItem}
+          onContentSizeChange={handleContentSizeChange}
           contentContainerStyle={[{ paddingHorizontal: layout.screenPaddingH, paddingVertical: layout.screenPaddingTop, gap: spacing.xs }, messages.length === 0 ? styles.emptyContentContainer : undefined]}
           ListEmptyComponent={(
             <View className="items-center" style={{ paddingHorizontal: layout.screenPaddingH }}>
