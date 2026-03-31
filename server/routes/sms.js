@@ -50,7 +50,23 @@ function computeDedupKey(msgId, phone, messageText) {
   return `sms:dedup:content:${hash}`;
 }
 
-router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (req, res) => {
+/**
+ * Apply smsLimiter programmatically (after signature verification).
+ * Returns a promise that resolves to true if the request is allowed,
+ * or false if the rate limit response was already sent.
+ */
+function applySmsLimiter(req, res) {
+  return new Promise((resolve) => {
+    smsLimiter(req, res, () => resolve(true));
+    // express-rate-limit sends the response synchronously when rejecting,
+    // so if next() wasn't called, headersSent will be true after a microtask.
+    Promise.resolve().then(() => {
+      if (res.headersSent) resolve(false);
+    });
+  });
+}
+
+router.post('/sms', express.urlencoded({ extended: false }), async (req, res) => {
   let dedupKey = null; // track so we can clear on failure to allow provider retries
   try {
     const isTwilio = !!req.body?.MessageSid;
@@ -91,6 +107,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
+
+      // Apply rate limiter only after signature is verified to prevent
+      // attackers from exhausting rate limit quota with forged requests
+      if (!(await applySmsLimiter(req, res))) return;
 
       const parsed = twilioProvider.parseIncoming(req.body);
       const phone = parsed.from;
@@ -155,6 +175,10 @@ router.post('/sms', express.urlencoded({ extended: false }), smsLimiter, async (
           return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
         }
       }
+
+      // Apply rate limiter only after signature is verified to prevent
+      // attackers from exhausting rate limit quota with forged requests
+      if (!(await applySmsLimiter(req, res))) return;
 
       const event = req.body?.data;
       if (!event || event.event_type !== 'message.received') {
