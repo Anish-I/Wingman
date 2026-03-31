@@ -29,6 +29,11 @@ const SIDE_EFFECT_PATTERN = /^(GMAIL_SEND|GMAIL_CREATE|SLACK_SENDS|SLACK_CHAT_PO
 const REDIS_IDEMP_RETRY_COUNT = 2;
 const REDIS_IDEMP_RETRY_DELAY_MS = 200;
 
+// In-memory version counter per user, bumped on cache invalidation.
+// Allows in-progress orchestrator loops to detect mid-loop tool changes
+// and reload tools without waiting for the next user message.
+const _toolsVersion = new Map();
+
 // Maximum size (in characters) for a tool execution response. Responses exceeding
 // this limit are truncated to prevent memory exhaustion from oversized external API data.
 const TOOL_RESPONSE_MAX_SIZE = 100_000; // ~100 KB of text
@@ -250,11 +255,18 @@ async function getTools(userId) {
 async function invalidateToolsCache(userId) {
   const cacheKey = `tools:${userId}`;
   const cooldownKey = `tools_cooldown:${userId}`;
+  // Bump in-memory version so in-progress orchestrator loops detect the change
+  _toolsVersion.set(String(userId), (_toolsVersion.get(String(userId)) || 0) + 1);
   // Delete cache and set a short cooldown to prevent immediate re-population with stale data
   await Promise.all([
     redis.del(cacheKey),
     redis.set(cooldownKey, '1', 'EX', TOOLS_CACHE_COOLDOWN_TTL),
   ]).catch(err => { logger.error({ err: err.message }, '[composio] Redis cache invalidation error'); throw err; });
+}
+
+/** Return the current tools version counter for a user. */
+function getToolsVersion(userId) {
+  return _toolsVersion.get(String(userId)) || 0;
 }
 
 /**
@@ -664,4 +676,4 @@ function selectToolsForMessage(tools, message, limit = 25) {
   return scored.filter(s => s.score >= 2).slice(0, limit).map(s => s.tool);
 }
 
-module.exports = { getTools, invalidateToolsCache, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage, WINGMAN_APPS };
+module.exports = { getTools, invalidateToolsCache, getToolsVersion, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage, WINGMAN_APPS };

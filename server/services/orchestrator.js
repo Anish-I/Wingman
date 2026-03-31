@@ -1,7 +1,7 @@
 const { callLLM, MAX_TOKENS } = require('./llm');
 const { buildContext } = require('./context');
 const { getConversationHistory, appendMessage, acquireConversationLock } = require('./redis');
-const { getTools, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage } = require('./composio');
+const { getTools, getToolsVersion, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage } = require('./composio');
 const { extractAndSaveMemory, getMemoryContext } = require('./memory');
 const { planAndCreateWorkflows } = require('./workflow-planner');
 const { shouldCache, getCachedResponse, setCachedResponse, releaseCacheLock, registerInflight } = require('./llm-cache');
@@ -570,15 +570,18 @@ async function _processMessageInner(user, messageText, abortController = { abort
     toolsDisabled ? Promise.resolve({ connected: [] }) : getConnectionStatus(userId),
   ]);
 
+  // Snapshot the tools version so the loop can detect mid-flight invalidations
+  let toolsVersion = getToolsVersion(userId);
+
   // Build a set of apps the user has actively connected — used to block
   // tool execution for unconnected apps before any Composio API call.
-  const connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
+  let connectedApps = new Set((connectionStatus.connected || []).map(a => a.toLowerCase()));
 
   // Filter out tools for apps the user has disconnected. The tools cache (30 min TTL)
   // may contain stale tools for recently disconnected apps. Without this filter, the LLM
   // would see those tools, attempt to call them, fail with 'not connected' errors, and
   // generate confusing OAuth re-connection links for apps the user intentionally removed.
-  const connectedTools = allTools.filter(tool => {
+  let connectedTools = allTools.filter(tool => {
     const name = tool.function?.name;
     if (!name) return false;
     const app = appFromToolName(name);
@@ -592,12 +595,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // When toolsDisabled is set (orphan limit reached), pass no tools to the LLM.
   // This lets the user still get text responses without creating new orphan-
   // producing tool calls, breaking the reject→retry→more-orphans DoS cycle.
-  const selectedTools = toolsDisabled ? [] : selectToolsForMessage(connectedTools, messageText);
-  const tools = toolsDisabled ? [] : [...LOCAL_TOOLS, ...selectedTools];
+  let selectedTools = toolsDisabled ? [] : selectToolsForMessage(connectedTools, messageText);
+  let tools = toolsDisabled ? [] : [...LOCAL_TOOLS, ...selectedTools];
   // Build allowlist of tool names the LLM is permitted to call this turn
-  const allowedToolNames = new Set(tools.map(t => t.function?.name?.toUpperCase()).filter(Boolean));
+  let allowedToolNames = new Set(tools.map(t => t.function?.name?.toUpperCase()).filter(Boolean));
   // Build a map of tool name → parameter schema for argument validation
-  const toolSchemas = new Map();
+  let toolSchemas = new Map();
   for (const t of tools) {
     const name = t.function?.name;
     const params = t.function?.parameters;
@@ -656,6 +659,36 @@ async function _processMessageInner(user, messageText, abortController = { abort
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     throwIfAborted(abortController, 'LLM call');
+
+    // If tools were invalidated mid-loop (e.g. user connected a new app via OAuth),
+    // reload tools so the LLM sees the updated set without requiring another message.
+    if (!toolsDisabled) {
+      const currentVersion = getToolsVersion(userId);
+      if (currentVersion !== toolsVersion) {
+        toolsVersion = currentVersion;
+        const [freshTools, freshStatus] = await Promise.all([
+          getTools(userId),
+          getConnectionStatus(userId),
+        ]);
+        connectedApps = new Set((freshStatus.connected || []).map(a => a.toLowerCase()));
+        connectedTools = freshTools.filter(tool => {
+          const name = tool.function?.name;
+          if (!name) return false;
+          return connectedApps.has(appFromToolName(name));
+        });
+        selectedTools = selectToolsForMessage(connectedTools, messageText);
+        tools = [...LOCAL_TOOLS, ...selectedTools];
+        allowedToolNames = new Set(tools.map(t => t.function?.name?.toUpperCase()).filter(Boolean));
+        toolSchemas = new Map();
+        for (const t of tools) {
+          const name = t.function?.name;
+          const params = t.function?.parameters;
+          if (name && params) toolSchemas.set(name, params);
+        }
+        console.log(`[user:${userId}] Tools reloaded mid-loop (version ${currentVersion}): ${tools.length} tools`);
+      }
+    }
+
     response = await withTimeout(
       callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true }),
       LLM_ITERATION_TIMEOUT, `LLM call (iteration ${iterations + 1})`
