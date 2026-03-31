@@ -1,6 +1,6 @@
 import type { TokenType } from '@/lib/auth/utils';
 
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { create } from 'zustand';
 import Env from 'env';
 import { getToken, removeToken, setToken } from '@/lib/auth/utils';
@@ -47,50 +47,114 @@ if (Platform.OS === 'web' && typeof addEventListener === 'function') {
   addEventListener('pagehide', flushPendingViaBeacon);
 }
 
-const WEB_RETRY_INTERVAL_MS = 30_000;
-const WEB_RETRY_MAX_TICKS = 20; // Stop after ~10 minutes to avoid leaking resources
+const RETRY_INTERVAL_MS = 30_000;
+const RETRY_MAX_TICKS = 20; // Stop after ~10 minutes to avoid leaking resources
 let webRetryTicks = 0;
+let nativeRetryTimer: ReturnType<typeof setInterval> | null = null;
+let nativeRetryTicks = 0;
+
+/**
+ * Try to blacklist a single token via fetch. Returns true if the token
+ * was successfully blacklisted (or the error is non-retryable).
+ */
+async function tryBlacklistOnce(tok: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tok}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return (
+      res.ok ||
+      (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Start a periodic retry loop on web for tokens that exhausted their initial
  * retry attempts.  The loop auto-stops when the pending list is drained or
- * after WEB_RETRY_MAX_TICKS iterations to prevent indefinite resource usage.
+ * after RETRY_MAX_TICKS iterations to prevent indefinite resource usage.
  */
 function startWebRetryLoop(): void {
-  if (Platform.OS !== 'web' || webRetryTimer) return;
+  if (webRetryTimer) return;
   webRetryTicks = 0;
   webRetryTimer = setInterval(async () => {
     webRetryTicks++;
     const pending = [...webPendingBlacklist];
-    if (pending.length === 0 || webRetryTicks > WEB_RETRY_MAX_TICKS) {
+    if (pending.length === 0 || webRetryTicks > RETRY_MAX_TICKS) {
       clearInterval(webRetryTimer!);
       webRetryTimer = null;
       return;
     }
     for (const tok of pending) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10_000);
-        const res = await fetch(`${Env.EXPO_PUBLIC_API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${tok}`,
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (
-          res.ok ||
-          (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)
-        ) {
-          removePendingBlacklist(tok);
-        }
-      } catch {
-        // Network still down — will retry on next interval
+      if (await tryBlacklistOnce(tok)) {
+        removePendingBlacklist(tok);
       }
     }
-  }, WEB_RETRY_INTERVAL_MS);
+  }, RETRY_INTERVAL_MS);
+}
+
+/**
+ * Start a periodic retry loop on native for tokens that exhausted their
+ * initial retry attempts. Similar to startWebRetryLoop but reads pending
+ * tokens from MMKV. Auto-stops when drained or after RETRY_MAX_TICKS.
+ */
+function startNativeRetryLoop(): void {
+  if (nativeRetryTimer) return;
+  nativeRetryTicks = 0;
+  nativeRetryTimer = setInterval(async () => {
+    nativeRetryTicks++;
+    const pending = getPendingBlacklist();
+    if (pending.length === 0 || nativeRetryTicks > RETRY_MAX_TICKS) {
+      clearInterval(nativeRetryTimer!);
+      nativeRetryTimer = null;
+      return;
+    }
+    for (const tok of pending) {
+      if (await tryBlacklistOnce(tok)) {
+        removePendingBlacklist(tok);
+      }
+    }
+  }, RETRY_INTERVAL_MS);
+}
+
+/**
+ * Start the appropriate background retry loop for the current platform.
+ */
+function startBackgroundRetryLoop(): void {
+  if (Platform.OS === 'web') {
+    startWebRetryLoop();
+  } else {
+    startNativeRetryLoop();
+  }
+}
+
+// On native, retry pending blacklist tokens when the app returns to foreground.
+// This covers the case where the server was unreachable, retries exhausted,
+// and the background retry loop also stopped — foregrounding the app gets
+// another chance to invalidate the token server-side.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') {
+      const pending = getPendingBlacklist();
+      if (pending.length > 0) {
+        for (const tok of pending) {
+          tryBlacklistOnce(tok).then((ok) => {
+            if (ok) removePendingBlacklist(tok);
+          });
+        }
+      }
+    }
+  });
 }
 
 function getPendingBlacklist(): string[] {
@@ -180,8 +244,7 @@ async function blacklistToken(token: string): Promise<void> {
   // All retries exhausted — keep retrying in the background so the server
   // session is eventually invalidated instead of silently giving up.
   console.warn('[signOut] Failed to blacklist token after retries — scheduling background retry');
-  startWebRetryLoop();
-  // On native the token persists in MMKV and hydrate() will drain it on next launch.
+  startBackgroundRetryLoop();
 }
 
 type AuthState = {
