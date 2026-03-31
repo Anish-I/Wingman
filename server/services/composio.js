@@ -649,11 +649,19 @@ function selectToolsForMessage(tools, message, limit = 25) {
   if (!tools || tools.length === 0) return [];
   if (tools.length <= limit) return tools;
 
-  // Only consider meaningful words: 4+ chars, not pure numbers, not stop words
-  const STOP = new Set(['what', 'when', 'where', 'which', 'this', 'that', 'with', 'from', 'have', 'will', 'your', 'they', 'them', 'their', 'been', 'were', 'want', 'need', 'help', 'does', 'make', 'some', 'more', 'also', 'into', 'than', 'then', 'just', 'like', 'tell', 'show', 'give', 'know', 'much', 'many', 'each', 'such', 'send', 'check', 'open', 'close', 'list', 'read', 'find', 'look', 'move', 'copy', 'edit', 'view', 'call', 'link', 'save', 'load', 'pull', 'push', 'name', 'info', 'data', 'file', 'item', 'type', 'text', 'user', 'time', 'date']);
+  // Action verbs that should trigger tool matching (not filtered out)
+  const ACTION_VERBS = new Set(['send', 'check', 'open', 'close', 'list', 'read', 'find',
+    'look', 'move', 'copy', 'edit', 'view', 'call', 'link', 'save', 'load', 'pull', 'push',
+    'add', 'set', 'run', 'get', 'put', 'pin', 'tag', 'log', 'map', 'zip', 'ban', 'pay']);
+  // Stop words: common filler words that don't indicate tool intent
+  const STOP = new Set(['what', 'when', 'where', 'which', 'this', 'that', 'with', 'from',
+    'have', 'will', 'your', 'they', 'them', 'their', 'been', 'were', 'want', 'need', 'help',
+    'does', 'make', 'some', 'more', 'also', 'into', 'than', 'then', 'just', 'like', 'tell',
+    'show', 'give', 'know', 'much', 'many', 'each', 'such', 'name', 'info', 'data', 'file',
+    'item', 'type', 'text', 'user', 'time', 'date']);
   const words = new Set(
     (message || '').toLowerCase().match(/\w+/g)
-      ?.filter(w => w.length >= 4 && !/^\d+$/.test(w) && !STOP.has(w))
+      ?.filter(w => (w.length >= 4 || ACTION_VERBS.has(w)) && !/^\d+$/.test(w) && !STOP.has(w))
     || []
   );
 
@@ -669,11 +677,12 @@ function selectToolsForMessage(tools, message, limit = 25) {
     return { tool, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  // Require the top tool to have at least 3 keyword matches, and only return
-  // tools that individually score at least 2 to avoid polluting the context
-  // with irrelevant tools that happened to match a single common word.
-  if (scored[0].score < 3) return [];
-  return scored.filter(s => s.score >= 2).slice(0, limit).map(s => s.tool);
+  // Scale thresholds by keyword count: short messages (1-2 keywords) use lower
+  // thresholds so action verbs alone can still select relevant tools.
+  const minTop = words.size <= 2 ? 1 : 3;
+  const minIndividual = words.size <= 2 ? 1 : 2;
+  if (scored[0].score < minTop) return [];
+  return scored.filter(s => s.score >= minIndividual).slice(0, limit).map(s => s.tool);
 }
 
 module.exports = { getTools, invalidateToolsCache, getToolsVersion, executeTool, getConnectionLink, getConnectionStatus, appFromToolName, selectToolsForMessage, WINGMAN_APPS };
