@@ -321,7 +321,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
       }
       if (!_isPending(cached)) {
         console.log(`[user:${userId}] Idempotent cache hit for ${toolCallBlock.name}`);
-        try { return JSON.parse(cached); } catch { return { result: cached }; }
+        try { return JSON.parse(cached); } catch { logger.warn({ tool: toolCallBlock.name }, '[composio] Cached tool result is malformed JSON'); return { error: 'Tool returned malformed JSON (cached)', _parseFailure: true }; }
       }
       await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
     }
@@ -329,7 +329,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     const finalVal = await redis.get(idempKey);
     if (finalVal && !_isPending(finalVal)) {
       console.log(`[user:${userId}] Idempotent cache hit (final) for ${toolCallBlock.name}`);
-      try { return JSON.parse(finalVal); } catch { return { result: finalVal }; }
+      try { return JSON.parse(finalVal); } catch { logger.warn({ tool: toolCallBlock.name }, '[composio] Final cached tool result is malformed JSON'); return { error: 'Tool returned malformed JSON (cached)', _parseFailure: true }; }
     }
 
     if (_isPending(finalVal)) {
@@ -363,7 +363,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
         const raceVal = await redis.get(idempKey);
         if (raceVal && !_isPending(raceVal)) {
           console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
-          try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
+          try { return JSON.parse(raceVal); } catch { logger.warn({ tool: toolCallBlock.name }, '[composio] Race-cached tool result is malformed JSON'); return { error: 'Tool returned malformed JSON (cached)', _parseFailure: true }; }
         }
         console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
         return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
@@ -376,7 +376,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
         const raceVal = await redis.get(idempKey);
         if (raceVal && !_isPending(raceVal)) {
           console.log(`[user:${userId}] Idempotent cache hit (race) for ${toolCallBlock.name}`);
-          try { return JSON.parse(raceVal); } catch { return { result: raceVal }; }
+          try { return JSON.parse(raceVal); } catch { logger.warn({ tool: toolCallBlock.name }, '[composio] Race-cached tool result is malformed JSON'); return { error: 'Tool returned malformed JSON (cached)', _parseFailure: true }; }
         }
         console.warn(`[user:${userId}] Idempotent dedup: ${toolCallBlock.name} already in-flight, skipping retry`);
         return { error: `Duplicate call to ${toolCallBlock.name} suppressed — the original is still processing.` };
@@ -443,7 +443,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
     }
 
     clearInterval(_heartbeat);
-    const parsed = (() => { try { return JSON.parse(raw); } catch { return { result: raw }; } })();
+    const parsed = (() => { try { return JSON.parse(raw); } catch (e) { logger.warn({ tool: toolCallBlock.name, rawLength: typeof raw === 'string' ? raw.length : 0, parseError: e.message }, '[composio] Tool returned malformed JSON'); return { error: 'Tool execution returned malformed JSON — result could not be parsed', _parseFailure: true }; } })();
 
     // Truncate oversized responses to prevent memory exhaustion / DoS from
     // compromised or misbehaving external APIs.
@@ -453,7 +453,7 @@ async function executeTool(userId, toolCallBlock, { signal } = {}) {
           logger.warn({ tool: toolCallBlock.name, originalSize: serialized.length, limit: TOOL_RESPONSE_MAX_SIZE },
             `[composio] Tool response truncated`);
           const truncatedJson = serialized.slice(0, TOOL_RESPONSE_MAX_SIZE);
-          try { return JSON.parse(truncatedJson); } catch { return { result: truncatedJson, _truncated: true }; }
+          try { return JSON.parse(truncatedJson); } catch { return { error: 'Tool response was truncated and resulting JSON is malformed', _truncated: true, _parseFailure: true }; }
         })()
       : parsed;
 
