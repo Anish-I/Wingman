@@ -1093,9 +1093,29 @@ async function _processMessageInner(user, messageText, abortController = { abort
       const { messages: retryMessages, retries } = JSON.parse(retryPayload);
       await redis.del(memoryRetryKey);
       logger.info(`[user:${userId}] retrying failed memory extraction (attempt ${retries}/3)`);
-      extractAndSaveMemory(user, retryMessages).catch(err => {
-        logger.error({ err: err.message }, `[user:${userId}] memory retry extraction failed`);
-      });
+      const retryPromise = extractAndSaveMemory(user, retryMessages)
+        .catch(async (err) => {
+          logger.error({ err: err.message }, `[user:${userId}] memory retry extraction failed`);
+          // Re-persist to Redis so the next request can retry again
+          try {
+            if (retries < 3) {
+              await redis.set(memoryRetryKey, JSON.stringify({
+                messages: retryMessages,
+                retries: retries + 1,
+                failedAt: Date.now(),
+              }), 'EX', 3600);
+              logger.info(`[user:${userId}] re-queued memory retry (attempt ${retries + 1}/3)`);
+            } else {
+              logger.warn(`[user:${userId}] memory retry limit reached, discarding payload`);
+            }
+          } catch (retryErr) {
+            logger.error({ err: retryErr.message }, `[user:${userId}] failed to re-queue memory retry`);
+          }
+        })
+        .finally(() => {
+          _pendingMemoryExtractions.delete(retryPromise);
+        });
+      _pendingMemoryExtractions.add(retryPromise);
     }
   } catch (retryErr) {
     logger.error({ err: retryErr.message }, `[user:${userId}] failed to check memory retry queue`);
