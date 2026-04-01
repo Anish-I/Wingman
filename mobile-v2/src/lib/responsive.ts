@@ -7,18 +7,26 @@ const BASE_WIDTH = 375; // iPhone SE / 8 — the reference design width
 /**
  * Scale a font size relative to screen width.
  *
- * Uses *moderate* scaling (40 % of the raw ratio difference) so text
- * shrinks gently on narrow phones (< 375 px) and grows gently on
- * tablets, instead of linearly tracking screen width.
+ * Uses moderate scaling so text shrinks gently on narrow phones (< 375 px)
+ * and grows proportionally on tablets/large screens.
  *
- * Clamped to 85 %–120 % of the base size to prevent extremes.
+ * - Small phones (< 375): 40% of the ratio difference, floor at 88%
+ * - Standard phones (375–767): 40% of the ratio difference
+ * - Tablets (768+): 55% of the ratio difference, allows up to 150%
+ *
+ * This ensures text remains readable on very small phones without crowding,
+ * and scales up noticeably on tablets so it doesn't appear disproportionately small.
  */
 export function fontScale(size: number): number {
   const { width } = Dimensions.get('window');
   const scale = width / BASE_WIDTH;
-  // Apply only 40% of the scaling difference for a moderate effect
-  const factor = 1 + (scale - 1) * 0.4;
-  const clamped = Math.max(0.85, Math.min(1.2, factor));
+
+  // Use a steeper scaling factor on tablets so text grows meaningfully
+  const dampening = width >= 768 ? 0.55 : 0.4;
+  const factor = 1 + (scale - 1) * dampening;
+
+  // Wider clamp range: allow shrink to 88% on tiny phones, grow to 150% on large tablets
+  const clamped = Math.max(0.88, Math.min(1.5, factor));
   return PixelRatio.roundToNearestPixel(size * clamped);
 }
 
