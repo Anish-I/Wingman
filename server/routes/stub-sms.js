@@ -61,7 +61,13 @@ router.post('/sms', async (req, res) => {
       try {
         await resumeWorkflowRun(pendingReply.run_id, body);
       } catch (err) {
+        const { unclaimPendingReply } = require('../db/queries');
+        try { await unclaimPendingReply(pendingReply.id); } catch (_) { /* best-effort */ }
         logger.error({ err: err.message }, '[stub-sms] Workflow resume error');
+        const failMsg = 'Sorry, something went wrong resuming your workflow. Please try again.';
+        await provider.sendMessage(from, failMsg);
+        await appendMessage(user.id, 'assistant', failMsg);
+        return res.json({ success: true, response: failMsg });
       }
       const replyText = 'Got it! Processing your reply...';
       await provider.sendMessage(from, replyText);
