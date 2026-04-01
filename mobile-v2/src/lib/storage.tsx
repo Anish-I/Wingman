@@ -24,7 +24,17 @@ export async function initStorage(): Promise<void> {
 
   initPromise = (async () => {
     if (Platform.OS === 'web') {
-      storage = createMMKV({ id: 'wingman-storage' });
+      // Encrypt web MMKV with a per-session random key so data at rest in
+      // localStorage is not readable by XSS scripts inspecting Storage APIs.
+      // The key lives only in JS memory — same session scope as the in-memory
+      // JWT token — so a page refresh clears both auth and cached data, which
+      // is the accepted web trade-off (re-auth required on refresh).
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const webEncryptionKey = Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      storage = createMMKV({ id: 'wingman-storage', encryptionKey: webEncryptionKey });
       return;
     }
 
