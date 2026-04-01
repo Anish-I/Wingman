@@ -118,6 +118,15 @@ export default function PhoneScreen() {
     }
   }
 
+  function focusInput(idx: number) {
+    const input = inputs.current[idx];
+    if (!input) return;
+    input.focus();
+    if (Platform.OS === 'web' && input instanceof HTMLElement) {
+      input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
   function handleCodeChange(text: string, idx: number) {
     const digits = text.replace(/\D/g, '');
     if (digits.length > 1) {
@@ -128,7 +137,7 @@ export default function PhoneScreen() {
       }
       setCode(newCode);
       const nextIdx = Math.min(idx + digits.length, 5);
-      inputs.current[nextIdx]?.focus();
+      focusInput(nextIdx);
       setActiveIdx(nextIdx);
       return;
     }
@@ -136,14 +145,14 @@ export default function PhoneScreen() {
     newCode[idx] = digits;
     setCode(newCode);
     if (digits && idx < 5) {
-      inputs.current[idx + 1]?.focus();
+      focusInput(idx + 1);
       setActiveIdx(idx + 1);
     }
   }
 
   function handleKeyPress(e: any, idx: number) {
     if (e.nativeEvent.key === 'Backspace' && !code[idx] && idx > 0) {
-      inputs.current[idx - 1]?.focus();
+      focusInput(idx - 1);
       setActiveIdx(idx - 1);
     }
   }
@@ -165,7 +174,7 @@ export default function PhoneScreen() {
         showAlert('Verification Failed', 'No valid authentication token received. Please try again.');
         setCode(['', '', '', '', '', '']);
         setActiveIdx(0);
-        inputs.current[0]?.focus();
+        focusInput(0);
         return;
       }
       signIn(data.token);
@@ -197,7 +206,7 @@ export default function PhoneScreen() {
       showAlert('Verification Failed', String(message));
       setCode(['', '', '', '', '', '']);
       setActiveIdx(0);
-      inputs.current[0]?.focus();
+      focusInput(0);
     } finally {
       setLoading(false);
       verifyingRef.current = false;
