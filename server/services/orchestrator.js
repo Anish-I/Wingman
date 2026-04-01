@@ -123,18 +123,28 @@ const ORPHAN_SWEEP_INTERVAL_MS = parseInt(process.env.ORPHAN_SWEEP_INTERVAL_MS |
 const _REAPED = Symbol('orphan-reaped');
 
 // Add an orphan entry to Redis.  Returns a token string for later removal.
+// Enforces MAX_ORPHANED_PROMISES at insertion time so a user who already has
+// entries in the map cannot keep generating orphans past the limit.
 async function _addOrphan(userId) {
-  const token = crypto.randomUUID();
   const key = ORPHAN_KEY_PREFIX + userId;
   try {
+    // Prune expired entries and check count BEFORE inserting.
+    const cutoff = Date.now() - ORPHAN_WINDOW_MS;
+    await redis.zremrangebyscore(key, '-inf', cutoff);
+    const currentCount = await redis.zcard(key);
+    if (currentCount >= MAX_ORPHANED_PROMISES) {
+      logger.warn(`[user:${userId}] Orphan limit enforced at insertion (${currentCount}/${MAX_ORPHANED_PROMISES})`);
+      return null;
+    }
+    const token = crypto.randomUUID();
     await redis.zadd(key, Date.now(), token);
     // Auto-expire the key if no sweep or removal happens (e.g. process dies).
     await redis.pexpire(key, ORPHAN_REAP_TIMEOUT + 60000);
+    return token;
   } catch (err) {
     logger.error({ err: err.message }, `[user:${userId}] Failed to track orphan in Redis`);
     return null;
   }
-  return token;
 }
 
 // Remove a specific orphan entry from Redis.
