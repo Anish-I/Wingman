@@ -1085,6 +1085,22 @@ async function _processMessageInner(user, messageText, abortController = { abort
     inflight.resolve(null);
   }
 
+  // Retry any previously failed memory extraction for this user before starting a new one.
+  const memoryRetryKey = `wingman:memory_retry:${userId}`;
+  try {
+    const retryPayload = await redis.get(memoryRetryKey);
+    if (retryPayload) {
+      const { messages: retryMessages, retries } = JSON.parse(retryPayload);
+      await redis.del(memoryRetryKey);
+      logger.info(`[user:${userId}] retrying failed memory extraction (attempt ${retries}/3)`);
+      extractAndSaveMemory(user, retryMessages).catch(err => {
+        logger.error({ err: err.message }, `[user:${userId}] memory retry extraction failed`);
+      });
+    }
+  } catch (retryErr) {
+    logger.error({ err: retryErr.message }, `[user:${userId}] failed to check memory retry queue`);
+  }
+
   // Extract memory in background — tracked so graceful shutdown can drain pending work.
   // Snapshot messages so extraction works on a frozen copy — the live array
   // may be mutated by subsequent requests after the lock is released.
@@ -1094,7 +1110,28 @@ async function _processMessageInner(user, messageText, abortController = { abort
   if (memoryTimer.unref) memoryTimer.unref();
   const messagesSnapshot = messages.map(m => ({ ...m }));
   const memoryPromise = extractAndSaveMemory(user, messagesSnapshot, { signal: memoryAC.signal })
-    .catch(err => { logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`); })
+    .catch(async (err) => {
+      logger.error({ err: err.message }, `[user:${userId}] memory extraction failed`);
+      // Persist failed payload to Redis so next extraction can retry it
+      try {
+        const retryKey = `wingman:memory_retry:${userId}`;
+        const existing = await redis.get(retryKey);
+        const retries = existing ? JSON.parse(existing).retries || 0 : 0;
+        if (retries < 3) {
+          await redis.set(retryKey, JSON.stringify({
+            messages: messagesSnapshot,
+            retries: retries + 1,
+            failedAt: Date.now(),
+          }), 'EX', 3600); // 1 hour TTL
+          logger.info(`[user:${userId}] queued memory extraction retry (attempt ${retries + 1}/3)`);
+        } else {
+          logger.warn(`[user:${userId}] memory extraction retry limit reached, discarding payload`);
+          await redis.del(retryKey);
+        }
+      } catch (retryErr) {
+        logger.error({ err: retryErr.message }, `[user:${userId}] failed to queue memory retry`);
+      }
+    })
     .finally(() => {
       clearTimeout(memoryTimer);
       _pendingMemoryExtractions.delete(memoryPromise);
