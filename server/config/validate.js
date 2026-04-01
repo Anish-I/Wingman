@@ -124,7 +124,9 @@ function validateEnv() {
     }
   }
 
-  // In production, Google OAuth vars are required — without them OAuth login fails at runtime
+  // In production, Google/Apple OAuth vars are required — without them OAuth login fails at runtime.
+  // APPLE_CLIENT_ID is especially critical: if unset, Apple JWT verification would accept tokens
+  // with any audience claim, meaning a token from a different app could pass as valid.
   if (isProduction) {
     if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID.trim() === '') {
       missing.push('GOOGLE_CLIENT_ID');
@@ -132,6 +134,11 @@ function validateEnv() {
     if (!process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET.trim() === '') {
       missing.push('GOOGLE_CLIENT_SECRET');
     }
+    if (!process.env.APPLE_CLIENT_ID || process.env.APPLE_CLIENT_ID.trim() === '') {
+      missing.push('APPLE_CLIENT_ID');
+    }
+  } else if (!process.env.APPLE_CLIENT_ID || process.env.APPLE_CLIENT_ID.trim() === '') {
+    console.warn('[env-validate] WARN: APPLE_CLIENT_ID is not set — Apple sign-in will reject all tokens at runtime.');
   }
 
   // At least one LLM provider API key must be set — without one, chat is completely broken.
