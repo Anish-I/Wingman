@@ -1964,7 +1964,15 @@ async function isTokenRevoked(jti, userId, iat) {
   // Authoritative check: PostgreSQL persistent blacklist
   try {
     const pgRows = await checkBlacklistEntries(keys);
-    if (!pgRows.length) return false;
+    if (!pgRows.length) {
+      // Token is not revoked.  Cache "not-revoked" sentinels in Redis so
+      // subsequent requests within the TTL window hit the fast path and skip
+      // the PG round-trip.  Without this, every normal request falls through
+      // to PG because none of the blacklist keys exist in Redis (all null),
+      // failing the `every(r => r !== null)` trust check above.
+      _cacheNegativeBlacklist(keys).catch(() => {});
+      return false;
+    }
 
     const pgMap = Object.fromEntries(pgRows.map(r => [r.key, r.value]));
     if (pgMap[tokenKey] === '1') {
@@ -1982,6 +1990,12 @@ async function isTokenRevoked(jti, userId, iat) {
         return true;
       }
     }
+
+    // PG had rows but none matched this token's revocation conditions.
+    // Cache sentinels for the keys that weren't in PG so subsequent checks
+    // can trust the Redis negative.
+    const missingKeys = keys.filter(k => !(k in pgMap));
+    if (missingKeys.length) _cacheNegativeBlacklist(missingKeys).catch(() => {});
   } catch (err) {
     // Fail closed: if PG is also unavailable, reject the token
     logger.error({ err: err.message }, 'Blacklist PG fallback failed — failing closed');
@@ -2020,6 +2034,33 @@ async function _restoreToRedis(key, value) {
     await redis.set(key, value, 'EX', ttl);
   } catch {
     // Ignore — Redis may still be recovering
+  }
+}
+
+// TTL for negative-blacklist sentinels cached in Redis (seconds).
+// Short enough that a revocation is picked up promptly, long enough to
+// avoid hammering PG on every authenticated request.
+const NEGATIVE_BLACKLIST_TTL = parseInt(process.env.NEGATIVE_BLACKLIST_TTL || '300', 10);
+
+/**
+ * Cache "not-revoked" sentinel values ('0') in Redis for the given keys.
+ * This populates Redis so that the `every(r => r !== null)` trust check in
+ * isTokenRevoked returns true on subsequent requests, preventing unnecessary
+ * PG round-trips for tokens that are confirmed non-revoked.
+ *
+ * Uses NX (set-if-not-exists) so that a concurrent revocation that wrote '1'
+ * or a real timestamp is never overwritten by a stale '0'.
+ */
+async function _cacheNegativeBlacklist(keys) {
+  if (!keys.length) return;
+  try {
+    const pipeline = redis.pipeline();
+    for (const key of keys) {
+      pipeline.set(key, '0', 'EX', NEGATIVE_BLACKLIST_TTL, 'NX');
+    }
+    await pipeline.exec();
+  } catch {
+    // Best-effort — Redis may be recovering
   }
 }
 
