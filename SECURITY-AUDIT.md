@@ -133,7 +133,7 @@ In staging or any non-production environment, CORS defaults to `http://localhost
 
 ### M5. No CSRF Protection
 
-The server uses CORS with `credentials: true` but has no CSRF token mechanism. State-changing operations (POST/PATCH/DELETE) rely solely on the JWT Bearer token. Since JWTs are stored in localStorage (web) rather than cookies, this is **currently mitigated** for the web client. However, if cookies are ever introduced, CSRF becomes exploitable.
+The server uses CORS with `credentials: true` but has no CSRF token mechanism. State-changing operations (POST/PATCH/DELETE) rely on Bearer authentication today. The current web clients keep JWTs in memory rather than cookies, which limits CSRF exposure. If server-managed httpOnly cookie auth becomes primary, CSRF becomes exploitable without additional protections.
 
 **Impact:** Low currently, but high risk if cookie-based auth is added.
 **Remediation:** Add CSRF tokens or use the `SameSite` cookie attribute if switching to cookie-based auth.
@@ -148,24 +148,17 @@ The server uses CORS with `credentials: true` but has no CSRF token mechanism. S
 
 ## LOW
 
-### L1. Web Client Stores JWT in localStorage
+### ~~L1. Web Client Stores JWT in localStorage~~ — FIXED (2026-04-04)
 
-**File:** `web/lib/auth.js:8-10`
+**Files:** `mobile-v2/src/lib/auth/utils.tsx`, `mobile/src/auth.ts`
 
-```js
-localStorage.setItem(TOKEN_KEY, token);
-```
-
-localStorage is accessible to any JavaScript running on the same origin. If an XSS vulnerability exists, the token can be exfiltrated. httpOnly cookies are more resistant to XSS.
-
-**Impact:** Token theft if XSS is present.
-**Remediation:** Consider httpOnly cookies for web sessions. The mobile app using MMKV is fine.
+**Fix:** Web auth tokens are now kept in memory only and are never written to `localStorage`/`sessionStorage`. Native clients continue using platform-secure storage. This removes the straightforward XSS token-exfiltration path from browser storage APIs while preserving the existing Bearer-token flow.
 
 ### L2. ~~Mobile MMKV Storage Not Encrypted~~ — FIXED (2026-03-18)
 
 **File:** `mobile-v2/src/lib/storage.tsx`
 
-**Fix:** MMKV is now initialized with a 256-bit encryption key generated via `crypto.getRandomValues()` and stored securely in `expo-secure-store` (Keychain on iOS, Keystore on Android). On web, MMKV remains unencrypted (browser storage model). Falls back to unencrypted MMKV if SecureStore is unavailable.
+**Fix:** MMKV is now initialized with a 256-bit encryption key generated via `crypto.getRandomValues()` and stored securely in `expo-secure-store` (Keychain on iOS, Keystore on Android). On web, MMKV uses a per-session random encryption key, and JWTs do not live in MMKV on web at all. Native storage initialization refuses to fall back to unencrypted MMKV.
 
 ### L3. ~~PIN Validation Allows Non-Numeric Input~~ — FIXED (2026-03-17)
 
@@ -222,7 +215,7 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
 | HIGH     | 8 | 8 | 0 | All fixed |
 | MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
-| LOW      | 6 | 4 | 2 | localStorage JWT (L1), trust proxy (L6) |
+| LOW      | 6 | 5 | 1 | trust proxy (L6) |
 
 ## Priority Actions
 

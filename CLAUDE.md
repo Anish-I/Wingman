@@ -49,8 +49,8 @@ mobile-v2/
   src/features/chat/         — Chat API + UI
   src/features/apps/         — App connection status API
   src/lib/api/client.tsx     — Axios client with Bearer token + 401 auto-logout
-  src/lib/auth/utils.tsx     — Token storage (MMKV, key: 'wingman_jwt')
-  src/lib/storage.tsx        — MMKV init (encrypted on native, plain on web)
+  src/lib/auth/utils.tsx     — Token storage (native SecureStore, web in-memory only; key: 'wingman_jwt' on native)
+  src/lib/storage.tsx        — MMKV init (native SecureStore-backed encryption, web per-session encryption key)
   src/data/composio-apps.json — All 1,008 Composio apps with logo URLs
   env.ts                     — EXPO_PUBLIC_API_URL (default: localhost:3001)
 ```
@@ -77,7 +77,7 @@ CORS_ORIGIN=http://localhost:8081
 ## Auth Flow
 1. User enters phone → `POST /auth/request-otp` → OTP stored in Redis (10min TTL)
 2. User enters 6-digit code → `POST /auth/verify-otp` → JWT returned
-3. App stores JWT in MMKV (`wingman_jwt`), Axios interceptor adds `Bearer` header
+3. App stores JWT in SecureStore on native and keeps it in memory only on web; Axios interceptor adds `Bearer` header
 4. `(app)/_layout.tsx` guard: `signOut` → redirect `/login`, `idle` → render nothing, `signIn` → show tabs
 5. 401 from server → auto-signOut via Axios response interceptor
 
