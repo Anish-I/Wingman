@@ -58,6 +58,19 @@ export const useSendMessage = createMutation<ChatResponse, ChatVariables>({
         if (!err.response) {
           throw new Error('Unable to reach the server. Check your connection.');
         }
+        if (err.response?.status === 429) {
+          // Server rate limit or overload — tell the user to slow down.
+          // The Retry-After header (seconds) indicates when they can retry.
+          const retryAfter = err.response.headers?.['retry-after'];
+          const waitMsg = retryAfter ? ` Try again in ${retryAfter}s.` : ' Please wait a moment before trying again.';
+          throw new Error(`You're sending messages too quickly.${waitMsg}`);
+        }
+        if (err.response?.status === 409) {
+          throw new Error('This message is already being processed. Please wait for a response.');
+        }
+        if (err.response?.status === 503) {
+          throw new Error('The service is temporarily unavailable. Please try again shortly.');
+        }
         if (err.response?.status === 500) {
           throw new Error('The server encountered an error. The AI service may not be configured yet.');
         }
