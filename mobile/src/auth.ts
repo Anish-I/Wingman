@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 const TOKEN_KEY = 'wingman_jwt';
 
 const isWeb = Platform.OS === 'web';
+let memoryToken: string | null = null;
 
 function isSessionToken(token: string): boolean {
   if (token.startsWith('demo.')) return false;
@@ -17,7 +18,7 @@ async function getSecureStore() {
 
 export async function saveToken(token: string): Promise<void> {
   if (isWeb) {
-    localStorage.setItem(TOKEN_KEY, token);
+    memoryToken = token;
   } else {
     const SecureStore = await getSecureStore();
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -26,7 +27,7 @@ export async function saveToken(token: string): Promise<void> {
 
 export async function getToken(): Promise<string | null> {
   if (isWeb) {
-    return localStorage.getItem(TOKEN_KEY);
+    return memoryToken;
   }
   const SecureStore = await getSecureStore();
   return SecureStore.getItemAsync(TOKEN_KEY);
@@ -34,7 +35,7 @@ export async function getToken(): Promise<string | null> {
 
 export async function clearToken(): Promise<void> {
   if (isWeb) {
-    localStorage.removeItem(TOKEN_KEY);
+    memoryToken = null;
   } else {
     const SecureStore = await getSecureStore();
     await SecureStore.deleteItemAsync(TOKEN_KEY);

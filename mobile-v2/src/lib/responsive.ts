@@ -47,8 +47,11 @@ export function useResponsive() {
   const appIconSize = isLargeTablet ? 64 : isTablet ? 56 : 52;
   const appLogoSize = isLargeTablet ? 40 : isTablet ? 36 : 32;
 
-  // Chat bubble max width: wider on tablets
-  const chatMaxWidth: DimensionValue = isLargeTablet ? '60%' : isTablet ? '68%' : '78%';
+  // Chat bubble max width: keep phones readable, but let tablet/web layouts
+  // scale up instead of staying artificially narrow in wider containers.
+  const chatMaxWidth: DimensionValue = isTablet
+    ? Math.min(Math.round(width * 0.86), 920)
+    : '78%';
 
   // Standalone app-card component (emoji-based)
   const standaloneCardWidth = isLargeTablet ? 112 : isTablet ? 100 : 88;
