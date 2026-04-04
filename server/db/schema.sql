@@ -171,7 +171,8 @@ CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_history_message_id ON conversation_history(message_id) WHERE message_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id_status_completed_at
+  ON workflow_runs(workflow_id, status, completed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_id ON workflow_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status) WHERE status IN ('waiting', 'delayed');
 CREATE INDEX IF NOT EXISTS idx_workflow_pending_replies_user_id ON workflow_pending_replies(user_id);

@@ -7,5 +7,7 @@ CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
 DROP INDEX IF EXISTS idx_connected_apps_user_id;
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_id ON conversation_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_history_user_role ON conversation_history(user_id, role);
-CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
+DROP INDEX IF EXISTS idx_workflow_runs_workflow_id;
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id_status_completed_at
+  ON workflow_runs(workflow_id, status, completed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_pending_replies_user_id ON workflow_pending_replies(user_id);
