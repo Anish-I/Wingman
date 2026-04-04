@@ -12,6 +12,7 @@ import {
   Image,
   Animated,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
@@ -105,6 +106,8 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const { width } = useWindowDimensions();
+  const bubbleMaxWidth = width >= 960 ? '88%' : width >= 768 ? '84%' : '78%';
 
   async function send() {
     if (!input.trim() || loading) return;
@@ -197,13 +200,13 @@ export default function ChatScreen() {
             </StatusRing>
           )}
           {isUser ? (
-            <View style={[styles.bubble, styles.bubbleUser]}>
+            <View style={[styles.bubble, { maxWidth: bubbleMaxWidth }, styles.bubbleUser]}>
               <Text style={[styles.bubbleText, styles.bubbleTextUser]}>
                 {item.content}
               </Text>
             </View>
           ) : (
-            <View style={[styles.bubble, styles.bubbleAssistant]}>
+            <View style={[styles.bubble, { maxWidth: bubbleMaxWidth }, styles.bubbleAssistant]}>
               <Text style={styles.bubbleText}>
                 {item.content}
               </Text>
@@ -419,7 +422,6 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 28, height: 28 },
   bubble: {
-    maxWidth: '78%',
     borderRadius: radius.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
