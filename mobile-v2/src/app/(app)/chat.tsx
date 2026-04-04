@@ -1,6 +1,7 @@
 import type { Message } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
+import * as Haptics from 'expo-haptics';
 import Env from 'env';
 import { MotiView } from 'moti';
 import * as React from 'react';
@@ -14,6 +15,7 @@ import { useSendMessage, CHAT_TIMEOUT_MS } from '@/features/chat/api';
 import { useChatStore, getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey, trackFailedContent, getFailedContentKey, clearFailedContent, setPendingMsgIds, getPendingMsgIds, clearPendingMsgIds } from '@/features/chat/store';
 import { springs, delays, staggerDelay, popIn, entrance, chipPressStyle, cardPressStyle, sendButtonAnimate, webInteractive, gentleFloat, useReducedMotion, maybeReduce } from '@/lib/motion';
 
+const IS_NATIVE = Platform.OS === 'ios' || Platform.OS === 'android';
 const IS_STUB = !Env.EXPO_PUBLIC_API_URL || Env.EXPO_PUBLIC_API_URL === 'http://localhost:3001';
 
 const PIP_GREETINGS = [
@@ -302,6 +304,7 @@ export default function ChatScreen() {
       }
       // Mark user message as sent
       updateMessage(userMsgId, { status: 'sent' });
+      if (IS_NATIVE) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Fresh snapshot from store to avoid stale closure
       const freshMessages = useChatStore.getState().messages;
       const existingAssistant = freshMessages.find(m => m.id === assistantMsgId);
@@ -341,6 +344,7 @@ export default function ChatScreen() {
       }
       // Mark user message as failed
       updateMessage(userMsgId, { status: 'failed' });
+      if (IS_NATIVE) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       // Fresh snapshot from store to avoid stale closure
       const freshMessages = useChatStore.getState().messages;
       if (!freshMessages.some(m => m.id === assistantMsgId)) {
@@ -565,7 +569,7 @@ export default function ChatScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Retry sending message"
-                      onPress={() => retry(item.id)}
+                      onPress={() => { if (IS_NATIVE) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); retry(item.id); }}
                       hitSlop={12}
                       style={[styles.retryButton, webInteractive()]}
                     >
@@ -716,7 +720,7 @@ export default function ChatScreen() {
                             ? { boxShadow: `0 0 0 2px ${prompt.color}40` } as any
                             : undefined,
                         ]}
-                        onPress={() => send(prompt.text)}
+                        onPress={() => { if (IS_NATIVE) Haptics.selectionAsync(); send(prompt.text); }}
                       >
                         <View
                           style={[styles.promptIconContainer, { backgroundColor: `${prompt.color}18` }]}
@@ -803,7 +807,7 @@ export default function ChatScreen() {
                     : undefined,
                   webInteractive(!canSend),
                 ]}
-                onPress={() => send()}
+                onPress={() => { if (IS_NATIVE) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); send(); }}
                 disabled={!canSend}
               >
                 <Ionicons name="arrow-up" size={20} color={canSend ? base.white : t.muted} />
