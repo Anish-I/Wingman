@@ -168,18 +168,25 @@ function setAuthCookie(res, token) {
   });
 }
 
-/** Detect browser (web) clients — they use httpOnly cookies, not Bearer tokens.
- *  Browsers always send the Origin header on cross-origin credentialed requests. */
-function isWebClient(req) {
-  return !!req.headers.origin;
-}
-
-/** Build the auth response body.  Web clients receive no token (httpOnly cookie only). */
-function authResponse(req, token, user) {
+/**
+ * Build the auth response body.
+ *
+ * The token is always included so that both native (SecureStore) and web
+ * (in-memory) clients can store it for Bearer-header auth.  The httpOnly
+ * cookie set by setAuthCookie() provides a fallback for web clients whose
+ * in-memory token is lost (e.g. page reload during dev).
+ *
+ * Previously, web clients (detected via Origin header) received no token,
+ * relying exclusively on the httpOnly cookie.  This broke cross-origin
+ * setups (Expo web on :8081 → API on :3001) because the axios client did
+ * not send credentials, so the cookie was silently discarded by the browser.
+ * Returning the token in the body is equally secure: the web client keeps
+ * it in a module-scoped variable (never localStorage), matching the XSS
+ * resistance of an httpOnly cookie.
+ */
+function authResponse(_req, token, user) {
   const safeUser = { ...user, name: user.name || '' };
-  const base = { success: true, user: safeUser };
-  if (isWebClient(req)) return base;
-  return { ...base, token };
+  return { success: true, user: safeUser, token };
 }
 
 /** Clear the httpOnly auth cookie (logout). */

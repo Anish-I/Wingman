@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { Platform } from 'react-native';
 import Env from 'env';
 import { showMessage } from 'react-native-flash-message';
 import { getToken, setToken } from '@/lib/auth/utils';
@@ -8,6 +9,12 @@ import { signOut } from '@/features/auth/use-auth-store';
 export const client = axios.create({
   baseURL: Env.EXPO_PUBLIC_API_URL,
   timeout: 10_000,
+  // Enable cross-origin cookie sending on web so the httpOnly session cookie
+  // set by the server is stored and transmitted.  On native (iOS/Android) this
+  // is a no-op since there is no browser cookie jar.  The primary auth
+  // mechanism remains the Bearer header; the cookie is a defence-in-depth
+  // fallback (e.g. if the in-memory token is lost on web during dev reloads).
+  withCredentials: Platform.OS === 'web',
 });
 
 // --- JWT expiry helpers ---
@@ -47,6 +54,7 @@ async function tryRefreshToken(failedToken: string): Promise<string | null> {
       {
         headers: { Authorization: `Bearer ${failedToken}` },
         timeout: 10_000,
+        withCredentials: Platform.OS === 'web',
       },
     );
     const newToken: string | undefined = res.data?.token;

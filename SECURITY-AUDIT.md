@@ -104,20 +104,11 @@ OTP verification used HMAC-SHA256 with `JWT_SECRET` as the key. Using the same s
 
 **Extended fix (2026-03-19):** The Google OAuth callback (`GET /auth/google/callback`) also put the full JWT in the redirect URL. Replaced with a 60-second single-use auth code backed by Redis. New `POST /auth/exchange-code` endpoint lets the client exchange the code for a JWT. Updated `connect/callback.tsx` and `signup.tsx` on mobile to use the code exchange flow.
 
-### M2. CORS Defaults to localhost in Non-Production
+### ~~M2. CORS Defaults to localhost in Non-Production~~ — FIXED (2026-04-05)
 
-**File:** `server/index.js:23-31`
+**File:** `server/index.js`, `server/config/cors.js`
 
-```js
-const corsOrigin = process.env.CORS_ORIGIN;
-if (process.env.NODE_ENV === 'production' && !corsOrigin) { process.exit(1); }
-app.use(cors({ origin: corsOrigin || 'http://localhost:3000', credentials: true }));
-```
-
-In staging or any non-production environment, CORS defaults to `http://localhost:3000`. If the staging server is publicly accessible (e.g., via Cloudflare Tunnel), the CORS restriction is effectively meaningless since it only allows localhost, but the `credentials: true` flag combined with a missing origin validation could be exploited.
-
-**Impact:** Cross-origin attacks on non-production but publicly exposed instances.
-**Remediation:** Always require explicit CORS_ORIGIN configuration when the server is publicly accessible.
+**Fix:** `CORS_ORIGIN` is now required in ALL environments — the server calls `process.exit(1)` if it is not set. The localhost fallback has been removed entirely. A dedicated `createCorsOptions()` factory in `server/config/cors.js` validates the `Origin` header against the allowlist and rejects unknown origins with a 403. Requests without an `Origin` header (non-browser clients like native apps, health probes, and curl) are allowed through without CORS headers, since CORS is a browser-only mechanism and server-side auth (JWT) is the primary control.
 
 ### M3. ~~Webhook Signature Validation Skipped in Development~~ — FIXED (2026-03-17)
 
@@ -181,18 +172,11 @@ The `composio-core` package has a transitive dependency chain (`external-editor`
 
 **Fix:** `jsonwebtoken` is now actively used: `connect.js` uses it for OAuth state token signing/verification, and `auth.js` uses it for session JWT signing and Apple Sign-In token verification (with `jwks-rsa`).
 
-### L6. `trust proxy` Set Without Specific Proxy Count
+### ~~L6. `trust proxy` Set Without Specific Proxy Count~~ — FIXED (2026-04-05)
 
-**File:** `server/index.js:17`
+**File:** `server/index.js`
 
-```js
-app.set('trust proxy', 1);
-```
-
-Setting `trust proxy` to `1` trusts a single proxy hop. This is correct for Cloudflare Tunnel but should be verified. If the infrastructure changes (e.g., adding a load balancer), rate limiting could be bypassed by spoofing `X-Forwarded-For`.
-
-**Impact:** Rate limit bypass if proxy topology changes.
-**Remediation:** Document the expected proxy chain; consider using `trust proxy` with specific addresses.
+**Fix:** `trust proxy` is no longer hardcoded. It is only enabled when `TRUST_PROXY` is explicitly set in the environment. The value is parsed as an integer (number of hops) if numeric, or passed as-is for named presets (`loopback`, comma-separated subnets, etc.). When unset, Express does not trust proxy headers at all, preventing `X-Forwarded-For` spoofing in environments without a real reverse proxy.
 
 ### ~~H7. Implicit Trust of LLM Tool Calls — No Access Control Before Execution~~ — FIXED (2026-03-23)
 
@@ -214,8 +198,8 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
 | HIGH     | 8 | 8 | 0 | All fixed |
-| MEDIUM   | 6 | 5 | 1 | CORS defaults (M2) |
-| LOW      | 6 | 5 | 1 | trust proxy (L6) |
+| MEDIUM   | 6 | 6 | 0 | All fixed |
+| LOW      | 6 | 6 | 0 | All fixed |
 
 ## Priority Actions
 
