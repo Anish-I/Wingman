@@ -178,6 +178,14 @@ The `composio-core` package has a transitive dependency chain (`external-editor`
 
 **Fix:** `trust proxy` is no longer hardcoded. It is only enabled when `TRUST_PROXY` is explicitly set in the environment. The value is parsed as an integer (number of hops) if numeric, or passed as-is for named presets (`loopback`, comma-separated subnets, etc.). When unset, Express does not trust proxy headers at all, preventing `X-Forwarded-For` spoofing in environments without a real reverse proxy.
 
+### ~~H8. Logout Endpoint Token-Revocation IDOR~~ — FIXED (2026-04-05)
+
+**File:** `server/routes/auth.js`
+
+The `POST /auth/logout` endpoint accepted a JWT via `req.body.token` (for `navigator.sendBeacon()` support) but did not verify that the token belonged to the authenticated user. An attacker authenticated via cookie could pass a different user's JWT in the request body, causing that user's session to be revoked (denial of service).
+
+**Fix:** Added ownership verification — the `userId` in the token being blacklisted must match `req.user.id` from the `requireAuth` middleware. Mismatches return 403 Forbidden.
+
 ### ~~H7. Implicit Trust of LLM Tool Calls — No Access Control Before Execution~~ — FIXED (2026-03-23)
 
 **File:** `server/services/orchestrator.js`, `server/services/composio.js`
@@ -197,7 +205,7 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
-| HIGH     | 8 | 8 | 0 | All fixed |
+| HIGH     | 9 | 9 | 0 | All fixed |
 | MEDIUM   | 6 | 6 | 0 | All fixed |
 | LOW      | 6 | 6 | 0 | All fixed |
 

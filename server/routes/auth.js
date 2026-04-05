@@ -1880,6 +1880,13 @@ router.post('/logout', requireAuth, async (req, res) => {
         payload = verifyToken(token, { clockTolerance: REFRESH_GRACE_SECONDS });
       }
       if (payload && payload.jti) {
+        // SECURITY: Verify the token being blacklisted belongs to the
+        // authenticated user.  Without this check, an attacker authenticated
+        // via cookie could pass a different user's JWT in req.body.token and
+        // force-revoke that user's session (token-revocation IDOR).
+        if (payload.userId !== req.user.id) {
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Cannot revoke a token belonging to another user.' } });
+        }
         // Blacklist for the remaining lifetime + refresh grace window so
         // expired-but-refreshable tokens are also covered.
         const naturalTtl = payload.exp - Math.floor(Date.now() / 1000);
