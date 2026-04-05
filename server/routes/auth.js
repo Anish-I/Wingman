@@ -302,12 +302,15 @@ async function signToken(payload, expiresInSeconds = 86400) {
 }
 
 function verifyToken(token, opts = {}) {
+  // Only allow safe options through — never let callers override algorithms,
+  // issuer, or audience, which would enable algorithm confusion attacks
+  // (e.g. switching to 'none') or issuer/audience bypass.
   const verifyOpts = {
     algorithms: ['HS256'],
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
-    ...opts,
   };
+  if (opts.clockTolerance != null) verifyOpts.clockTolerance = opts.clockTolerance;
 
   // Try to match by kid from the token header first (O(1) lookup)
   try {
