@@ -51,6 +51,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const { createCorsOptions } = require('./config/cors');
 
 const smsRoutes = require('./routes/sms');
 const authRoutes = require('./routes/auth');
@@ -128,15 +129,7 @@ if (!process.env.CORS_ORIGIN) {
   process.exit(1);
 }
 const allowedOrigins = [process.env.CORS_ORIGIN];
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
+app.use(cors(createCorsOptions(allowedOrigins)));
 
 // Cookie parsing (required for OAuth session binding)
 app.use(cookieParser());
