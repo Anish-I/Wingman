@@ -115,10 +115,19 @@ app.use(helmet({
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
-      upgradeInsecureRequests: [],
+      // Only upgrade insecure requests when HTTPS is enforced — avoids
+      // breaking local HTTP dev (localhost:3001 → HTTPS would fail).
+      ...(isHttpsEnforced ? { upgradeInsecureRequests: [] } : {}),
     },
   },
 }));
+
+// Permissions-Policy: restrict browser features the API server doesn't need.
+// Denies camera, microphone, geolocation, and payment to all contexts.
+app.use((_req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  next();
+});
 
 // CORS — only allow explicitly configured CORS_ORIGIN in all environments.
 // Previously, non-production added a broad localhost allowlist which could be
@@ -228,6 +237,19 @@ app.use((err, req, res, _next) => {
 
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT }, 'Wingman server running');
+
+  // HTTP server timeout hardening — prevents slowloris and slow-body attacks.
+  // headersTimeout: max time to receive complete request headers (rejects slow/stuck connections)
+  // requestTimeout: max time for the entire request including body (prevents slow-POST attacks)
+  // timeout: overall socket inactivity timeout (kills truly idle connections)
+  // keepAliveTimeout: idle time before closing a keep-alive connection (must be < headersTimeout)
+  //
+  // requestTimeout and timeout accommodate the 120s PROCESS_MESSAGE_TIMEOUT in the
+  // orchestrator plus overhead for body parsing and response serialization.
+  server.headersTimeout = 30_000;       // 30s — well above normal header delivery
+  server.requestTimeout = 180_000;      // 180s — covers 120s orchestrator + overhead
+  server.timeout = 180_000;             // 180s — overall socket inactivity
+  server.keepAliveTimeout = 20_000;     // 20s — connection reuse window (must be < headersTimeout)
 
   // Cleanup stale Redis conversation keys on startup
   const { cleanupStaleConversations } = require('./services/redis');

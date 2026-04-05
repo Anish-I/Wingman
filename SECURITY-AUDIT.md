@@ -122,12 +122,18 @@ OTP verification used HMAC-SHA256 with `JWT_SECRET` as the key. Using the same s
 
 **Fix:** Added per-user rate limiters: `chatLimiter` (30 req/15 min) for `/api/chat`, `workflowLimiter` (20 req/15 min) for `/api/workflows/plan` and `/api/workflows/:id/run`. Also added max chat message length validation (4000 chars) and UUID format validation on all `:id` route params to prevent abuse and unnecessary DB errors.
 
-### M5. No CSRF Protection
+### ~~M5. No CSRF Protection~~ — MITIGATED (2026-04-05)
 
-The server uses CORS with `credentials: true` but has no CSRF token mechanism. State-changing operations (POST/PATCH/DELETE) rely on Bearer authentication today. The current web clients keep JWTs in memory rather than cookies, which limits CSRF exposure. If server-managed httpOnly cookie auth becomes primary, CSRF becomes exploitable without additional protections.
+The server uses CORS with `credentials: true` and sets an httpOnly session cookie (`__wingman_sess`). The cookie uses `SameSite=Lax`, which blocks cross-site POST/PATCH/DELETE requests from sending the cookie — the exact methods used for all state-changing operations.
 
-**Impact:** Low currently, but high risk if cookie-based auth is added.
-**Remediation:** Add CSRF tokens or use the `SameSite` cookie attribute if switching to cookie-based auth.
+**Current protections:**
+1. `SameSite=Lax` on all auth cookies — blocks cross-origin subresource requests (forms, fetch, XHR) from attaching the cookie.
+2. All state-changing endpoints use POST/PATCH/DELETE (no GET side effects).
+3. CORS allowlist rejects unknown origins, providing a secondary defense.
+4. Web clients primarily use Bearer tokens (in-memory), not cookies.
+
+**Impact:** Low — `SameSite=Lax` provides effective CSRF protection for the current architecture.
+**Remaining risk:** If any GET endpoint gains side effects, or `SameSite` is relaxed to `None`, add explicit CSRF tokens.
 
 ### M6. ~~`updateUserPreferences` Accepts Arbitrary JSON~~ — FIXED (2026-03-17)
 
@@ -178,6 +184,34 @@ The `composio-core` package has a transitive dependency chain (`external-editor`
 
 **Fix:** `trust proxy` is no longer hardcoded. It is only enabled when `TRUST_PROXY` is explicitly set in the environment. The value is parsed as an integer (number of hops) if numeric, or passed as-is for named presets (`loopback`, comma-separated subnets, etc.). When unset, Express does not trust proxy headers at all, preventing `X-Forwarded-For` spoofing in environments without a real reverse proxy.
 
+### ~~L7. No HTTP Server Timeouts (Slowloris/Slow-POST Exposure)~~ — FIXED (2026-04-05)
+
+**File:** `server/index.js`
+
+The Node.js HTTP server used default timeouts: no `requestTimeout`, 60s `headersTimeout`, 5s `keepAliveTimeout`. This left the server vulnerable to slowloris attacks (slow header delivery to exhaust connections) and slow-POST attacks (dripping request body bytes to hold connections open).
+
+**Fix:** Configured explicit server timeouts:
+- `headersTimeout` = 30s — rejects connections that can't deliver complete headers promptly
+- `requestTimeout` = 180s — accommodates the 120s orchestrator processing timeout plus overhead
+- `timeout` = 180s — overall socket inactivity timeout
+- `keepAliveTimeout` = 20s — connection reuse window (must be < headersTimeout per Node.js requirement)
+
+### ~~L8. CSP `upgrade-insecure-requests` Always Enabled~~ — FIXED (2026-04-05)
+
+**File:** `server/index.js`
+
+The `upgrade-insecure-requests` CSP directive was always emitted regardless of environment. In local development (HTTP on localhost:3001), this directive tells browsers to upgrade all HTTP requests to HTTPS, which fails without TLS configured.
+
+**Fix:** `upgradeInsecureRequests` is now only included in the CSP when HTTPS is enforced (production or `FORCE_HTTPS=true`).
+
+### ~~L9. No Permissions-Policy Header~~ — FIXED (2026-04-05)
+
+**File:** `server/index.js`
+
+The server did not send a `Permissions-Policy` header, leaving browser feature access unrestricted. While this is an API server (not serving HTML), defense-in-depth dictates restricting features that should never be used.
+
+**Fix:** Added `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()` header to all responses, denying these features in all contexts.
+
 ### ~~H8. Logout Endpoint Token-Revocation IDOR~~ — FIXED (2026-04-05)
 
 **File:** `server/routes/auth.js`
@@ -206,8 +240,8 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
 | HIGH     | 9 | 9 | 0 | All fixed |
-| MEDIUM   | 6 | 6 | 0 | All fixed |
-| LOW      | 6 | 6 | 0 | All fixed |
+| MEDIUM   | 6 | 6 | 0 | All fixed (M5 mitigated via SameSite=Lax) |
+| LOW      | 9 | 9 | 0 | All fixed |
 
 ## Priority Actions
 
