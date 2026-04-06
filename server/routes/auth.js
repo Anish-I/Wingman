@@ -278,6 +278,15 @@ const refreshLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many refresh attempts, please try again later.' } },
 });
 
+// Rate limit account deletion: 3 per hour per IP (irreversible action)
+const accountDeleteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many account deletion attempts, please try again later.' } },
+});
+
 function isValidPhone(phone) {
   return typeof phone === 'string' && /^\+[1-9]\d{1,14}$/.test(phone);
 }
@@ -1740,7 +1749,9 @@ router.post('/verify-pin', requireAuth, async (req, res) => {
 // DELETE /auth/account — permanently delete the authenticated user's account and all data
 // Required for GDPR/CCPA compliance and Apple App Store guidelines.
 // Requires explicit confirmDeletion flag (CSRF signal) and PIN confirmation (if set).
-router.delete('/account', requireAuth, async (req, res) => {
+// Rate-limited per IP (accountDeleteLimiter) plus per-user PIN brute-force protection
+// sharing the same Redis keys as POST /auth/verify-pin so attempts are tracked together.
+router.delete('/account', requireAuth, accountDeleteLimiter, async (req, res) => {
   try {
     const { pin, confirmDeletion } = req.body || {};
 
@@ -1758,11 +1769,47 @@ router.delete('/account', requireAuth, async (req, res) => {
       if (!pin || typeof pin !== 'string') {
         return res.status(400).json({ error: { code: 'PIN_REQUIRED', message: 'PIN confirmation is required to delete your account.' } });
       }
+
+      // Shared lockout/attempt keys with POST /auth/verify-pin — prevents
+      // an attacker from brute-forcing the PIN via this endpoint while the
+      // verify-pin endpoint has its own rate limiting.
+      const lockoutKey = `pin_lockout:${req.user.id}`;
+      const cumulativeKey = `pin_cumulative_fails:${req.user.id}`;
+      const attemptKey = `pin_verify_attempts:${req.user.id}`;
+
+      const lockoutTTL = await redis.ttl(lockoutKey);
+      if (lockoutTTL > 0) {
+        const retryMin = Math.ceil(lockoutTTL / 60);
+        return res.status(429).json({ error: { code: 'ACCOUNT_LOCKED', message: `Account temporarily locked due to too many failed PIN attempts. Try again in ${retryMin} minute(s).` } });
+      }
+
+      const attempts = parseInt(await redis.get(attemptKey) || '0', 10);
+      if (attempts >= 5) {
+        return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many PIN verification attempts. Try again later.' } });
+      }
+
       const hashToCheck = req.user.pin_hash || DUMMY_HASH;
       const valid = await bcrypt.compare(pin, hashToCheck);
       if (!req.user.pin_hash) {
         // No PIN set — proceed with deletion (bcrypt ran only for timing parity)
       } else if (!valid) {
+        // Increment shared counters on failure
+        await redis.incr(attemptKey);
+        await redis.expire(attemptKey, 15 * 60);
+
+        const cumulative = await redis.incr(cumulativeKey);
+        if (cumulative === 1) await redis.expire(cumulativeKey, 24 * 60 * 60);
+
+        // Escalating lockout thresholds: 10 → 1h, 15 → 4h, 20 → 24h
+        let lockoutSeconds = 0;
+        if (cumulative >= 20) lockoutSeconds = 24 * 60 * 60;
+        else if (cumulative >= 15) lockoutSeconds = 4 * 60 * 60;
+        else if (cumulative >= 10) lockoutSeconds = 60 * 60;
+
+        if (lockoutSeconds > 0) {
+          await redis.set(lockoutKey, '1', 'EX', lockoutSeconds);
+        }
+
         return res.status(403).json({ error: { code: 'INVALID_PIN', message: 'Incorrect PIN.' } });
       }
     }

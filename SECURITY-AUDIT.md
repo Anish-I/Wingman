@@ -220,6 +220,16 @@ The `POST /auth/logout` endpoint accepted a JWT via `req.body.token` (for `navig
 
 **Fix:** Added ownership verification — the `userId` in the token being blacklisted must match `req.user.id` from the `requireAuth` middleware. Mismatches return 403 Forbidden.
 
+### ~~H9. Account Deletion Endpoint Missing PIN Brute-Force Protection~~ — FIXED (2026-04-05)
+
+**File:** `server/routes/auth.js`
+
+The `DELETE /auth/account` endpoint required PIN confirmation (if set) but had no rate limiting on failed PIN attempts. Unlike `POST /auth/verify-pin` which enforced per-window limits (5 attempts/15 min) and escalating lockout (10 cumulative failures → 1h lock, 15 → 4h, 20 → 24h), the deletion endpoint accepted unlimited PIN guesses. An attacker with a stolen JWT could brute-force a 4-digit PIN (~10,000 combinations) via this endpoint at 100 attempts per 15 minutes (global rate limit only), cracking it within ~25 hours.
+
+**Fix:** Added two layers of rate limiting:
+1. **IP-based rate limit** — `accountDeleteLimiter` (3 requests/hour per IP) via `express-rate-limit`, reflecting the irreversible nature of the operation.
+2. **Per-user PIN brute-force protection** — Shares the same Redis lockout/attempt keys (`pin_lockout:`, `pin_verify_attempts:`, `pin_cumulative_fails:`) as `POST /auth/verify-pin`. Failed PIN attempts on either endpoint increment the same counters, preventing an attacker from splitting guesses across endpoints to bypass limits. Escalating lockout thresholds (10 → 1h, 15 → 4h, 20 → 24h) apply identically.
+
 ### ~~H7. Implicit Trust of LLM Tool Calls — No Access Control Before Execution~~ — FIXED (2026-03-23)
 
 **File:** `server/services/orchestrator.js`, `server/services/composio.js`
@@ -239,7 +249,7 @@ The orchestrator previously executed all tool calls returned by the LLM without 
 | Severity | Total | Fixed | Remaining | Key Remaining Issues |
 |----------|-------|-------|-----------|---------------------|
 | CRITICAL | 3 | 2 | 1 | Secrets in git history (C1) |
-| HIGH     | 9 | 9 | 0 | All fixed |
+| HIGH     | 10 | 10 | 0 | All fixed |
 | MEDIUM   | 6 | 6 | 0 | All fixed (M5 mitigated via SameSite=Lax) |
 | LOW      | 9 | 9 | 0 | All fixed |
 
