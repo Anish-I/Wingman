@@ -1,5 +1,8 @@
 'use strict';
 
+// Keys that must be rejected to prevent prototype pollution
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
  * Validate tool-call arguments against the tool's JSON Schema parameters.
  * Returns null if valid, or an error string describing the violation.
@@ -8,7 +11,8 @@
  * 1. Arguments must be a plain object
  * 2. All required properties must be present
  * 3. No extra properties beyond what the schema defines (unless additionalProperties is true)
- * 4. Basic type checking per property (string, number, integer, boolean, array, object)
+ * 4. No prototype-pollution keys (__proto__, constructor, prototype)
+ * 5. Basic type checking per property (string, number, integer, boolean, array, object)
  */
 function validateToolArgs(args, schema) {
   if (!schema || typeof schema !== 'object') return null; // no schema to validate against
@@ -24,6 +28,13 @@ function validateToolArgs(args, schema) {
   for (const field of required) {
     if (!(field in args)) {
       return 'A required argument is missing';
+    }
+  }
+
+  // Reject prototype-pollution keys before any other property checks
+  for (const key of Object.keys(args)) {
+    if (DANGEROUS_KEYS.has(key)) {
+      return 'An argument key is not allowed';
     }
   }
 

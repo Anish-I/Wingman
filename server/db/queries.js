@@ -636,9 +636,13 @@ async function getLastWorkflowRunContext(workflowId) {
  * Arrays and non-plain-object values in source overwrite target; plain objects
  * are merged recursively so concurrent runs don't clobber each other's nested keys.
  */
+// Keys that must never be recursively assigned — prevents prototype pollution.
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function deepMergeContext(target, source) {
   const out = { ...target };
   for (const key of Object.keys(source)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
     const sv = source[key];
     const tv = target[key];
     if (

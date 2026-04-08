@@ -71,6 +71,8 @@ function deriveIdempotencyKey(req) {
 // --- Workflow action input sanitization ---
 // Whitelist: keys must be alphanumeric with underscores, hyphens, or dots (max 128 chars)
 const ALLOWED_KEY_RE = /^[a-zA-Z0-9_\-.]{1,128}$/;
+// Keys that must be rejected to prevent prototype pollution
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const MAX_INPUT_DEPTH = 5;
 const MAX_INPUT_KEYS = 50;
 const MAX_STRING_LENGTH = 10000;
@@ -104,6 +106,7 @@ function validateActionInput(obj, depth = 0) {
     const keys = Object.keys(obj);
     if (keys.length > MAX_INPUT_KEYS) return { valid: false, reason: 'An object has too many keys.' };
     for (const key of keys) {
+      if (DANGEROUS_KEYS.has(key)) return { valid: false, reason: 'An object key is not allowed.' };
       if (!ALLOWED_KEY_RE.test(key)) return { valid: false, reason: 'An object key contains invalid characters.' };
       const r = validateActionInput(obj[key], depth + 1);
       if (!r.valid) return r;

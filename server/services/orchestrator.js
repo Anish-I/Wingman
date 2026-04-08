@@ -19,6 +19,8 @@ const MAX_TOOL_INPUT_KEYS = 50;
 const MAX_TOOL_INPUT_STRING_LENGTH = 10000;
 const MAX_TOOL_INPUT_DEPTH = 5;
 const MAX_TOOL_INPUT_BYTES = 100 * 1024; // 100 KB serialized payload cap
+// Keys that must be rejected to prevent prototype pollution
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
  * Validate the size of a tool-call input to prevent memory exhaustion from
@@ -44,6 +46,7 @@ function validateToolInputSize(obj, depth = 0) {
   const keys = Object.keys(obj);
   if (keys.length > MAX_TOOL_INPUT_KEYS) return `object exceeds maximum number of keys (${MAX_TOOL_INPUT_KEYS})`;
   for (const key of keys) {
+    if (DANGEROUS_KEYS.has(key)) return `object key '${key}' is not allowed`;
     const r = validateToolInputSize(obj[key], depth + 1);
     if (r) return r;
   }
