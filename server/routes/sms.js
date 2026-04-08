@@ -3,7 +3,8 @@ const rateLimit = require('express-rate-limit');
 const logger = require('../services/logger');
 const { provider, PROVIDER, TwilioProvider, TelnyxProvider } = require('../services/messaging');
 const { getOrCreateUserByPhone } = require('../db/queries');
-const { appendMessage, deduplicateAndEnqueue, drainSMSQueue, acquireConversationLock, redis } = require('../services/redis');
+const { appendMessage, deduplicateAndEnqueue, drainSMSQueue, redis } = require('../services/redis');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -228,14 +229,38 @@ router.post('/sms', express.urlencoded({ extended: false }), async (req, res) =>
   }
 });
 
-// Lock TTL (seconds) — Redis auto-expires the key if the holder crashes.
-const LOCK_TTL_SECONDS = 120;
-// Maximum time (ms) to wait for the per-user conversation lock before giving up.
-// Must exceed LOCK_TTL_SECONDS so a stale lock from a crashed process
-// can be waited out rather than causing persistent failures.
-const LOCK_WAIT_MS = (LOCK_TTL_SECONDS + 10) * 1000; // TTL + 10s buffer
+// SMS queue drain lock — separate from the orchestrator's conversation lock
+// (conv:lock:*) to avoid deadlock.  The SMS handler acquires this lock to
+// atomically drain the per-phone queue, then calls processMessage which
+// acquires its own conv:lock.  Previously both used the same key, causing
+// every SMS to deadlock for ~120s until the outer lock TTL expired.
+const SMS_LOCK_TTL_SECONDS = 30;
+// Maximum time (ms) to wait for the SMS queue lock before giving up.
+const SMS_LOCK_WAIT_MS = (SMS_LOCK_TTL_SECONDS + 10) * 1000;
 const LOCK_POLL_BASE_MS = 500;
 const LOCK_POLL_MAX_MS = 4000;
+
+/**
+ * Acquire a per-phone SMS queue drain lock.  Uses a different key prefix
+ * (sms:drain:*) than the orchestrator's conversation lock (conv:lock:*)
+ * so the two never collide.
+ */
+async function acquireSMSDrainLock(phone, ttlSeconds = SMS_LOCK_TTL_SECONDS) {
+  const key = `sms:drain:${phone}`;
+  const token = `${Date.now()}:${crypto.randomBytes(16).toString('hex')}`;
+  const acquired = await redis.set(key, token, 'NX', 'EX', ttlSeconds);
+  if (acquired !== 'OK') return null;
+  return async function release() {
+    const RELEASE_LUA = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+    try {
+      await redis.eval(RELEASE_LUA, 1, key, token);
+    } catch (err) {
+      // Best-effort: shorten TTL so the lock doesn't block other handlers
+      try { await redis.expire(key, 3); } catch (_) { /* TTL will expire naturally */ }
+      logger.error({ err: err.message, phone }, '[sms] Failed to release drain lock');
+    }
+  };
+}
 
 async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   const respond = (status) => {
@@ -248,12 +273,15 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   // Message was already atomically enqueued by deduplicateAndEnqueue() —
   // no separate enqueueSMS call needed, eliminating the TOCTOU gap.
 
-  // --- Acquire the per-user conversation lock (wait with exponential back-off + jitter) ---
+  // --- Acquire per-phone SMS drain lock (NOT the conversation lock) ---
+  // The drain lock serializes queue reads so two concurrent webhooks for the
+  // same phone don't both drain and double-process.  processMessage() inside
+  // processSingleSMS will acquire its own conv:lock for conversation history.
   let release;
   let attempt = 0;
-  const deadline = Date.now() + LOCK_WAIT_MS;
+  const deadline = Date.now() + SMS_LOCK_WAIT_MS;
   while (!release && Date.now() < deadline) {
-    release = await acquireConversationLock(user.id, LOCK_TTL_SECONDS);
+    release = await acquireSMSDrainLock(phone, SMS_LOCK_TTL_SECONDS);
     if (!release) {
       const baseDelay = Math.min(LOCK_POLL_BASE_MS * Math.pow(2, attempt), LOCK_POLL_MAX_MS);
       const delay = Math.round(baseDelay * (0.5 + Math.random()));  // ±50% jitter to prevent thundering herd
@@ -263,7 +291,7 @@ async function handleIncomingSMS(phone, messageText, res, isTwilio) {
   }
   if (!release) {
     // Another handler has the lock and will drain our queued message
-    logger.warn({ phone }, '[sms] Lock wait timeout — message queued for processing by lock holder');
+    logger.warn({ phone }, '[sms] Drain lock wait timeout — message queued for processing by lock holder');
     return respond(200);
   }
 
