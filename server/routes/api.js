@@ -357,11 +357,14 @@ router.post('/notify/register', requireAuth, async (req, res) => {
 // PATCH /api/workflows/:id — update workflow (pause/resume)
 router.patch('/workflows/:id', validateIdParam, requireAuth, async (req, res) => {
   try {
-    const { active } = req.body;
+    const { active } = req.body || {};
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: '`active` must be a boolean.' } });
+    }
     const { query } = require('../db');
     const result = await query(
       'UPDATE workflows SET active = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *',
-      [active !== false, req.params.id, req.user.id]
+      [active, req.params.id, req.user.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow not found' } });
     res.json({ workflow: result.rows[0] });
