@@ -410,12 +410,18 @@ router.patch('/user/preferences', requireAuth, async (req, res) => {
   }
 });
 
+// Max workflow plan description length (chars) — prevents LLM cost abuse
+const MAX_PLAN_DESCRIPTION_LENGTH = 4000;
+
 // POST /api/workflows/plan — NL workflow creation
 router.post('/workflows/plan', requireAuth, workflowLimiter, async (req, res) => {
   try {
     const { description } = req.body;
-    if (!description || typeof description !== 'string') {
+    if (!description || typeof description !== 'string' || !description.trim()) {
       return res.status(400).json({ error: { code: 'DESCRIPTION_REQUIRED', message: 'description is required' } });
+    }
+    if (description.length > MAX_PLAN_DESCRIPTION_LENGTH) {
+      return res.status(400).json({ error: { code: 'DESCRIPTION_TOO_LONG', message: 'Description is too long.' } });
     }
     const { planAndCreateWorkflows } = require('../services/workflow-planner');
     const workflows = await planAndCreateWorkflows(req.user, description.trim());
@@ -547,7 +553,7 @@ router.post('/templates/:id/instantiate', validateIdParam, requireAuth, async (r
     const overrides = {};
     if (typeof name === 'string' && name.length <= 200) overrides.name = name.trim();
     if (typeof trigger_type === 'string' && ['manual', 'cron', 'webhook'].includes(trigger_type)) overrides.trigger_type = trigger_type;
-    if (typeof cron_expression === 'string' && cron_expression.length <= 100) overrides.cron_expression = cron_expression;
+    if (typeof cron_expression === 'string' && cron_expression.length <= 100 && isValidCron(cron_expression)) overrides.cron_expression = cron_expression;
     if (variables != null && typeof variables === 'object' && !Array.isArray(variables)) {
       // Only allow string values in variables to prevent injection of nested objects
       const safe = {};
