@@ -1836,9 +1836,11 @@ router.delete('/account', requireAuth, accountDeleteLimiter, async (req, res) =>
 });
 
 // POST /auth/refresh — issue a new JWT and revoke the old one.
-// Accepts tokens that expired within the last 7 days so clients can
-// silently extend sessions without forcing re-authentication.
-const REFRESH_GRACE_SECONDS = 7 * 24 * 60 * 60; // 7 days
+// Accepts tokens that expired within the last 2 hours so clients can
+// silently extend sessions after brief network outages or app backgrounding.
+// Previously 7 days — reduced to limit the window in which a stolen token
+// can be refreshed, given Wingman's access to 1,000+ connected services.
+const REFRESH_GRACE_SECONDS = 2 * 60 * 60; // 2 hours
 
 router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
@@ -1976,7 +1978,7 @@ router.post('/logout-all', requireAuth, async (req, res) => {
  */
 async function invalidateUserSessions(userId) {
   // Store as Unix timestamp; tokens with iat <= this value are rejected.
-  // TTL covers JWT lifetime (24h) + refresh grace window (7d) so the key
+  // TTL covers JWT lifetime (24h) + refresh grace window (2h) so the key
   // persists until all affected tokens can no longer be refreshed.
   const ttl = 86400 + REFRESH_GRACE_SECONDS;
   const key = `user_sessions_invalidated:${userId}`;
