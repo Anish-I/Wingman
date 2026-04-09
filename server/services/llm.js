@@ -142,6 +142,8 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
 
     // Try each provider in fallback order
     for (let i = 0; i < providers.length; i++) {
+      // If caller already aborted, skip remaining providers
+      if (signal?.aborted) break;
       const provider = providers[i];
       const model = complex ? provider.modelComplex : provider.model;
 
@@ -165,8 +167,11 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
           const multiplier = FALLBACK_TIMEOUT_MULTIPLIERS[Math.min(i, FALLBACK_TIMEOUT_MULTIPLIERS.length - 1)];
           const providerTimeout = Math.round(LLM_CALL_TIMEOUT * multiplier);
           logger.debug(`[llm] provider-${i} attempt ${attempt}/${MAX_RETRIES} timeout=${providerTimeout}ms`);
+          const httpSignal = signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(providerTimeout)])
+            : AbortSignal.timeout(providerTimeout);
           const response = await provider.client.chat.completions.create(params, {
-            signal: AbortSignal.timeout(providerTimeout),
+            signal: httpSignal,
           });
           const choice = response.choices[0];
           const message = choice.message;
@@ -215,6 +220,8 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
             logger.warn(`[llm] provider-${i} returned ${err.status}, skipping retries`);
             break;
           }
+          // If caller aborted, stop immediately — no point retrying
+          if (signal?.aborted) break;
           const isRetryable = TRANSIENT_STATUSES.has(err.status) || !err.status;
           if (isRetryable && attempt < MAX_RETRIES) {
             const reason = err.status || 'connection error';
@@ -266,8 +273,11 @@ async function callLLM(systemPrompt, messages, tools, options = {}) {
       if (openAITools) { retryParams.tools = openAITools; retryParams.tool_choice = 'auto'; }
       try {
         logger.info('[llm] All providers failed transiently, retrying primary');
+        const retrySignal = signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(LLM_CALL_TIMEOUT)])
+          : AbortSignal.timeout(LLM_CALL_TIMEOUT);
         const response = await primary.client.chat.completions.create(retryParams, {
-          signal: AbortSignal.timeout(LLM_CALL_TIMEOUT),
+          signal: retrySignal,
         });
         const choice = response.choices[0];
         const message = choice.message;

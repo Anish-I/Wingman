@@ -702,10 +702,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
       }
     }
 
+    const llmAC = new AbortController();
     response = await withTimeout(
-      callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true }),
+      callLLM(systemPrompt, messages, tools, { alreadyOpenAIFormat: true, signal: llmAC.signal }),
       LLM_ITERATION_TIMEOUT, `LLM call (iteration ${iterations + 1})`
-    );
+    ).catch(err => { llmAC.abort(); throw err; });
 
     throwIfAborted(abortController, 'tool execution');
 
@@ -1046,10 +1047,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
     console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), making final summarisation LLM call`);
     try {
       throwIfAborted(abortController, 'final LLM call');
+      const finalLlmAC = new AbortController();
       const finalResponse = await withTimeout(
-        callLLM(systemPrompt, messages, [], { alreadyOpenAIFormat: true }),
+        callLLM(systemPrompt, messages, [], { alreadyOpenAIFormat: true, signal: finalLlmAC.signal }),
         LLM_ITERATION_TIMEOUT, 'final LLM call (post-iteration-limit)'
-      );
+      ).catch(err => { finalLlmAC.abort(); throw err; });
       if (finalResponse?.text) response = finalResponse;
     } catch (err) {
       console.warn(`[user:${userId}] Final summarisation LLM call failed: ${err.message}`);
