@@ -42,9 +42,9 @@ beforeAll(async () => {
     return { status: allOk ? 'ok' : 'degraded', ...results, uptime: process.uptime() };
   }
 
-  app.get('/health', async (req, res) => {
-    const health = await checkDependencies();
-    res.status(health.status === 'ok' ? 200 : 503).json(health);
+  // Liveness probe: always returns 200 if the process is alive
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
   });
 
   app.get('/ready', async (req, res) => {
@@ -60,18 +60,15 @@ afterAll(async () => {
   await redis.quit().catch(() => {});
 });
 
-describe('GET /health', () => {
-  it('returns 200 with correct shape when dependencies are up', async () => {
+describe('GET /health (liveness)', () => {
+  it('returns 200 with status ok and uptime — no dependency checks', async () => {
     const res = await supertest(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('status', 'ok');
-    expect(res.body).toHaveProperty('postgres');
-    expect(res.body.postgres).toHaveProperty('ok', true);
-    expect(typeof res.body.postgres.latencyMs).toBe('number');
-    expect(res.body).toHaveProperty('redis');
-    expect(res.body.redis).toHaveProperty('ok', true);
-    expect(typeof res.body.redis.latencyMs).toBe('number');
     expect(typeof res.body.uptime).toBe('number');
+    // Liveness probe should NOT include dependency details
+    expect(res.body).not.toHaveProperty('postgres');
+    expect(res.body).not.toHaveProperty('redis');
   });
 });
 

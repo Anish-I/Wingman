@@ -214,11 +214,17 @@ async function checkDependencies() {
   return { status: allOk ? 'ok' : 'degraded', ...results, uptime: process.uptime() };
 }
 
-app.get('/health', async (req, res) => {
-  const health = await checkDependencies();
-  res.status(health.status === 'ok' ? 200 : 503).json(health);
+// Liveness probe: returns 200 if the process is alive, regardless of
+// dependency health.  Returning 503 here would cause container orchestrators
+// (Kubernetes, ECS) to restart the pod on transient Redis/Postgres blips,
+// turning a brief outage into a cascading restart storm.
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// Readiness probe: returns 200 only when all dependencies (Postgres, Redis)
+// are reachable.  A 503 tells the load balancer to stop routing traffic to
+// this instance until dependencies recover — without restarting the process.
 app.get('/ready', async (req, res) => {
   const health = await checkDependencies();
   res.status(health.status === 'ok' ? 200 : 503).json(health);
