@@ -434,7 +434,7 @@ async function processMessage(user, messageText) {
   let toolsDisabled = false;
   if (userOrphanCount >= MAX_ORPHANED_PROMISES) {
     toolsDisabled = true;
-    console.warn(`[user:${userId}] Orphan limit reached (${userOrphanCount}/${MAX_ORPHANED_PROMISES}) — proceeding without tools`);
+    logger.warn({ userId, orphanCount: userOrphanCount, limit: MAX_ORPHANED_PROMISES }, '[orchestrator] Orphan limit reached — proceeding without tools');
   }
 
   const abortController = { aborted: false, _listeners: [] };
@@ -479,11 +479,11 @@ async function processMessage(user, messageText) {
       // single request with N timed-out tool calls would create N+1 orphan
       // entries, rapidly exhausting MAX_ORPHANED_PROMISES and blocking the
       // user far sooner than intended.
-      console.warn(`[user:${userId}] Request timed out, inner promise orphaned`);
+      logger.warn({ userId }, '[orchestrator] Request timed out, inner promise orphaned');
       innerPromise
-        .catch(err => { logger.error({ err: err.message }, `[user:${userId}] Orphaned inner promise error`); })
+        .catch(err => { logger.error({ err: err.message, userId }, '[orchestrator] Orphaned inner promise error'); })
         .finally(() => {
-          console.log(`[user:${userId}] Orphaned promise settled`);
+          logger.info({ userId }, '[orchestrator] Orphaned promise settled');
         });
     }
     throw err;
@@ -504,7 +504,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   let appendChain = Promise.resolve();
   const safeAppend = (role, text, { bypassAbort = false } = {}) => {
     if (lockHolder.released || (!bypassAbort && abortController.aborted)) {
-      console.warn(`[user:${userId}] Lock released or aborted — skipping appendMessage(${role})`);
+      logger.warn({ userId, role }, '[orchestrator] Lock released or aborted — skipping appendMessage');
       return Promise.resolve();
     }
     // Chain the append so it waits for any prior write to complete, then
@@ -514,11 +514,11 @@ async function _processMessageInner(user, messageText, abortController = { abort
       // released or TTL-expired while the previous write was in flight,
       // or the outer timeout may have fired (setting abortController.aborted).
       if (lockHolder.released || (!bypassAbort && abortController.aborted)) {
-        console.warn(`[user:${userId}] Lock released or aborted (chain) — skipping appendMessage(${role})`);
+        logger.warn({ userId, role }, '[orchestrator] Lock released or aborted (chain) — skipping appendMessage');
         return;
       }
       if (lockHolder.lockExpiry && Date.now() > lockHolder.lockExpiry - LOCK_SAFETY_MARGIN_MS) {
-        console.warn(`[user:${userId}] Lock TTL expired (chain) — skipping appendMessage(${role})`);
+        logger.warn({ userId, role }, '[orchestrator] Lock TTL expired (chain) — skipping appendMessage');
         lockHolder.released = true;
         return;
       }
@@ -556,7 +556,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     lockWaitElapsed += delay;
   }
   if (!releaseLock) {
-    console.warn(`[user:${userId}] Could not acquire conversation lock after ${Math.round(lockWaitElapsed / 1000)}s — concurrent request in progress`);
+    logger.warn({ userId, waitSec: Math.round(lockWaitElapsed / 1000) }, '[orchestrator] Could not acquire conversation lock — concurrent request in progress');
     return "I'm still working on your previous message — please wait a moment.";
   }
 
@@ -564,7 +564,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // If the outer timeout already fired while we were waiting for the lock,
   // release it immediately rather than doing any more work.
   if (abortController.aborted) {
-    console.warn(`[user:${userId}] Aborted during lock acquisition — releasing lock immediately`);
+    logger.warn({ userId }, '[orchestrator] Aborted during lock acquisition — releasing lock immediately');
     releaseLock().catch(e => logger.error({ err: e.message }, `[user:${userId}] Failed to release lock after abort`));
     return "Sorry, that took too long. Please try again.";
   }
@@ -622,9 +622,9 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // Local tools bypass Composio connection checks
   const localToolNames = new Set(LOCAL_TOOLS.map(t => t.function?.name).filter(Boolean));
   if (toolsDisabled) {
-    console.log(`[user:${userId}] Tools disabled (orphan backpressure) — text-only mode`);
+    logger.info({ userId }, '[orchestrator] Tools disabled (orphan backpressure) — text-only mode');
   } else {
-    console.log(`[user:${userId}] Tools: ${tools.length}/${allTools.length}`);
+    logger.info({ userId, selected: tools.length, total: allTools.length }, '[orchestrator] Tools selected');
   }
 
   // Build context fingerprint for cache key so responses invalidate when
@@ -698,7 +698,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
           const params = t.function?.parameters;
           if (name && params) toolSchemas.set(name, params);
         }
-        console.log(`[user:${userId}] Tools reloaded mid-loop (version ${currentVersion}): ${tools.length} tools`);
+        logger.info({ userId, version: currentVersion, count: tools.length }, '[orchestrator] Tools reloaded mid-loop');
       }
     }
 
@@ -745,7 +745,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
         // Validate tool name against allowlist — reject anything the LLM
         // was not offered this turn (guards against prompt injection)
         if (!allowedToolNames.has(block.name?.toUpperCase())) {
-          console.warn(`[user:${userId}] Blocked disallowed tool call: ${block.name}`);
+          logger.warn({ userId, tool: block.name }, '[orchestrator] Blocked disallowed tool call');
           result = { error: `Tool "${block.name}" is not available. Only use tools provided to you.` };
           completedToolIds.add(block.id);
           toolResults.push({
@@ -761,7 +761,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
         const argSchema = toolSchemas.get(block.name);
         const argError = validateToolArgs(block.input, argSchema);
         if (argError) {
-          console.warn(`[user:${userId}] Blocked invalid args for ${block.name}: ${argError}`);
+          logger.warn({ userId, tool: block.name, reason: argError }, '[orchestrator] Blocked invalid tool args');
           result = { error: `Invalid arguments for "${block.name}": ${argError}` };
           completedToolIds.add(block.id);
           toolResults.push({
@@ -779,7 +779,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
           const serialized = JSON.stringify(block.input);
           if (serialized && serialized.length > MAX_TOOL_INPUT_BYTES) {
             const bytesErr = `serialized input exceeds maximum size (${MAX_TOOL_INPUT_BYTES} bytes)`;
-            console.warn(`[user:${userId}] Blocked oversized input for ${block.name}: ${bytesErr}`);
+            logger.warn({ userId, tool: block.name, reason: bytesErr }, '[orchestrator] Blocked oversized tool input');
             result = { error: `Invalid input for "${block.name}": ${bytesErr}` };
             completedToolIds.add(block.id);
             toolResults.push({
@@ -791,7 +791,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
           }
         }
         if (sizeError) {
-          console.warn(`[user:${userId}] Blocked oversized input for ${block.name}: ${sizeError}`);
+          logger.warn({ userId, tool: block.name, reason: sizeError }, '[orchestrator] Blocked oversized tool input');
           result = { error: `Invalid input for "${block.name}": ${sizeError}` };
           completedToolIds.add(block.id);
           toolResults.push({
@@ -809,7 +809,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
         if (!localToolNames.has(block.name)) {
           const app = appFromToolName(block.name);
           if (!connectedApps.has(app)) {
-            console.warn(`[user:${userId}] Blocked tool call for unconnected app: ${block.name} (app: ${app})`);
+            logger.warn({ userId, tool: block.name, app }, '[orchestrator] Blocked tool call for unconnected app');
             const link = await getConnectionLink(userId, app).catch(() => null);
             const connectMsg = link
               ? `[${app} is not connected. Please connect it first: ${link}]`
@@ -832,7 +832,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
         if (SIDE_EFFECT_PATTERNS.test(block.name)) {
           const priorOutcome = await _getInflightOutcome(userId, block.name, block.input);
           if (priorOutcome && priorOutcome.status === 'completed') {
-            console.warn(`[user:${userId}] Suppressing retry of ${block.name} — prior inflight call already completed`);
+            logger.warn({ userId, tool: block.name }, '[orchestrator] Suppressing retry — prior inflight call already completed');
             result = priorOutcome.result || { success: true, note: 'Action already completed (from prior timed-out call).' };
             completedToolIds.add(block.id);
             toolResults.push({
@@ -842,7 +842,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
             });
             continue;
           } else if (priorOutcome && priorOutcome.status === 'pending') {
-            console.warn(`[user:${userId}] Suppressing retry of ${block.name} — prior call still in-flight`);
+            logger.warn({ userId, tool: block.name }, '[orchestrator] Suppressing retry — prior call still in-flight');
             result = { error: `A prior call to ${block.name} is still in-flight. Do NOT retry — the action may complete shortly.` };
             completedToolIds.add(block.id);
             toolResults.push({
@@ -871,7 +871,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
             result.warnings = workflowWarnings;
           }
         } else {
-          console.log(`[user:${userId}] Tool: ${block.name}`);
+          logger.info({ userId, tool: block.name }, '[orchestrator] Executing tool');
           // Each tool gets its own AbortController for its per-tool timeout,
           // but also listens to the iteration-level controller so that an
           // iteration timeout aborts in-flight tool HTTP requests.
@@ -912,12 +912,12 @@ async function _processMessageInner(user, messageText, abortController = { abort
         // Timeout on a side-effecting tool — the underlying call is still
         // in-flight and may succeed. Tell the LLM NOT to retry.
         if (err.timedOut && SIDE_EFFECT_PATTERNS.test(block.name)) {
-          console.warn(`[user:${userId}] Side-effecting tool ${block.name} timed out — suppressing retry`);
+          logger.warn({ userId, tool: block.name }, '[orchestrator] Side-effecting tool timed out — suppressing retry');
 
           // Check if a prior invocation with the same args already completed.
           const prior = await _getInflightOutcome(userId, block.name, block.input);
           if (prior && prior.status === 'completed') {
-            console.warn(`[user:${userId}] Prior inflight ${block.name} already completed — returning cached result`);
+            logger.warn({ userId, tool: block.name }, '[orchestrator] Prior inflight call already completed — returning cached result');
             result = prior.result || { success: true, note: 'Action completed (late arrival from prior timeout).' };
           } else if (prior && prior.status === 'failed') {
             result = { error: prior.error || 'Action failed after prior timeout.' };
@@ -971,7 +971,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       // Iteration timed out — abort in-flight tool calls and generate error
       // results for tools that didn't finish so the LLM gets complete context.
       if (!iterationAC.signal.aborted) iterationAC.abort();
-      console.warn(`[user:${userId}] Iteration ${iterations + 1} timed out: ${iterErr.message}`);
+      logger.warn({ userId, iteration: iterations + 1, err: iterErr.message }, '[orchestrator] Iteration timed out');
       for (const block of response.toolUseBlocks) {
         if (!completedToolIds.has(block.id)) {
           const hasSideEffects = SIDE_EFFECT_PATTERNS.test(block.name);
@@ -985,7 +985,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
           const msg = hasSideEffects
             ? `Tool timed out but the action (${block.name}) may have already been executed. Do NOT retry this call — inform the user the action is pending and may complete shortly.`
             : `Tool execution timed out — result unavailable. Do not retry this tool call; inform the user the operation is still pending.`;
-          console.warn(`[user:${userId}] Tool ${block.name} (${block.id}) did not complete (sideEffect=${hasSideEffects}) — returning timeout error to LLM`);
+          logger.warn({ userId, tool: block.name, toolId: block.id, sideEffect: hasSideEffects }, '[orchestrator] Tool did not complete — returning timeout error to LLM');
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
@@ -1044,7 +1044,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   }
 
   if (!completed && !abortController.aborted) {
-    console.warn(`[user:${userId}] Hit MAX_TOOL_ITERATIONS (${MAX_TOOL_ITERATIONS}), making final summarisation LLM call`);
+    logger.warn({ userId, maxIterations: MAX_TOOL_ITERATIONS }, '[orchestrator] Hit MAX_TOOL_ITERATIONS, making final summarisation LLM call');
     try {
       throwIfAborted(abortController, 'final LLM call');
       const finalLlmAC = new AbortController();
@@ -1054,7 +1054,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       ).catch(err => { finalLlmAC.abort(); throw err; });
       if (finalResponse?.text) response = finalResponse;
     } catch (err) {
-      console.warn(`[user:${userId}] Final summarisation LLM call failed: ${err.message}`);
+      logger.warn({ userId, err: err.message }, '[orchestrator] Final summarisation LLM call failed');
     }
   }
 
@@ -1072,7 +1072,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
   // the assistant reply.  The lock is still held (released in the finally
   // block), so safeAppend is safe here even after abort.
   if (abortController.aborted) {
-    console.warn(`[user:${userId}] Request timed out — persisting assistant reply before releasing lock`);
+    logger.warn({ userId }, '[orchestrator] Request timed out — persisting assistant reply before releasing lock');
     await safeAppend('assistant', persistedText, { bypassAbort: true });
     if (shouldCache(messageText)) releaseCacheLock(messageText, userId, cacheCtx).catch(err => { logger.error({ err: err.message }, `[user:${userId}] releaseCacheLock failed`); });
     if (inflight) inflight.resolve(null);
@@ -1175,7 +1175,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
     // force-releases it), so we can safely persist the timeout reply before
     // the finally block releases the lock.
     if (err.name === 'AbortError') {
-      console.warn(`[user:${userId}] Inner processing aborted: ${err.message}`);
+      logger.warn({ userId, err: err.message }, '[orchestrator] Inner processing aborted');
       await safeAppend('assistant', "Sorry, that took too long. Please try again.", { bypassAbort: true });
       return "Sorry, that took too long. Please try again.";
     }
@@ -1211,7 +1211,7 @@ async function _processMessageInner(user, messageText, abortController = { abort
       if (lockHolder.lockExpiry && Date.now() < lockHolder.lockExpiry) {
         await releaseLock().catch(e => logger.error({ err: e.message }, `[user:${userId}] Failed to release conversation lock`));
       } else {
-        console.warn(`[user:${userId}] Lock TTL expired — skipping explicit release to avoid deleting a newer lock`);
+        logger.warn({ userId }, '[orchestrator] Lock TTL expired — skipping explicit release to avoid deleting a newer lock');
       }
     }
   }
