@@ -47,4 +47,23 @@ describe('CORS middleware', () => {
     expect(res.body).toEqual({ ok: true });
     expect(res.headers['access-control-allow-origin']).toBe('https://allowed.example');
   });
+
+  it('allows multiple explicitly configured origins', async () => {
+    app = express();
+    app.use(cors(createCorsOptions(['https://allowed.example', 'https://admin.example'])));
+    app.get('/test', (_req, res) => {
+      res.json({ ok: true });
+    });
+    app.use((err, _req, res, _next) => {
+      res.status(err.status || 500).json({ error: err.message });
+    });
+
+    const res = await supertest(app)
+      .get('/test')
+      .set('Origin', 'https://admin.example');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(res.headers['access-control-allow-origin']).toBe('https://admin.example');
+  });
 });

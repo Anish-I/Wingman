@@ -137,7 +137,16 @@ if (!process.env.CORS_ORIGIN) {
   console.error('FATAL: CORS_ORIGIN must be set');
   process.exit(1);
 }
-const allowedOrigins = [process.env.CORS_ORIGIN];
+const allowedOrigins = process.env.CORS_ORIGIN
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (allowedOrigins.length === 0) {
+  console.error('FATAL: CORS_ORIGIN must include at least one valid origin');
+  process.exit(1);
+}
+
 app.use(cors(createCorsOptions(allowedOrigins)));
 
 // Cookie parsing (required for OAuth session binding)
