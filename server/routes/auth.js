@@ -152,20 +152,41 @@ const JWT_AUDIENCE = 'wingman-app';
 const OTP_TTL = 600; // 10 minutes
 const AUTH_CODE_TTL = 60; // 60 seconds — short-lived, single-use
 const AUTH_COOKIE_NAME = '__wingman_sess';
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN?.trim() || undefined;
+const COOKIE_SECURE = process.env.COOKIE_SECURE !== 'false';
+const COOKIE_SAME_SITE = (process.env.COOKIE_SAME_SITE || 'lax').trim().toLowerCase();
+const VALID_COOKIE_SAME_SITE_VALUES = new Set(['lax', 'strict', 'none']);
+if (!VALID_COOKIE_SAME_SITE_VALUES.has(COOKIE_SAME_SITE)) {
+  console.error(`FATAL: COOKIE_SAME_SITE must be one of lax, strict, or none (received: ${COOKIE_SAME_SITE})`);
+  process.exit(1);
+}
+if (COOKIE_SAME_SITE === 'none' && !COOKIE_SECURE) {
+  console.error('FATAL: COOKIE_SECURE must not be false when COOKIE_SAME_SITE=none');
+  process.exit(1);
+}
+if (COOKIE_DOMAIN && COOKIE_DOMAIN.includes(':')) {
+  console.error('FATAL: COOKIE_DOMAIN must be a hostname only, without a port');
+  process.exit(1);
+}
 // Pre-computed bcrypt hash used as a timing equalizer when the account does not
 // exist.  bcrypt.compare against this dummy always returns false but takes the
 // same wall-clock time as a real comparison, preventing timing-oracle enumeration.
 const DUMMY_HASH = bcrypt.hashSync('wingman-dummy-sentinel', 10);
 
-/** Set the httpOnly auth cookie for web clients. */
-function setAuthCookie(res, token) {
-  res.cookie(AUTH_COOKIE_NAME, token, {
+function getAuthCookieOptions() {
+  return {
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE !== 'false',
-    sameSite: 'lax',
+    secure: COOKIE_SECURE,
+    sameSite: COOKIE_SAME_SITE,
+    domain: COOKIE_DOMAIN,
     maxAge: (86400 + REFRESH_GRACE_SECONDS) * 1000, // JWT expiry + refresh grace window
     path: '/',
-  });
+  };
+}
+
+/** Set the httpOnly auth cookie for web clients. */
+function setAuthCookie(res, token) {
+  res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 }
 
 /**
@@ -191,12 +212,8 @@ function authResponse(_req, token, user) {
 
 /** Clear the httpOnly auth cookie (logout). */
 function clearAuthCookie(res) {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.COOKIE_SECURE !== 'false',
-    sameSite: 'lax',
-    path: '/',
-  });
+  const { maxAge, ...cookieOptions } = getAuthCookieOptions();
+  res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
 }
 
 // Rate limit login attempts: 10 per 15 minutes per IP (brute-force protection)

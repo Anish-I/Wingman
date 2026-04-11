@@ -107,6 +107,21 @@ function validateEnv() {
     process.exit(1);
   }
 
+  const cookieSameSite = (process.env.COOKIE_SAME_SITE || 'lax').trim().toLowerCase();
+  if (!['lax', 'strict', 'none'].includes(cookieSameSite)) {
+    console.error('[env-validate] FATAL: COOKIE_SAME_SITE must be one of lax, strict, or none');
+    process.exit(1);
+  }
+  const cookieSecure = process.env.COOKIE_SECURE !== 'false';
+  if (cookieSameSite === 'none' && !cookieSecure) {
+    console.error('[env-validate] FATAL: COOKIE_SECURE must not be false when COOKIE_SAME_SITE=none');
+    process.exit(1);
+  }
+  if (process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN.includes(':')) {
+    console.error('[env-validate] FATAL: COOKIE_DOMAIN must be a hostname only, without a port');
+    process.exit(1);
+  }
+
   // Warn if OTP_SECRET and JWT_SECRET(s) are the same — defeats the purpose of separation
   const jwtSecretValues = jwtSecrets
     ? (() => { try { return JSON.parse(jwtSecrets).map((e) => e.secret); } catch { return []; } })()
